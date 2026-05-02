@@ -1,0 +1,52 @@
+services:
+  frontend:
+    build: srcs/frontend
+    container_name: frontend_container
+    volumes:
+      - shared-data:/shared
+
+  backend:
+    build: srcs/backend
+    container_name: backend_container
+    environment:
+      NODE_ENV: development
+      PORT: 3001
+      DATABASE_URL: postgres://ft_user:ft_pass@db:5432/ft_transcendence
+      JWT_SECRET: change_this_secret_in_real_deployments
+    ports:
+      - "3001:3001"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:16-alpine
+    container_name: postgres_container
+    environment:
+      POSTGRES_DB: ft_transcendence
+      POSTGRES_USER: ft_user
+      POSTGRES_PASSWORD: ft_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ft_user -d ft_transcendence"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  nginx:
+    build: srcs/nginx
+    container_name: nginx_container
+    ports:
+      - "8080:80"
+    volumes:
+      - shared-data:/usr/share/nginx/html
+    depends_on:
+      - frontend
+      - backend
+
+volumes:
+  shared-data:
+  postgres-data:
