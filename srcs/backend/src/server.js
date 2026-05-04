@@ -1,15 +1,13 @@
-const dotenv = require('dotenv');
 const { sequelize } = require('./db');
 const { createApp } = require('./app');
+const { requireNumberEnv } = require('./config');
 const routes = require('./routes');
-
-dotenv.config();
 
 const app = createApp({ router: routes });
 
-const PORT = process.env.PORT || 3001;
-const DB_RETRY_LIMIT = Number(process.env.DB_RETRY_LIMIT || 10);
-const DB_RETRY_DELAY_MS = Number(process.env.DB_RETRY_DELAY_MS || 2000);
+const PORT = requireNumberEnv('PORT');
+const DB_RETRY_LIMIT = requireNumberEnv('DB_RETRY_LIMIT');
+const DB_RETRY_DELAY_MS = requireNumberEnv('DB_RETRY_DELAY_MS');
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 

@@ -1,13 +1,15 @@
 const { Sequelize } = require('sequelize');
-const dotenv = require('dotenv');
+const { requireEnv } = require('./config');
 
-dotenv.config();
+const databaseUrl = new URL(requireEnv('DATABASE_URL'));
 
-const databaseUrl = new URL(process.env.DATABASE_URL || 'postgres://postgres:postgres@127.0.0.1:5432/ft_transcendence');
+if (!databaseUrl.port) {
+  throw new Error('DATABASE_URL must include a port');
+}
 
 const sequelize = new Sequelize(databaseUrl.pathname.slice(1), databaseUrl.username, databaseUrl.password, {
   host: databaseUrl.hostname,
-  port: databaseUrl.port ? Number(databaseUrl.port) : 5432,
+  port: Number(databaseUrl.port),
   dialect: 'postgres',
   logging: false,
 });

@@ -39,14 +39,27 @@ Local development (suggested)
 	- Visit http://localhost:80 or the configured port
 
 Environment variables (.env)
-- Create a `.env` file at the repository root or in each service folder as needed.
+- Create a single `.env` file at the repository root.
+- The same file is used by Docker Compose, the backend, and the backend endpoint checker.
 - Example variables to include (replace values):
 ```
 # Example .env
 NODE_ENV=development
-PORT=3000
-DATABASE_URL=postgres://user:pass@localhost:5432/ft_transcedence
-JWT_SECRET=change_this_to_a_strong_secret
+PORT=3001
+DB_RETRY_LIMIT=10
+DB_RETRY_DELAY_MS=2000
+DATABASE_URL=postgres://user:pass@db:5432/ft_transcedence
+# Generate with: openssl rand -hex 32
+JWT_SECRET=replace_with_generated_value
+BCRYPT_SALT_ROUNDS=10
+JWT_EXPIRES_IN=7d
+POSTGRES_DB=ft_transcedence
+POSTGRES_USER=user
+POSTGRES_PASSWORD=pass
+BACKEND_HOST_PORT=3001
+DB_HOST_PORT=5432
+NGINX_HOST_PORT=8080
+API_BASE_URL=http://localhost:3001
 ```
 
 ## Resources

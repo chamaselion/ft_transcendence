@@ -29,19 +29,25 @@ This document describes how the project's backend is built and structured.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/health` | Health check — returns `{"status":"ok"}` |
+| GET | `/health` | Health check — returns `{"status":"ok"}` |
 | POST | `/api/auth/register` | Register new user (login, email, password) |
 | POST | `/api/auth/login` | Login and receive JWT token (email, password) |
 
 ## Environment Variables
 
-The backend reads from `.env` (or `docker-compose.yaml` env) or sets to default value:
-- `PORT` — server port (default: 3001)
+The backend loads shared configuration from the repository root [`.env`](../../.env) file.
+
+- `PORT` — server port
 - `DATABASE_URL` — PostgreSQL connection URL (format: `postgres://user:pass@host:port/db`)
   - Parsed into host, port, username, password, and database name
-- `JWT_SECRET` — secret key for signing JWT tokens (default: `'dev-secret'` for development)
-- `DB_RETRY_LIMIT` — max attempts to connect to database (default: 10)
-- `DB_RETRY_DELAY_MS` — milliseconds between retry attempts (default: 2000)
+- `JWT_SECRET` — secret key for signing JWT tokens
+  - Generate a new one with `openssl rand -hex 32`
+- `BCRYPT_SALT_ROUNDS` — bcrypt work factor used for password hashing
+- `JWT_EXPIRES_IN` — JWT expiration value used when issuing tokens
+- `DB_RETRY_LIMIT` — max attempts to connect to database
+- `DB_RETRY_DELAY_MS` — milliseconds between retry attempts
+- `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` — PostgreSQL container settings
+- `BACKEND_HOST_PORT`, `DB_HOST_PORT`, `NGINX_HOST_PORT` — host port mappings for Docker Compose
 
 ## Running the Backend
 
@@ -57,7 +63,7 @@ npm install
 npm run start    # or use `npm run dev` for auto-reload with nodemon
 ```
 
-The server will start on `PORT` (default 3001) and log `Server running on port XXXX`.
+The server will start on `PORT` and log `Server running on port XXXX`.
 
 ## Testing
 
@@ -100,8 +106,8 @@ Expected response (200 OK, valid JWT token):
 
 ## Security Considerations
 
-- Passwords are hashed with bcrypt (10 salt rounds)
-- JWT tokens expire after 7 days
+- Passwords are hashed with bcrypt using `BCRYPT_SALT_ROUNDS`
+- JWT tokens expire using `JWT_EXPIRES_IN`
 - For HTTPS requirements: see subject requirements on all communications to backend using HTTPS
 
 ## Troubleshooting

@@ -2,12 +2,21 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+if [[ -f "$PROJECT_ROOT/.env" ]]; then
+  set -a
+  source "$PROJECT_ROOT/.env"
+  set +a
+fi
+
 usage() {
   cat <<EOF
 Usage: $(basename "$0") [base_url]
 
 Checks the backend endpoints with curl.
-Default base URL: http://localhost:3001
+Default base URL: http://localhost:${BACKEND_HOST_PORT:-3001}
 You can also set API_BASE_URL.
 EOF
 }
@@ -17,7 +26,7 @@ if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
   exit 0
 fi
 
-BASE_URL="${1:-${API_BASE_URL:-http://localhost:3001}}"
+BASE_URL="${1:-${API_BASE_URL:-http://localhost:${BACKEND_HOST_PORT:-3001}}}"
 RUN_ID="$(date +%s)-$$"
 TEST_LOGIN="testuser-${RUN_ID}"
 TEST_EMAIL="testuser-${RUN_ID}@example.com"
