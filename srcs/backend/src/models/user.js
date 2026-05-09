@@ -20,6 +20,19 @@ const User = sequelize.define('User', {
   passwordHash: {
     type: DataTypes.STRING,
     allowNull: false,
+  },
+  refreshTokenHash: {
+    type: DataTypes.STRING,
+	allowNull: true,
+  },
+  isDeleted: {
+	type: DataTypes.BOOLEAN,
+	allowNull: false,
+	defaultValue: false
+  },
+  deletedAt: {
+	type: DataTypes.DATE,
+	allowNull:true,
   }
 }, {
   tableName: 'users',

@@ -273,4 +273,9 @@ Document any known bugs, incomplete features, or security/compatibility issues.
 - https://spec.openapis.org/oas/v3.1.0.html - API
 - https://www.youtube.com/watch?v=-MTSQjw5DrM - API
 - https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods - API
+- https://www.youtube.com/watch?v=7Q17ubqLfaM - JWT
+- https://www.youtube.com/watch?v=iFeVEFVmFZw - JWT
+- https://www.jwt.io/introduction#what-is-json-web-token - JWT
+- https://www.postgresql.org/docs-DB
+
 ---

@@ -1,3 +1,4 @@
+const http = require('http');
 const { sequelize } = require('./db');
 const { createApp } = require('./app');
 const { requireNumberEnv } = require('./config');
