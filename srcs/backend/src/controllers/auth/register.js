@@ -1,14 +1,17 @@
 const bcrypt = require('bcrypt');
-const { requireEnv, requireNumberEnv } = require('../../config');
+const { requireNumberEnv } = require('../../config');
 const sequelize = require('../../db');
 
 const BCRYPT_SALT_ROUNDS = requireNumberEnv('BCRYPT_SALT_ROUNDS');
+
+const isValidEmail = (email) => EMAIL_REGEX.test(email);
 
 const createRegisterHandler = ({ userModel, hashLib = bcrypt } = {}) => {
   const resolvedUserModel = userModel || sequelize.models.user;
 
   const register = async (req, res) => {
     try {
+      console.log(`[AUTH] POST /register from ${req.ip}`, { body: { login: req.body.login, email: req.body.email } });
       const { login, email, password } = req.body;
       console.log(`[AUTH] POST /register from ${req.ip}`, { login, email });
       if (!login || !email || !password) return res.status(400).json({ error: 'Missing fields' });

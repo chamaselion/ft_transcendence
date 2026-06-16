@@ -60,6 +60,14 @@ const purgeExpiredSessions = ({ tokenLib = jwt, secret = requireEnv('JWT_SECRET'
   }
 };
 
+const purgeSessionsForUser = (userId) => {
+  for (const [token, session] of activeSessions.entries()) {
+    if (session.userId === userId) {
+      activeSessions.delete(token);
+    }
+  }
+};
+
 module.exports = {
   CLEAR_COOKIE_OPTIONS,
   COOKIE_OPTIONS,
@@ -68,5 +76,6 @@ module.exports = {
   ensureSession,
   getTokenFromCookie,
   purgeExpiredSessions,
+  purgeSessionsForUser,
   setAuthCookie,
 };

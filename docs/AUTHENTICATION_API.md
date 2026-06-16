@@ -20,7 +20,7 @@ The backend provides a secure authentication system using JWT (JSON Web Tokens) 
 6. **CORS Configuration**: Credentials are allowed with proper CORS headers.
 7. **Session Tracking**: Active sessions are tracked server-side for enhanced security.
 
-Implementation note: auth handlers are split by endpoint in `srcs/backend/src/controllers/auth/` (`register.js`, `login.js`, `me.js`, `logout.js`, `listSessions.js`) and share session/cookie logic via `helpers.js`.
+Implementation note: auth handlers are split by endpoint in `srcs/backend/src/controllers/auth/` (`register.js`, `passwordResetRequest.js`, `passwordResetConfirm.js`, `login.js`, `me.js`, `logout.js`, `listSessions.js`) and share session/cookie logic via `helpers.js`. The reusable email code toolkit lives in `oneTimeCodeToolkit.js` and wraps the one-time-code service.
 
 You can refer to the readme for useful resources in JWT and best security practices with it.
 
@@ -284,6 +284,83 @@ Cookie: token=JWT_TOKEN_HERE
 - No token in cookie
 - Token expired
 - Token invalid
+
+---
+
+### 6. Request Password Reset
+
+**Endpoint:** `POST /password-reset/request`
+
+**Description:** Send a one-time code to the user's email address to begin a password reset.
+
+**Request Headers:**
+```
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "email": "string (valid email)"
+}
+```
+
+**Success Response (202 Accepted):**
+```json
+{
+  "confirmationId": "c8ef6a31-9c34-4a8d-9d16-2d7b7b8f1a12",
+  "email": "john@example.com",
+  "attemptsRemaining": 3,
+  "codeLength": 6,
+  "expiresAt": "2026-06-17T10:30:00.000Z",
+  "codeSent": true,
+  "message": "If an account exists for that email, a password reset code has been sent."
+}
+```
+
+**Notes:**
+- The response is intentionally generic if the email does not exist.
+- A code is delivered through the configured email transport.
+
+---
+
+### 7. Confirm Password Reset
+
+**Endpoint:** `POST /password-reset/confirm`
+
+**Description:** Verify the one-time code and update the account password.
+
+**Request Headers:**
+```
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "confirmationId": "c8ef6a31-9c34-4a8d-9d16-2d7b7b8f1a12",
+  "email": "john@example.com",
+  "code": "123456",
+  "newPassword": "new-password"
+}
+```
+
+**Success Response (200 OK):**
+```json
+{
+  "passwordReset": true
+}
+```
+
+**Error Responses:**
+
+| Status | Response | Reason |
+|--------|----------|--------|
+| 400 | `{ "error": "Missing fields" }` | Required reset fields are missing |
+| 401 | `{ "error": "Invalid code..." }` | Code mismatch or attempts exhausted |
+| 404 | `{ "error": "User not found" }` | User record no longer exists |
+| 410 | `{ "error": "Confirmation code expired or was not found" }` | Expired or missing code |
+| 500 | `{ "error": "Server error" }` | Unexpected server error |
 
 ---
 
