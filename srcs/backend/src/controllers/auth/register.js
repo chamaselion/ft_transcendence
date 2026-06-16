@@ -9,8 +9,8 @@ const createRegisterHandler = ({ userModel, hashLib = bcrypt } = {}) => {
 
   const register = async (req, res) => {
     try {
-      console.log(`[AUTH] POST /register from ${req.ip}`, { body: req.body, cookies: req.headers.cookie });
       const { login, email, password } = req.body;
+      console.log(`[AUTH] POST /register from ${req.ip}`, { login, email });
       if (!login || !email || !password) return res.status(400).json({ error: 'Missing fields' });
 
       const existing = await resolvedUserModel.findOne({ where: { email } });

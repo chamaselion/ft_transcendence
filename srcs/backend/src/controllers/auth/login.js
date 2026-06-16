@@ -11,8 +11,8 @@ const createLoginHandler = ({ userModel, hashLib = bcrypt, tokenLib = jwt, secre
 
   const login = async (req, res) => {
     try {
-      console.log(`[AUTH] POST /login from ${req.ip}`, { body: { email: req.body.email }, cookies: req.headers.cookie });
       const { email, password } = req.body;
+      console.log(`[AUTH] POST /login from ${req.ip}`, { email });
       if (!email || !password) return res.status(400).json({ error: 'Missing fields' });
 
       const user = await resolvedUserModel.findOne({ where: { email } });

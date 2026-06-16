@@ -9,6 +9,7 @@ const app = createApp({ router: routes });
 const PORT = requireNumberEnv('PORT');
 const DB_RETRY_LIMIT = requireNumberEnv('DB_RETRY_LIMIT');
 const DB_RETRY_DELAY_MS = requireNumberEnv('DB_RETRY_DELAY_MS');
+const NODE_ENV = process.env.NODE_ENV || 'development';
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -31,7 +32,12 @@ async function connectWithRetry() {
 async function start() {
   try {
     await connectWithRetry();
-    await sequelize.sync();
+    if (NODE_ENV === 'production') {
+      console.log('Production mode: skipping sequelize.sync(); use migrations for schema changes.');
+    } else {
+      await sequelize.sync({ alter: true });
+      console.log(`Schema synchronized in ${NODE_ENV} mode`);
+    }
     console.log('Database connected');
     app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
   } catch (err) {

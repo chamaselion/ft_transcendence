@@ -7,7 +7,8 @@ const createApp = ({ router } = {}) => {
 	app.use(cors({
 		origin: (origin, callback) => {
 			console.log(`[CORS] origin request from: ${origin}`);
-			callback(null, true);
+			// Backend is only reachable through WAF; all requests go through single entry point
+			return callback(null, true);
 		},
 		credentials: true,
 		allowedHeaders: ['Content-Type', 'Authorization'],
