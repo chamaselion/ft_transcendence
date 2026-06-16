@@ -1,7 +1,15 @@
 const express = require('express');
-const { createAuthController } = require('../controllers/authController');
+const { createLoginHandler } = require('../controllers/auth/login');
+const { createRegisterHandler } = require('../controllers/auth/register');
+const { createMeHandler } = require('../controllers/auth/me');
+const { createLogoutHandler } = require('../controllers/auth/logout');
+const { createListSessionsHandler } = require('../controllers/auth/listSessions');
 
-const { register, confirmRegistration, login, me, logout, listSessions } = createAuthController();
+const { login } = createLoginHandler();
+const { register } = createRegisterHandler();
+const { me } = createMeHandler();
+const { logout } = createLogoutHandler();
+const { listSessions } = createListSessionsHandler();
 
 const router = express.Router();
 
