@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 const { requireEnv } = require('../../config');
 const sequelize = require('../../db');
-const { ensureSession, getTokenFromCookie } = require('./helpers');
+const { ensureSession, getTokenFromCookie, isSessionActive } = require('./helpers');
 
 const createMeHandler = ({ userModel, tokenLib = jwt, secret = requireEnv('JWT_SECRET') } = {}) => {
   const resolvedUserModel = userModel || sequelize.models.user;
@@ -13,6 +13,10 @@ const createMeHandler = ({ userModel, tokenLib = jwt, secret = requireEnv('JWT_S
       if (!token) return res.status(401).json({ loggedIn: false });
 
       const payload = tokenLib.verify(token, secret);
+      if (!isSessionActive(token)) {
+        return res.status(401).json({ loggedIn: false });
+      }
+
       const user = await resolvedUserModel.findByPk(payload.id, {
         attributes: ['id', 'login', 'email'],
       });

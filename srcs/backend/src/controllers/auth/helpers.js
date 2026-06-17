@@ -68,6 +68,8 @@ const purgeSessionsForUser = (userId) => {
   }
 };
 
+const isSessionActive = (token) => activeSessions.has(token);
+
 module.exports = {
   CLEAR_COOKIE_OPTIONS,
   COOKIE_OPTIONS,
@@ -75,6 +77,7 @@ module.exports = {
   clearAuthCookie,
   ensureSession,
   getTokenFromCookie,
+  isSessionActive,
   purgeExpiredSessions,
   purgeSessionsForUser,
   setAuthCookie,

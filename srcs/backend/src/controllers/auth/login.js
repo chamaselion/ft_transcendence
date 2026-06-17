@@ -1,12 +1,20 @@
-const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
-const { requireEnv } = require('../../config');
 const sequelize = require('../../db');
-const { ensureSession, setAuthCookie } = require('./helpers');
+const { oneTimeCodeService: defaultOneTimeCodeService } = require('./oneTimeCodeToolkit');
 
-const JWT_EXPIRES_IN = requireEnv('JWT_EXPIRES_IN');
+const maskEmail = (email) => {
+  const normalizedEmail = String(email || '').trim();
+  const [localPart = '', domain = ''] = normalizedEmail.split('@');
 
-const createLoginHandler = ({ userModel, hashLib = bcrypt, tokenLib = jwt, secret = requireEnv('JWT_SECRET') } = {}) => {
+  if (!localPart || !domain) {
+    return normalizedEmail;
+  }
+
+  const visiblePrefix = localPart.slice(0, 2);
+  return `${visiblePrefix}${localPart.length > 2 ? '***' : ''}@${domain}`;
+};
+
+const createLoginHandler = ({ userModel, hashLib = bcrypt, oneTimeCodeService = defaultOneTimeCodeService } = {}) => {
   const resolvedUserModel = userModel || sequelize.models.user;
 
   const login = async (req, res) => {
@@ -21,10 +29,36 @@ const createLoginHandler = ({ userModel, hashLib = bcrypt, tokenLib = jwt, secre
       const match = await hashLib.compare(password, user.passwordHash);
       if (!match) return res.status(401).json({ error: 'Invalid credentials' });
 
-      const token = tokenLib.sign({ id: user.id, email: user.email }, secret, { expiresIn: JWT_EXPIRES_IN });
-      setAuthCookie(res, token);
-      ensureSession({ token, user });
-      return res.json({ id: user.id, login: user.login, email: user.email, loggedIn: true });
+      const challenge = await oneTimeCodeService.issueChallenge({
+        purpose: 'login-2fa',
+        recipient: user.email,
+        subject: 'Your login verification code',
+        payload: {
+          userId: user.id,
+          email: user.email,
+        },
+        textBuilder: ({ code, expiresInMinutes, attemptsRemaining, purposeLabel }) => (
+          [
+            `Your ${purposeLabel} code is ${code}.`,
+            `It expires in ${expiresInMinutes} minute(s).`,
+            `You have ${attemptsRemaining} attempt(s) to enter it correctly.`,
+            'If you did not try to log in, you can ignore this message.',
+          ].join(' ')
+        ),
+      });
+
+      return res.status(202).json({
+        loginChallenge: true,
+        challengeId: challenge.challengeId,
+        email: user.email,
+        emailMasked: maskEmail(user.email),
+        attemptsRemaining: challenge.attemptsRemaining,
+        codeLength: challenge.codeLength,
+        expiresAt: challenge.expiresAt,
+        codeSent: true,
+        debugCode: challenge.debugCode,
+        message: 'A login verification code has been sent.',
+      });
     } catch (err) {
       console.error(err);
       return res.status(500).json({ error: 'Server error' });

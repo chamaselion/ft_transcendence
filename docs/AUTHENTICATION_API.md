@@ -51,17 +51,21 @@ sequenceDiagram
     Backend->>DB: Find user by email
     DB-->>Backend: User data
     alt User not found
-        Backend-->>Frontend: 401 Unauthorized
+      Backend-->>Frontend: 401 Unauthorized
     else User found
-        Backend->>Backend: Compare password hash
-        alt Password mismatch
-            Backend-->>Frontend: 401 Unauthorized
-        else Password matches
-            Backend->>Backend: Generate JWT token
-            Backend->>Backend: Create session entry
-            Backend-->>Frontend: 200 OK<br/>Set-Cookie: token=JWT
-            Frontend->>Frontend: Store cookie (automatic)
-        end
+      Backend->>Backend: Compare password hash
+      alt Password mismatch
+        Backend-->>Frontend: 401 Unauthorized
+      else Password matches
+        Backend->>Backend: Send login verification code via email
+        Backend-->>Frontend: 202 Accepted<br/>login challenge
+        Frontend->>Backend: POST /login/confirm<br/>(challengeId, email, code)
+        Backend->>Backend: Verify challenge code
+        Backend->>Backend: Generate JWT token
+        Backend->>Backend: Create session entry
+        Backend-->>Frontend: 200 OK<br/>Set-Cookie: token=JWT
+        Frontend->>Frontend: Store cookie (automatic)
+      end
     end
 
     Frontend->>Backend: GET /me<br/>(with cookie)
@@ -131,7 +135,7 @@ Content-Type: application/json
 
 **Endpoint:** `POST /login`
 
-**Description:** Authenticate with email and password. Returns JWT token via httpOnly cookie.
+**Description:** Authenticate with email and password, then send a one-time login code.
 
 **Request Headers:**
 ```
@@ -146,6 +150,49 @@ Content-Type: application/json
 }
 ```
 
+**Success Response (202 Accepted):**
+```json
+{
+  "loginChallenge": true,
+  "challengeId": "c8ef6a31-9c34-4a8d-9d16-2d7b7b8f1a12",
+  "email": "john@example.com",
+  "emailMasked": "jo***@example.com",
+  "attemptsRemaining": 3,
+  "codeLength": 6,
+  "expiresAt": "2026-06-17T10:30:00.000Z",
+  "codeSent": true,
+  "message": "A login verification code has been sent."
+}
+```
+
+**Error Responses:**
+
+| Status | Response | Reason |
+|--------|----------|--------|
+| 400 | `{ "error": "Missing fields" }` | Missing email or password |
+| 401 | `{ "error": "Invalid credentials" }` | Email not found or password incorrect |
+| 500 | `{ "error": "Server error" }` | Unexpected server error |
+
+### 2b. Confirm Login
+
+**Endpoint:** `POST /login/confirm`
+
+**Description:** Verify the login code and issue the JWT cookie.
+
+**Request Headers:**
+```
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "challengeId": "c8ef6a31-9c34-4a8d-9d16-2d7b7b8f1a12",
+  "email": "john@example.com",
+  "code": "123456"
+}
+```
+
 **Success Response (200 OK):**
 ```json
 {
@@ -156,17 +203,14 @@ Content-Type: application/json
 }
 ```
 
-**Response Headers:**
-```
-Set-Cookie: token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=604800000
-```
-
 **Error Responses:**
 
 | Status | Response | Reason |
 |--------|----------|--------|
-| 400 | `{ "error": "Missing fields" }` | Missing email or password |
-| 401 | `{ "error": "Invalid credentials" }` | Email not found or password incorrect |
+| 400 | `{ "error": "Missing fields" }` | Missing challengeId, email, or code |
+| 401 | `{ "error": "Invalid code..." }` | Code mismatch or attempts exhausted |
+| 404 | `{ "error": "User not found" }` | User record no longer exists |
+| 410 | `{ "error": "Confirmation code expired or was not found" }` | Expired or missing login challenge |
 | 500 | `{ "error": "Server error" }` | Unexpected server error |
 
 ---
