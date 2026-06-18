@@ -35,6 +35,8 @@ const ensureSession = ({ token, user }) => {
   if (existing) {
     activeSessions.set(token, {
       ...existing,
+      login: user.login,
+      email: user.email,
       lastSeenAt: nowIso,
     });
     return;
