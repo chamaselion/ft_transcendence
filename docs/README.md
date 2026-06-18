@@ -62,6 +62,12 @@ NGINX_HOST_PORT=8080
 API_BASE_URL=http://localhost:3001
 ```
 
+Email delivery for one-time codes:
+- Gmail SMTP is supported through Nodemailer.
+- Use `SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=587`, `SMTP_SECURE=false`.
+- Set `SMTP_USER` to your full Gmail address and `SMTP_PASS` to a Google App Password.
+- Keep `EMAIL_FROM` set to the same Gmail address unless you have configured an approved alias.
+
 ## Resources
 
 List here useful documentation, tutorials, and references for the tech you used. Also document how AI was used in the project.

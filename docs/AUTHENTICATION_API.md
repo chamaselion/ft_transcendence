@@ -20,7 +20,7 @@ The backend provides a secure authentication system using JWT (JSON Web Tokens) 
 6. **CORS Configuration**: Credentials are allowed with proper CORS headers.
 7. **Session Tracking**: Active sessions are tracked server-side for enhanced security.
 
-Implementation note: auth handlers are split by endpoint in `srcs/backend/src/controllers/auth/` (`register.js`, `passwordResetRequest.js`, `passwordResetConfirm.js`, `login.js`, `me.js`, `logout.js`, `listSessions.js`) and share session/cookie logic via `helpers.js`. The reusable email code toolkit lives in `oneTimeCodeToolkit.js` and wraps the one-time-code service.
+Implementation note: auth handlers are split by endpoint in `srcs/backend/src/controllers/auth/` (`register.js`, `passwordResetRequest.js`, `passwordResetConfirm.js`, `login.js`, `me.js`, `updateMe.js`, `updateMeConfirm.js`, `logout.js`, `listSessions.js`) and share session/cookie logic via `helpers.js`. The reusable email code toolkit lives in `oneTimeCodeToolkit.js` and wraps the one-time-code service.
 
 You can refer to the readme for useful resources in JWT and best security practices with it.
 
@@ -79,6 +79,21 @@ sequenceDiagram
         Backend->>Backend: Update session lastSeenAt
         Backend-->>Frontend: 200 OK (user data)
     end
+
+      Frontend->>Backend: PATCH /me<br/>(login/email changes)
+      Backend->>Backend: Validate JWT and active session
+      Backend->>Backend: Validate requested profile changes
+      alt Invalid profile update request
+        Backend-->>Frontend: 400/409/401
+      else Valid profile update request
+        Backend->>Backend: Send profile update confirmation code via email
+        Backend-->>Frontend: 202 Accepted<br/>profile update challenge
+        Frontend->>Backend: POST /me/update/confirm<br/>(confirmationId, email, code)
+        Backend->>Backend: Verify challenge code
+        Backend->>DB: Update login/email
+        Backend->>Backend: Rotate JWT token and refresh session
+        Backend-->>Frontend: 200 OK<br/>Set-Cookie: token=JWT
+      end
 
     Frontend->>Backend: POST /logout<br/>(with cookie)
     Backend->>Backend: Extract token from cookie
@@ -250,6 +265,116 @@ Cookie: token=JWT_TOKEN_HERE
 - Token expired
 - Token signature invalid
 - User not found in database
+
+---
+
+### 3b. Request Profile Update (Update Me)
+
+**Endpoint:** `PATCH /me`
+
+**Description:** Request an authenticated profile update (login and/or email). A one-time confirmation code is sent before changes are applied.
+
+**Request Headers:**
+```
+Cookie: token=JWT_TOKEN_HERE
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "login": "string (optional)",
+  "email": "string (optional)"
+}
+```
+
+**Success Response (202 Accepted):**
+```json
+{
+  "profileUpdateConfirmationRequired": true,
+  "confirmationId": "c8ef6a31-9c34-4a8d-9d16-2d7b7b8f1a12",
+  "email": "john@example.com",
+  "attemptsRemaining": 3,
+  "codeLength": 6,
+  "expiresAt": "2026-06-17T10:30:00.000Z",
+  "codeSent": true,
+  "message": "A profile update confirmation code has been sent.",
+  "pendingUpdate": {
+    "login": "john_doe_v2",
+    "email": "john.new@example.com"
+  },
+  "user": {
+    "id": "f7b7d0fe-8d8f-41d4-b190-29ce83366e45",
+    "login": "john_doe",
+    "email": "john@example.com"
+  }
+}
+```
+
+**Error Responses:**
+
+| Status | Response | Reason |
+|--------|----------|--------|
+| 400 | `{ "error": "No changes requested" }` | Neither login nor email changes are requested |
+| 401 | `{ "error": "Unauthorized" }` | Missing/invalid token or inactive session |
+| 409 | `{ "error": "Login already in use" }` | Requested login is already taken |
+| 500 | `{ "error": "Server error" }` | Unexpected server error |
+
+**Notes:**
+- If both login and email are provided, one confirmation challenge covers both changes.
+- If only login changes, the confirmation code is sent to the current account email.
+- If email changes, the confirmation code is sent to the requested email.
+
+---
+
+### 3c. Confirm Profile Update
+
+**Endpoint:** `POST /me/update/confirm`
+
+**Description:** Verify the profile update confirmation code and apply pending login/email changes.
+
+**Request Headers:**
+```
+Cookie: token=JWT_TOKEN_HERE
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "confirmationId": "c8ef6a31-9c34-4a8d-9d16-2d7b7b8f1a12",
+  "email": "john@example.com",
+  "code": "123456"
+}
+```
+
+**Success Response (200 OK):**
+```json
+{
+  "updated": true,
+  "loggedIn": true,
+  "user": {
+    "id": "f7b7d0fe-8d8f-41d4-b190-29ce83366e45",
+    "login": "john_doe_v2",
+    "email": "john.new@example.com"
+  }
+}
+```
+
+**Error Responses:**
+
+| Status | Response | Reason |
+|--------|----------|--------|
+| 400 | `{ "error": "Missing fields" }` | Missing confirmationId, email, or code |
+| 400 | `{ "error": "No changes requested" }` | Challenge payload has no effective profile changes |
+| 400 | `{ "error": "Confirmation code purpose mismatch" }` | Code was issued for a different action |
+| 400 | `{ "error": "Confirmation code recipient mismatch" }` | Email does not match challenge recipient |
+| 401 | `{ "error": "Unauthorized" }` | Missing/invalid token, inactive session, or user mismatch |
+| 401 | `{ "error": "Invalid code..." }` | Code mismatch or attempts exhausted |
+| 409 | `{ "error": "Login already in use" }` | Requested login became unavailable |
+| 409 | `{ "error": "Email already in use" }` | Requested email became unavailable |
+| 410 | `{ "error": "Confirmation code expired or was not found" }` | Expired or missing profile update challenge |
+| 500 | `{ "error": "Server error" }` | Unexpected server error |
 
 ---
 
@@ -687,8 +812,13 @@ setInterval(async () => {
 |----------|--------|---------|---|
 | `/register` | POST | Create new account | No |
 | `/login` | POST | Authenticate user | No |
+| `/login/confirm` | POST | Confirm login challenge and create session | No |
 | `/me` | GET | Get current user info | Yes |
+| `/me` | PATCH | Request login/email profile update | Yes |
+| `/me/update/confirm` | POST | Confirm and apply profile update | Yes |
 | `/logout` | POST | Clear session | No |
 | `/sessions` | GET | List active sessions | Yes |
+| `/password-reset/request` | POST | Request password reset code | No |
+| `/password-reset/confirm` | POST | Confirm password reset with code | No |
 
 **Key Takeaway:** Let the browser handle cookies automatically. Just remember to include `credentials: 'include'` in all fetch requests!
