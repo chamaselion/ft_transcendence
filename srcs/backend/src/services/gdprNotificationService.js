@@ -22,12 +22,12 @@ const operationTemplates = {
     ],
   },
   dataDeletion: {
-    subject: 'Your data deletion request has been confirmed',
-    title: 'Data deletion confirmed',
-    intro: 'We have confirmed your request to delete your personal data.',
+    subject: 'Your data has been deleted',
+    title: 'Data deletion completed',
+    intro: 'We have completed the deletion of your personal data.',
     nextSteps: [
-      'The deletion will now proceed through the required backend checks.',
-      'If anything needs your attention, we will contact you by email.',
+      'The backend has removed the data that was eligible for deletion.',
+      'If you need additional help, you can contact support.',
     ],
   },
 };
