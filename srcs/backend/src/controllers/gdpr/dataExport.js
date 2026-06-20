@@ -2,6 +2,10 @@ const jwt = require('jsonwebtoken');
 const { requireEnv } = require('../../config');
 const sequelize = require('../../db');
 const { ensureSession, getTokenFromCookie, isSessionActive } = require('../auth/helpers');
+const { checkAndConsumeExportQuota } = require('./exportQuota');
+const { createGdprNotificationService } = require('../../services/gdprNotificationService');
+
+const gdprNotificationService = createGdprNotificationService();
 
 const createDataExportHandler = ({ userModel, tokenLib = jwt, secret = requireEnv('JWT_SECRET') } = {}) => {
   const resolvedUserModel = userModel || sequelize.models.user;
@@ -16,6 +20,34 @@ const createDataExportHandler = ({ userModel, tokenLib = jwt, secret = requireEn
       if (!isSessionActive(token)) {
         return res.status(401).json({ error: 'Unauthorized' });
       }
+
+      const quotaResult = await checkAndConsumeExportQuota(payload.id);
+      if (!quotaResult.allowed) {
+        if (quotaResult.retryAfterSeconds) {
+          res.setHeader('Retry-After', String(quotaResult.retryAfterSeconds));
+        }
+        if (quotaResult.limit !== undefined) {
+          res.setHeader('X-RateLimit-Limit', String(quotaResult.limit));
+        }
+        if (quotaResult.remaining !== undefined) {
+          res.setHeader('X-RateLimit-Remaining', String(quotaResult.remaining));
+        }
+        if (quotaResult.resetAt) {
+          res.setHeader('X-RateLimit-Reset', String(Math.floor(quotaResult.resetAt / 1000)));
+        }
+
+        return res.status(quotaResult.statusCode || 429).json({
+          error: quotaResult.error || 'Rate limit exceeded',
+          retryAfterSeconds: quotaResult.retryAfterSeconds,
+          limit: quotaResult.limit,
+          remaining: quotaResult.remaining,
+          resetAt: quotaResult.resetAt,
+        });
+      }
+
+      res.setHeader('X-RateLimit-Limit', String(quotaResult.limit));
+      res.setHeader('X-RateLimit-Remaining', String(quotaResult.remaining));
+      res.setHeader('X-RateLimit-Reset', String(Math.floor(quotaResult.resetAt / 1000)));
 
       const user = await resolvedUserModel.findByPk(payload.id, {
         attributes: ['id', 'login', 'email', 'createdAt', 'updatedAt'],
@@ -108,6 +140,14 @@ const createDataExportHandler = ({ userModel, tokenLib = jwt, secret = requireEn
       res.write(']');
 
       res.write('}');
+      res.once('finish', () => {
+        void gdprNotificationService.sendDataExportConfirmation({
+          to: user.email,
+          reference: `export-${user.id}-${Date.now()}`,
+        }).catch((err) => {
+          console.error(`[AUTH] Data export notification error: ${err.message}`);
+        });
+      });
       return res.end();
     } catch (err) {
       console.error(`[AUTH] Data export error: ${err.message}`);
