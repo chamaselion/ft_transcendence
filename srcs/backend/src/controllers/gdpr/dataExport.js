@@ -3,6 +3,7 @@ const { requireEnv } = require('../../config');
 const sequelize = require('../../db');
 const { ensureSession, getTokenFromCookie, isSessionActive } = require('../auth/helpers');
 const { checkAndConsumeExportQuota } = require('./exportQuota');
+const { recordGdprAuditEvent } = require('./audit');
 const { createGdprNotificationService } = require('../../services/gdprNotificationService');
 
 const gdprNotificationService = createGdprNotificationService();
@@ -23,6 +24,22 @@ const createDataExportHandler = ({ userModel, tokenLib = jwt, secret = requireEn
 
       const quotaResult = await checkAndConsumeExportQuota(payload.id);
       if (!quotaResult.allowed) {
+        void recordGdprAuditEvent({
+          userId: payload.id,
+          actionType: 'data_export',
+          status: 'rejected',
+          reference: null,
+          ipAddress: req.ip,
+          userAgent: req.get('user-agent'),
+          metadata: {
+            endpoint: '/me/data-export',
+            reason: quotaResult.error || 'Rate limit exceeded',
+            retryAfterSeconds: quotaResult.retryAfterSeconds || null,
+            limit: quotaResult.limit ?? null,
+            remaining: quotaResult.remaining ?? null,
+          },
+        });
+
         if (quotaResult.retryAfterSeconds) {
           res.setHeader('Retry-After', String(quotaResult.retryAfterSeconds));
         }
@@ -111,6 +128,7 @@ const createDataExportHandler = ({ userModel, tokenLib = jwt, secret = requireEn
         assets: Array.from(assetsById.values()),
         transactions: user.transactions ? user.transactions.map(t => t.toJSON()) : []
       };
+      const exportReference = `export-${user.id}-${Date.now()}`;
 
       // Set headers for secure download
       res.setHeader('Content-Type', 'application/json');
@@ -141,9 +159,23 @@ const createDataExportHandler = ({ userModel, tokenLib = jwt, secret = requireEn
 
       res.write('}');
       res.once('finish', () => {
+        void recordGdprAuditEvent({
+          userId: user.id,
+          actionType: 'data_export',
+          status: 'completed',
+          reference: exportReference,
+          ipAddress: req.ip,
+          userAgent: req.get('user-agent'),
+          metadata: {
+            endpoint: '/me/data-export',
+            assetCount: exportData.assets.length,
+            transactionCount: exportData.transactions.length,
+          },
+        });
+
         void gdprNotificationService.sendDataExportConfirmation({
           to: user.email,
-          reference: `export-${user.id}-${Date.now()}`,
+          reference: exportReference,
         }).catch((err) => {
           console.error(`[AUTH] Data export notification error: ${err.message}`);
         });
