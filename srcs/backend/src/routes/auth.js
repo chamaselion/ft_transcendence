@@ -10,6 +10,8 @@ const { createUpdateMeHandler } = require('../controllers/auth/updateMe');
 const { createUpdateMeConfirmHandler } = require('../controllers/auth/updateMeConfirm');
 const { createLogoutHandler } = require('../controllers/auth/logout');
 const { createListSessionsHandler } = require('../controllers/auth/listSessions');
+const { createDataExportHandler } = require('../controllers/gdpr/dataExport');
+// const { createDevFillDataHandler } = require('../controllers/auth/devFillData');
 
 const { login } = createLoginHandler();
 const { register } = createRegisterHandler();
@@ -22,6 +24,8 @@ const { updateMe } = createUpdateMeHandler();
 const { updateMeConfirm } = createUpdateMeConfirmHandler();
 const { logout } = createLogoutHandler();
 const { listSessions } = createListSessionsHandler();
+const { dataExport } = createDataExportHandler();
+// const { fillData } = createDevFillDataHandler();
 
 const router = express.Router();
 
@@ -35,5 +39,7 @@ router.get('/me', me);
 router.patch('/me', updateMe);
 router.post('/me/update/confirm', updateMeConfirm);
 router.get('/sessions', listSessions);
+router.get('/me/data-export', dataExport);
+// router.post('/me/dev/fill-data', fillData);
 
 module.exports = router;
