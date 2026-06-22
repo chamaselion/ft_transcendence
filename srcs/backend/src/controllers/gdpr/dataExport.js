@@ -132,6 +132,7 @@ const createDataExportHandler = ({ userModel, tokenLib = jwt, secret = requireEn
 
       // Set headers for secure download
       res.setHeader('Content-Type', 'application/json');
+      res.setHeader('X-Content-Type-Options', 'nosniff');
       res.setHeader('Content-Disposition', `attachment; filename="user-data-${user.id}-${Date.now()}.json"`);
       res.setHeader('Cache-Control', 'no-store');
 

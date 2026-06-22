@@ -8,9 +8,14 @@ const { createGdprNotificationService } = require('../../services/gdprNotificati
 
 const gdprNotificationService = createGdprNotificationService();
 
+const neutralizeCsvFormula = (value) => {
+  const text = value === null || value === undefined ? '' : String(value);
+  return /^\s*[=+\-@\t]/.test(text) ? `'${text}` : text;
+};
+
 const escapeCsvValue = (value) => {
   if (value === null || value === undefined) return '';
-  const normalized = String(value).replace(/\r\n|\n|\r/g, '\\n');
+  const normalized = neutralizeCsvFormula(value).replace(/\r\n|\n|\r/g, '\\n');
   const escaped = normalized.replace(/"/g, '""');
   return `"${escaped}"`;
 };
@@ -135,6 +140,7 @@ const createDataExportCsvHandler = ({ userModel, tokenLib = jwt, secret = requir
       const fileTimestamp = Date.now();
 
       res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('X-Content-Type-Options', 'nosniff');
       res.setHeader('Content-Disposition', `attachment; filename="user-data-${user.id}-${fileTimestamp}.csv"`);
       res.setHeader('Cache-Control', 'no-store');
 
