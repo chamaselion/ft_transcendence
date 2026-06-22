@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 const { requireEnv } = require('../../config');
 const sequelize = require('../../db');
-const { activeSessions, ensureSession, getTokenFromCookie, isSessionActive, purgeExpiredSessions } = require('./helpers');
+const { ensureSession, getTokenFromCookie, isSessionActive, listActiveSessionsForUser, purgeExpiredSessions } = require('./helpers');
 
 const createListSessionsHandler = ({ userModel, tokenLib = jwt, secret = requireEnv('JWT_SECRET') } = {}) => {
   const resolvedUserModel = userModel || sequelize.models.user;
@@ -12,7 +12,7 @@ const createListSessionsHandler = ({ userModel, tokenLib = jwt, secret = require
       if (!token) return res.status(401).json({ error: 'Unauthorized' });
 
       const payload = tokenLib.verify(token, secret);
-      if (!isSessionActive(token)) return res.status(401).json({ error: 'Unauthorized' });
+      if (!(await isSessionActive(token))) return res.status(401).json({ error: 'Unauthorized' });
 
       const requester = await resolvedUserModel.findByPk(payload.id, {
         attributes: ['id', 'login', 'email'],
@@ -20,12 +20,14 @@ const createListSessionsHandler = ({ userModel, tokenLib = jwt, secret = require
 
       if (!requester) return res.status(401).json({ error: 'Unauthorized' });
 
-      ensureSession({ token, user: requester });
-      purgeExpiredSessions();
+      await ensureSession({ token, user: requester });
+      await purgeExpiredSessions();
+
+      const userSessions = await listActiveSessionsForUser(requester.id);
 
       return res.json({
-        count: activeSessions.size,
-        sessions: [...activeSessions.values()],
+        count: userSessions.length,
+        sessions: userSessions,
       });
     } catch (err) {
       return res.status(401).json({ error: 'Unauthorized' });

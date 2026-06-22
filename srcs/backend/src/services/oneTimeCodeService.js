@@ -1,6 +1,7 @@
 const bcrypt = require('bcrypt');
 const { randomInt, randomUUID } = require('crypto');
 const { requireNumberEnv } = require('../config');
+const sequelize = require('../db');
 
 const CODE_HASH_ROUNDS = requireNumberEnv('BCRYPT_SALT_ROUNDS');
 
@@ -26,16 +27,21 @@ const createOneTimeCodeService = ({
     throw new Error('createOneTimeCodeService requires an emailService');
   }
 
-  const pendingChallenges = new Map();
+  const getChallengeModel = () => sequelize.models.oneTimeChallenge;
 
-  const cleanupExpiredChallenges = () => {
-    const now = Date.now();
-
-    for (const [challengeId, challenge] of pendingChallenges.entries()) {
-      if (challenge.expiresAt <= now) {
-        pendingChallenges.delete(challengeId);
-      }
+  const cleanupExpiredChallenges = async () => {
+    const challengeModel = getChallengeModel();
+    if (!challengeModel) {
+      return;
     }
+
+    await challengeModel.destroy({
+      where: {
+        expiresAt: {
+          [sequelize.Sequelize.Op.lte]: new Date(),
+        },
+      },
+    });
   };
 
   const buildCode = () => randomInt(0, 10 ** codeLength).toString().padStart(codeLength, '0');
@@ -48,7 +54,12 @@ const createOneTimeCodeService = ({
     htmlBuilder,
     payload = {},
   }) => {
-    cleanupExpiredChallenges();
+    await cleanupExpiredChallenges();
+
+    const challengeModel = getChallengeModel();
+    if (!challengeModel) {
+      throw new Error('One-time challenge storage is not available');
+    }
 
     const challengeId = randomUUID();
     const code = buildCode();
@@ -56,15 +67,15 @@ const createOneTimeCodeService = ({
     const codeHash = await bcrypt.hash(code, CODE_HASH_ROUNDS);
     const normalizedRecipient = normalizeRecipient(recipient);
 
-    pendingChallenges.set(challengeId, {
+    await challengeModel.create({
       challengeId,
+      userId: payload?.userId || null,
       purpose,
       recipient: normalizedRecipient,
       codeHash,
       payload,
       attemptsRemaining: maxAttempts,
-      expiresAt,
-      createdAt: new Date().toISOString(),
+      expiresAt: new Date(expiresAt),
     });
 
     const context = {
@@ -94,75 +105,92 @@ const createOneTimeCodeService = ({
   };
 
   const verifyChallenge = async ({ challengeId, recipient, purpose, code }) => {
-    cleanupExpiredChallenges();
+    await cleanupExpiredChallenges();
 
-    const challenge = pendingChallenges.get(challengeId);
-
-    if (!challenge) {
+    const challengeModel = getChallengeModel();
+    if (!challengeModel) {
       return {
         ok: false,
-        statusCode: 410,
-        error: 'Confirmation code expired or was not found',
+        statusCode: 500,
+        error: 'Confirmation service unavailable',
       };
     }
 
-    if (challenge.purpose !== purpose) {
-      return {
-        ok: false,
-        statusCode: 400,
-        error: 'Confirmation code purpose mismatch',
-      };
-    }
+    return sequelize.transaction(async (dbTransaction) => {
+      const challenge = await challengeModel.findByPk(challengeId, {
+        transaction: dbTransaction,
+        lock: dbTransaction.LOCK.UPDATE,
+      });
 
-    if (challenge.recipient !== normalizeRecipient(recipient)) {
-      return {
-        ok: false,
-        statusCode: 400,
-        error: 'Confirmation code recipient mismatch',
-      };
-    }
-
-    if (challenge.expiresAt <= Date.now()) {
-      pendingChallenges.delete(challengeId);
-      return {
-        ok: false,
-        statusCode: 410,
-        error: 'Confirmation code expired',
-      };
-    }
-
-    const isMatch = await bcrypt.compare(normalizeCode(code), challenge.codeHash);
-
-    if (!isMatch) {
-      challenge.attemptsRemaining -= 1;
-
-      if (challenge.attemptsRemaining <= 0) {
-        pendingChallenges.delete(challengeId);
+      if (!challenge) {
         return {
           ok: false,
-          statusCode: 401,
-          error: 'Invalid code. Registration cancelled after 3 failed attempts.',
-          attemptsRemaining: 0,
+          statusCode: 410,
+          error: 'Confirmation code expired or was not found',
         };
       }
 
-      pendingChallenges.set(challengeId, challenge);
-      return {
-        ok: false,
-        statusCode: 401,
-        error: `Invalid code. ${challenge.attemptsRemaining} attempt(s) remaining.`,
-        attemptsRemaining: challenge.attemptsRemaining,
-      };
-    }
+      if (challenge.purpose !== purpose) {
+        return {
+          ok: false,
+          statusCode: 400,
+          error: 'Confirmation code purpose mismatch',
+        };
+      }
 
-    pendingChallenges.delete(challengeId);
-    return {
-      ok: true,
-      payload: challenge.payload,
-    };
+      if (challenge.recipient !== normalizeRecipient(recipient)) {
+        return {
+          ok: false,
+          statusCode: 400,
+          error: 'Confirmation code recipient mismatch',
+        };
+      }
+
+      if (new Date(challenge.expiresAt).getTime() <= Date.now()) {
+        await challenge.destroy({ transaction: dbTransaction });
+        return {
+          ok: false,
+          statusCode: 410,
+          error: 'Confirmation code expired',
+        };
+      }
+
+      const isMatch = await bcrypt.compare(normalizeCode(code), challenge.codeHash);
+
+      if (!isMatch) {
+        challenge.attemptsRemaining -= 1;
+
+        if (challenge.attemptsRemaining <= 0) {
+          await challenge.destroy({ transaction: dbTransaction });
+          return {
+            ok: false,
+            statusCode: 401,
+            error: 'Invalid code. Confirmation cancelled after maximum failed attempts.',
+            attemptsRemaining: 0,
+          };
+        }
+
+        await challenge.save({ transaction: dbTransaction });
+        return {
+          ok: false,
+          statusCode: 401,
+          error: `Invalid code. ${challenge.attemptsRemaining} attempt(s) remaining.`,
+          attemptsRemaining: challenge.attemptsRemaining,
+        };
+      }
+
+      const payload = challenge.payload;
+      await challenge.destroy({ transaction: dbTransaction });
+      return {
+        ok: true,
+        payload,
+      };
+    });
   };
 
-  setInterval(cleanupExpiredChallenges, 60_000).unref?.();
+  setInterval(() => {
+    void cleanupExpiredChallenges();
+  }, 60_000).unref?.();
 
   return {
     issueChallenge,
