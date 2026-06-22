@@ -15,7 +15,7 @@ const createDataDeletionRequestHandler = ({ userModel, tokenLib = jwt, secret = 
       if (!token) return res.status(401).json({ error: 'Unauthorized' });
 
       const payload = tokenLib.verify(token, secret);
-      if (!isSessionActive(token)) {
+      if (!(await isSessionActive(token))) {
         return res.status(401).json({ error: 'Unauthorized' });
       }
 
@@ -24,7 +24,7 @@ const createDataDeletionRequestHandler = ({ userModel, tokenLib = jwt, secret = 
       });
 
       if (!user) return res.status(401).json({ error: 'Unauthorized' });
-      ensureSession({ token, user });
+      await ensureSession({ token, user });
 
       const reference = `deletion-${user.id}-${Date.now()}`;
       const challenge = await oneTimeCodeService.issueChallenge({

@@ -49,7 +49,7 @@ const createLoginConfirmHandler = ({
 
       const token = tokenLib.sign({ id: user.id, email: user.email }, secret, { expiresIn: JWT_EXPIRES_IN });
       setAuthCookie(res, token);
-      ensureSession({ token, user });
+      await ensureSession({ token, user });
 
       return res.json({ id: user.id, login: user.login, email: user.email, loggedIn: true });
     } catch (err) {

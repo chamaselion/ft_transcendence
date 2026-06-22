@@ -17,7 +17,7 @@ const createDataDeletionConfirmHandler = ({ userModel, tokenLib = jwt, secret = 
       if (!token) return res.status(401).json({ error: 'Unauthorized' });
 
       const payload = tokenLib.verify(token, secret);
-      if (!isSessionActive(token)) {
+      if (!(await isSessionActive(token))) {
         return res.status(401).json({ error: 'Unauthorized' });
       }
 
@@ -31,7 +31,7 @@ const createDataDeletionConfirmHandler = ({ userModel, tokenLib = jwt, secret = 
       });
 
       if (!user) return res.status(401).json({ error: 'Unauthorized' });
-      ensureSession({ token, user });
+      await ensureSession({ token, user });
 
       const verification = await oneTimeCodeService.verifyChallenge({
         challengeId: confirmationId,
@@ -136,7 +136,7 @@ const createDataDeletionConfirmHandler = ({ userModel, tokenLib = jwt, secret = 
         });
       });
 
-      purgeSessionsForUser(user.id);
+      await purgeSessionsForUser(user.id);
       clearAuthCookie(res);
 
       void gdprNotificationService.sendDataDeletionConfirmation({

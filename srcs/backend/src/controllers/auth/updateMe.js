@@ -20,7 +20,7 @@ const createUpdateMeHandler = ({
 
   const respondWithChallenge = async (res, token, user, challenge, recipientEmail, requestedChanges) => {
     const refreshedUser = await loadUser(user.id);
-    ensureSession({ token, user: refreshedUser });
+    await ensureSession({ token, user: refreshedUser });
 
     return res.status(202).json({
       profileUpdateConfirmationRequired: true,
@@ -48,13 +48,13 @@ const createUpdateMeHandler = ({
       } catch {
         return res.status(401).json({ error: 'Unauthorized' });
       }
-      if (!isSessionActive(token)) return res.status(401).json({ error: 'Unauthorized' });
+      if (!(await isSessionActive(token))) return res.status(401).json({ error: 'Unauthorized' });
 
       const user = await loadUser(payload.id);
 
       if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
-      ensureSession({ token, user });
+      await ensureSession({ token, user });
 
       const requestedLogin = normalizeText(req.body.login);
       const requestedEmail = normalizeText(req.body.email);

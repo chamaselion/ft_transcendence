@@ -40,7 +40,7 @@ const createPasswordResetConfirmHandler = ({ userModel, hashLib = bcrypt, oneTim
 
       const passwordHash = await hashLib.hash(newPassword, BCRYPT_SALT_ROUNDS);
       await user.update({ passwordHash });
-      purgeSessionsForUser(user.id);
+      await purgeSessionsForUser(user.id);
 
       return res.json({ passwordReset: true });
     } catch (err) {

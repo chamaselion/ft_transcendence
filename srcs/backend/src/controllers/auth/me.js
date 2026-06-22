@@ -13,7 +13,7 @@ const createMeHandler = ({ userModel, tokenLib = jwt, secret = requireEnv('JWT_S
       if (!token) return res.status(401).json({ loggedIn: false });
 
       const payload = tokenLib.verify(token, secret);
-      if (!isSessionActive(token)) {
+      if (!(await isSessionActive(token))) {
         return res.status(401).json({ loggedIn: false });
       }
 
@@ -22,7 +22,7 @@ const createMeHandler = ({ userModel, tokenLib = jwt, secret = requireEnv('JWT_S
       });
 
       if (!user) return res.status(401).json({ loggedIn: false });
-      ensureSession({ token, user });
+      await ensureSession({ token, user });
       return res.json({ loggedIn: true, user });
     } catch (err) {
       return res.status(401).json({ loggedIn: false });

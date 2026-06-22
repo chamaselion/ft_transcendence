@@ -17,7 +17,7 @@ const createDataRequestHandler = ({ userModel, tokenLib = jwt, secret = requireE
       if (!token) return res.status(401).json({ error: 'Unauthorized' });
 
       const payload = tokenLib.verify(token, secret);
-      if (!isSessionActive(token)) {
+      if (!(await isSessionActive(token))) {
         return res.status(401).json({ error: 'Unauthorized' });
       }
 
@@ -26,7 +26,7 @@ const createDataRequestHandler = ({ userModel, tokenLib = jwt, secret = requireE
       });
 
       if (!user) return res.status(401).json({ error: 'Unauthorized' });
-      ensureSession({ token, user });
+      await ensureSession({ token, user });
 
       const reference = `request-${user.id}-${Date.now()}`;
 

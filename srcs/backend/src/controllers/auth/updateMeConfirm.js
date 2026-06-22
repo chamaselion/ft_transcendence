@@ -2,10 +2,10 @@ const jwt = require('jsonwebtoken');
 const sequelize = require('../../db');
 const { requireEnv } = require('../../config');
 const {
-  activeSessions,
   ensureSession,
   getTokenFromCookie,
   isSessionActive,
+  removeSessionByToken,
   setAuthCookie,
 } = require('./helpers');
 const { oneTimeCodeService: defaultOneTimeCodeService } = require('./oneTimeCodeToolkit');
@@ -37,7 +37,7 @@ const createUpdateMeConfirmHandler = ({
       } catch {
         return res.status(401).json({ error: 'Unauthorized' });
       }
-      if (!isSessionActive(token)) return res.status(401).json({ error: 'Unauthorized' });
+      if (!(await isSessionActive(token))) return res.status(401).json({ error: 'Unauthorized' });
 
       const { confirmationId, email, code } = req.body;
       if (!confirmationId || !email || !code) {
@@ -100,9 +100,9 @@ const createUpdateMeConfirmHandler = ({
         expiresIn: JWT_EXPIRES_IN,
       });
 
-      activeSessions.delete(token);
+      await removeSessionByToken(token);
       setAuthCookie(res, nextToken);
-      ensureSession({ token: nextToken, user: updatedUser });
+      await ensureSession({ token: nextToken, user: updatedUser });
 
       return res.json({
         updated: true,
