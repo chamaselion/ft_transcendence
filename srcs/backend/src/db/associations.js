@@ -3,7 +3,8 @@ function applyAssociations(sequelize) {
     user,
     asset,
     assetValuation,
-    transaction
+    transaction,
+    authSession,
   } = sequelize.models;
 
   asset.hasOne(user);
@@ -17,6 +18,11 @@ function applyAssociations(sequelize) {
 
   asset.hasMany(assetValuation);
   assetValuation.belongsTo(asset);
+
+  if (authSession) {
+    user.hasMany(authSession, { foreignKey: 'userId', onDelete: 'CASCADE' });
+    authSession.belongsTo(user, { foreignKey: 'userId' });
+  }
 }
 
 module.exports = { applyAssociations };

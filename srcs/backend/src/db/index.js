@@ -24,7 +24,9 @@ const modelDefiners = [
   require('./models/asset-valuation'),
   require('./models/transaction'),
   require('./models/gdpr-export-quota'),
-  require('./models/gdpr-audit-event')
+  require('./models/gdpr-audit-event'),
+  require('./models/auth-session'),
+  require('./models/one-time-challenge'),
 ];
 
 for (const modelDefiner of modelDefiners) {
