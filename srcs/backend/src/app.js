@@ -4,6 +4,9 @@ const cors = require('cors');
 const createApp = ({ router } = {}) => {
 	const app = express();
 
+	// Behind WAF + reverse proxy chain; trust forwarded headers for accurate client IP.
+	app.set('trust proxy', true);
+
 	app.use(cors({
 		origin: (origin, callback) => {
 			console.log(`[CORS] origin request from: ${origin}`);
