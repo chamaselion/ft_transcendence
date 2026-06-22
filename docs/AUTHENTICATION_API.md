@@ -18,7 +18,10 @@ The backend provides a secure authentication system using JWT (JSON Web Tokens) 
 4. **JWT Expiration**: Tokens expire automatically based on `JWT_EXPIRES_IN` environment variable.
 5. **Bcrypt Hashing**: Passwords are hashed with bcrypt using `BCRYPT_SALT_ROUNDS` rounds.
 6. **CORS Configuration**: Credentials are allowed with proper CORS headers.
-7. **Session Tracking**: Active sessions are tracked server-side for enhanced security.
+7. **Rate Limiting**: Sensitive endpoints (login, OTP issuance/verification, password reset) are protected with per-IP and per-email rate limits to prevent brute-force and spam attacks.
+8. **Persistent Session Management**: Active sessions are stored in PostgreSQL (not in-process memory), enabling secure multi-instance deployments and session durability across restarts.
+9. **Persistent OTP Challenges**: One-time password challenges are persisted in the database with transactional verification, preventing race conditions and enabling shared state across instances.
+10. **Account Enumeration Protection**: Password reset and similar endpoints return generic responses regardless of account existence, preventing attackers from enumerating registered email addresses.
 
 Implementation note: auth handlers are split by endpoint in `srcs/backend/src/controllers/auth/` (`register.js`, `passwordResetRequest.js`, `passwordResetConfirm.js`, `login.js`, `me.js`, `updateMe.js`, `updateMeConfirm.js`, `logout.js`, `listSessions.js`) and share session/cookie logic via `helpers.js`. The reusable email code toolkit lives in `oneTimeCodeToolkit.js` and wraps the one-time-code service.
 
@@ -406,21 +409,23 @@ Set-Cookie: token=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0
 
 ---
 
-### 5. List Active Sessions
+### 5. List Active Sessions ⚠️ DISABLED
 
 **Endpoint:** `GET /sessions`
 
-**Description:** Retrieve all active sessions. Requires authentication. Expired sessions are automatically purged.
+**Status:** Currently **disabled** (route commented out in `/api/auth/routes`)
 
-**Request Headers:**
-```
-Cookie: token=JWT_TOKEN_HERE
-```
+**Description:** This endpoint was designed to retrieve active sessions for the authenticated user. It is currently disabled for security review purposes. The handler remains in code and can be re-enabled if needed.
 
-**Success Response (200 OK):**
+**Note on Re-enablement:**
+- When re-enabled, the endpoint will only return sessions belonging to the authenticated requester (scoped by userId).
+- Sessions are persisted in PostgreSQL and include `token`, `userId`, `login`, `email`, `loginAt`, `lastSeenAt`, and `expiresAt`.
+- Expired sessions are automatically purged from the database.
+
+**Legacy Response (when enabled, 200 OK):**
 ```json
 {
-  "count": 2,
+  "count": 1,
   "sessions": [
     {
       "sessionId": "f7b7d0fe-8d8f-41d4-b190-29ce83366e45-1718540123456",
@@ -429,30 +434,10 @@ Cookie: token=JWT_TOKEN_HERE
       "email": "john@example.com",
       "loginAt": "2026-06-16T10:15:23.456Z",
       "lastSeenAt": "2026-06-16T10:20:45.789Z"
-    },
-    {
-      "sessionId": "f7b7d0fe-8d8f-41d4-b190-29ce83366e45-1718540125789",
-      "userId": "f7b7d0fe-8d8f-41d4-b190-29ce83366e45",
-      "login": "john_doe",
-      "email": "john@example.com",
-      "loginAt": "2026-06-16T10:16:45.123Z",
-      "lastSeenAt": "2026-06-16T10:21:30.456Z"
     }
   ]
 }
 ```
-
-**Error Response (401 Unauthorized):**
-```json
-{
-  "error": "Unauthorized"
-}
-```
-
-**Possible Error Scenarios:**
-- No token in cookie
-- Token expired
-- Token invalid
 
 ---
 
@@ -477,19 +462,16 @@ Content-Type: application/json
 **Success Response (202 Accepted):**
 ```json
 {
-  "confirmationId": "c8ef6a31-9c34-4a8d-9d16-2d7b7b8f1a12",
-  "email": "john@example.com",
-  "attemptsRemaining": 3,
-  "codeLength": 6,
-  "expiresAt": "2026-06-17T10:30:00.000Z",
-  "codeSent": true,
+  "accepted": true,
   "message": "If an account exists for that email, a password reset code has been sent."
 }
 ```
 
 **Notes:**
-- The response is intentionally generic if the email does not exist.
-- A code is delivered through the configured email transport.
+- **Security:** The response is intentionally generic and does not vary based on whether the email exists or not. This prevents attackers from enumerating registered email addresses.
+- **No Challenge Metadata:** `challengeId`, `debugCode`, `attemptsRemaining`, and other challenge details are not returned for security reasons.
+- **In the Background:** If the email is registered, a one-time password is generated and delivered via the configured email transport (SMTP or console).
+- **Frontend Implication:** You cannot pre-validate if an account exists before showing a confirmation screen. Present a generic "check your email" confirmation to all users.
 
 ---
 
@@ -530,6 +512,72 @@ Content-Type: application/json
 | 404 | `{ "error": "User not found" }` | User record no longer exists |
 | 410 | `{ "error": "Confirmation code expired or was not found" }` | Expired or missing code |
 | 500 | `{ "error": "Server error" }` | Unexpected server error |
+
+---
+
+## Rate Limiting
+
+Sensitive authentication and OTP endpoints are protected with request rate limiting to prevent brute-force attacks, spam, and service abuse.
+
+### Rate Limit Headers
+
+All responses include the following headers:
+
+| Header | Example | Meaning |
+|--------|---------|---------|
+| `X-RateLimit-Limit` | `30` | Maximum requests allowed in the window |
+| `X-RateLimit-Remaining` | `25` | Requests remaining in current window |
+| `X-RateLimit-Reset` | `1718627000` | Unix timestamp when the window resets |
+| `Retry-After` | `60` | (429 only) Seconds to wait before retrying |
+
+### Protected Endpoints and Limits
+
+| Endpoint Category | Limit | Window |
+|-------------------|-------|--------|
+| General Auth Burst (all sensitive endpoints) | 30 requests | 60 seconds per IP |
+| OTP Issuance (login, reset, profile update, deletion) | 5 requests | 10 minutes per (IP + email) |
+| OTP Verification (confirm login, reset, update, deletion) | 12 requests | 10 minutes per (IP + challengeId + email) |
+
+### 429 Too Many Requests Response
+
+```json
+{
+  "error": "Too many requests",
+  "limiter": "otp-issue",
+  "retryAfterSeconds": 45
+}
+```
+
+**Response Headers:**
+```
+HTTP/1.1 429 Too Many Requests
+X-RateLimit-Limit: 5
+X-RateLimit-Remaining: 0
+X-RateLimit-Reset: 1718627045
+Retry-After: 45
+```
+
+### Frontend Handling
+
+```javascript
+async function handleAuthRequest(fn) {
+  try {
+    return await fn();
+  } catch (error) {
+    if (error.status === 429) {
+      const retryAfter = parseInt(error.headers.get('Retry-After')) || 60;
+      showUserMessage(`Too many requests. Please wait ${retryAfter} seconds.`);
+      // Optionally disable form and show countdown timer
+      disableFormFor(retryAfter);
+      return null;
+    }
+    throw error;
+  }
+}
+
+// Usage
+await handleAuthRequest(() => auth.login(email, password));
+```
 
 ---
 
@@ -574,6 +622,49 @@ fetch('https://localhost:9443/api/auth/me', {
 ---
 
 ## Error Handling Best Practices
+
+### Rate Limit Handling
+
+```javascript
+async function makeAuthRequest(url, options = {}) {
+  const response = await fetch(url, {
+    ...options,
+    credentials: 'include'
+  });
+
+  if (response.status === 429) {
+    const retryAfter = parseInt(response.headers.get('Retry-After')) || 60;
+    const data = await response.json();
+    console.warn(`Rate limited: ${data.error}. Retry after ${retryAfter}s`);
+    
+    // Show user message and disable form for countdown
+    showUserMessage(`Too many requests. Please try again in ${retryAfter} seconds.`);
+    return { success: false, retryAfter };
+  }
+
+  return response;
+}
+```
+
+### Account Enumeration Protection (Password Reset)
+
+**Important:** The password reset endpoint returns the same response regardless of whether an account exists:
+
+```javascript
+// Both registered and unregistered emails get identical response:
+// { "accepted": true, "message": "If an account exists..." }
+
+// ❌ DON'T try to detect if account exists
+if (response.confirmationId) { // This won't work - field not in response
+  console.log('Account exists!');
+}
+
+// ✅ DO treat all responses as successful
+if (response.accepted) {
+  showUserMessage('Check your email for reset instructions.');
+  redirectToCheckEmailScreen();
+}
+```
 
 ### Network Errors
 ```javascript
@@ -808,17 +899,17 @@ setInterval(async () => {
 
 ## Summary
 
-| Endpoint | Method | Purpose | Requires Auth |
-|----------|--------|---------|---|
-| `/register` | POST | Create new account | No |
-| `/login` | POST | Authenticate user | No |
-| `/login/confirm` | POST | Confirm login challenge and create session | No |
-| `/me` | GET | Get current user info | Yes |
-| `/me` | PATCH | Request login/email profile update | Yes |
-| `/me/update/confirm` | POST | Confirm and apply profile update | Yes |
-| `/logout` | POST | Clear session | No |
-| `/sessions` | GET | List active sessions | Yes |
-| `/password-reset/request` | POST | Request password reset code | No |
-| `/password-reset/confirm` | POST | Confirm password reset with code | No |
+| Endpoint | Method | Purpose | Requires Auth | Rate Limited |
+|----------|--------|---------|---|---|
+| `/register` | POST | Create new account | No | ✅ General auth burst |
+| `/login` | POST | Authenticate user & send OTP | No | ✅ General + OTP issue |
+| `/login/confirm` | POST | Confirm login challenge & create session | No | ✅ General + OTP verify |
+| `/me` | GET | Get current user info | Yes | — |
+| `/me` | PATCH | Request login/email profile update | Yes | ✅ General + OTP issue |
+| `/me/update/confirm` | POST | Confirm and apply profile update | Yes | ✅ General + OTP verify |
+| `/logout` | POST | Clear session | No | — |
+| `/sessions` | GET | List active sessions | Yes | **⚠️ DISABLED** |
+| `/password-reset/request` | POST | Request password reset code | No | ✅ General + OTP issue |
+| `/password-reset/confirm` | POST | Confirm password reset with code | No | ✅ General + OTP verify |
 
 **Key Takeaway:** Let the browser handle cookies automatically. Just remember to include `credentials: 'include'` in all fetch requests!
