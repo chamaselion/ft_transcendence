@@ -84,6 +84,38 @@ Cookie: token=JWT_TOKEN_HERE
 | 429 | `{ "error": "...", "retryAfterSeconds": number, "limit": number, "remaining": number, "resetAt": number }` | Export quota/rate limit exceeded |
 | 500 | `{ "error": "Internal server error" }` | Unexpected server error |
 
+### 2b. Data Export (CSV)
+
+**Endpoint:** `GET /me/data-export/csv`
+
+**Description:** Export all user-related data as a single downloadable CSV file with sectioned rows.
+
+**Request Headers:**
+```
+Cookie: token=JWT_TOKEN_HERE
+```
+
+**Success Response (200 OK):**
+- Content is returned as an attachment (`Content-Type: text/csv; charset=utf-8`)
+- Response includes rate-limit headers:
+	- `X-RateLimit-Limit`
+	- `X-RateLimit-Remaining`
+	- `X-RateLimit-Reset`
+- CSV is organized into readable sections in one file:
+	- `meta` (export timestamp)
+	- `user` (profile fields)
+	- `asset` (owned/related assets)
+	- `assetValuation` (valuation history rows)
+	- `transaction` (transaction rows)
+
+**Error Responses:**
+
+| Status | Response | Reason |
+|--------|----------|--------|
+| 401 | `{ "error": "Unauthorized" }` | Missing/invalid token, inactive session, or user not found |
+| 429 | `{ "error": "...", "retryAfterSeconds": number, "limit": number, "remaining": number, "resetAt": number }` | Export quota/rate limit exceeded |
+| 500 | `{ "error": "Internal server error" }` | Unexpected server error |
+
 ---
 
 ### 3. Data Deletion
