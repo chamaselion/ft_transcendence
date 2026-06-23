@@ -38,13 +38,7 @@ const createOneTimeCodeService = ({
     const deleted = await challengeModel.destroy({
       where: {
         expiresAt: {
-          [sequelize.Sequelize.Op.and]: [
-            sequelize.Sequelize.where(
-              sequelize.Sequelize.fn('COALESCE', sequelize.Sequelize.col('expiresAt'), sequelize.Sequelize.literal('NOW()')),
-              sequelize.Sequelize.Op.lte,
-              new Date()
-            ),
-          ],
+          [sequelize.Sequelize.Op.lte]: new Date(),
         },
       },
     });
