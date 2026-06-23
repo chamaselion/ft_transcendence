@@ -1,7 +1,8 @@
-const http = require('http');
-const { sequelize } = require('./db');
+const fs = require('fs');
+const https = require('https');
+const sequelize = require('./db');
 const { createApp } = require('./app');
-const { requireNumberEnv } = require('./config');
+const { requireEnv, requireNumberEnv } = require('./config');
 const routes = require('./routes');
 const { createWsServer } = require('./wsServer');      // add this
 const { startBinanceConnection } = require('./services/binanceService'); // add this
@@ -10,6 +11,19 @@ const { startFinnhub } = require('./services/finnhubService');
 const { flushSessionStateToDb, hydrateSessionCacheFromDb } = require('./controllers/auth/helpers');
 
 const app = createApp({ router: routes });
+
+const tlsCertFile = requireEnv('TLS_CERT_FILE');
+const tlsKeyFile = requireEnv('TLS_KEY_FILE');
+
+const httpsServer = https.createServer(
+  {
+    cert: fs.readFileSync(tlsCertFile),
+    key: fs.readFileSync(tlsKeyFile),
+  },
+  app
+);
+
+createWsServer(httpsServer);                            // attach WS server
 
 const PORT = requireNumberEnv('PORT');
 const DB_RETRY_LIMIT = requireNumberEnv('DB_RETRY_LIMIT');
@@ -40,7 +54,13 @@ async function start() {
     await sequelize.sync();
     await hydrateSessionCacheFromDb();
     console.log('Database connected');
-    app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+    // use httpServer.listen instead of app.listen
+    httpsServer.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+      startBinanceConnection();                        // start after server is up
+      startGoldPolling();                              // poll gold/silver prices
+      startFinnhub();                                  // stream US stock prices
+    });
   } catch (err) {
     console.error('Failed to start server:', err);
     process.exit(1);
@@ -60,7 +80,7 @@ const shutdown = async (signal) => {
     console.error('Failed to flush session state during shutdown:', err);
   }
 
-  httpServer.close(() => {
+  httpsServer.close(() => {
     process.exit(0);
   });
 
