@@ -54,7 +54,7 @@ async function start() {
     await sequelize.sync();
     await hydrateSessionCacheFromDb();
     console.log('Database connected');
-    // use httpServer.listen instead of app.listen
+    // Listen on the TLS server instance so HTTPS and WSS share the same port.
     httpsServer.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
       startBinanceConnection();                        // start after server is up
