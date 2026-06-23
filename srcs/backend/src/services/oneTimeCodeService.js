@@ -32,16 +32,24 @@ const createOneTimeCodeService = ({
   const cleanupExpiredChallenges = async () => {
     const challengeModel = getChallengeModel();
     if (!challengeModel) {
-      return;
+      return 0;
     }
 
-    await challengeModel.destroy({
+    const deleted = await challengeModel.destroy({
       where: {
         expiresAt: {
-          [sequelize.Sequelize.Op.lte]: new Date(),
+          [sequelize.Sequelize.Op.and]: [
+            sequelize.Sequelize.where(
+              sequelize.Sequelize.fn('COALESCE', sequelize.Sequelize.col('expiresAt'), sequelize.Sequelize.literal('NOW()')),
+              sequelize.Sequelize.Op.lte,
+              new Date()
+            ),
+          ],
         },
       },
     });
+
+    return deleted;
   };
 
   const buildCode = () => randomInt(0, 10 ** codeLength).toString().padStart(codeLength, '0');
@@ -54,8 +62,6 @@ const createOneTimeCodeService = ({
     htmlBuilder,
     payload = {},
   }) => {
-    await cleanupExpiredChallenges();
-
     const challengeModel = getChallengeModel();
     if (!challengeModel) {
       throw new Error('One-time challenge storage is not available');
@@ -105,8 +111,6 @@ const createOneTimeCodeService = ({
   };
 
   const verifyChallenge = async ({ challengeId, recipient, purpose, code }) => {
-    await cleanupExpiredChallenges();
-
     const challengeModel = getChallengeModel();
     if (!challengeModel) {
       return {
@@ -188,8 +192,15 @@ const createOneTimeCodeService = ({
     });
   };
 
-  setInterval(() => {
-    void cleanupExpiredChallenges();
+  setInterval(async () => {
+    try {
+      const deleted = await cleanupExpiredChallenges();
+      if (deleted > 0) {
+        console.log(`[OTC Cleanup] Removed ${deleted} expired challenge(s)`);
+      }
+    } catch (error) {
+      console.error('[OTC Cleanup] Failed to cleanup expired challenges:', error.message);
+    }
   }, 60_000).unref?.();
 
   return {
