@@ -3,6 +3,11 @@ const { sequelize } = require('./db');
 const { createApp } = require('./app');
 const { requireNumberEnv } = require('./config');
 const routes = require('./routes');
+const { createWsServer } = require('./wsServer');      // add this
+const { startBinanceConnection } = require('./services/binanceService'); // add this
+const { startGoldPolling } = require('./services/goldService');         // add this
+const { startFinnhub } = require('./services/finnhubService');
+const { flushSessionStateToDb, hydrateSessionCacheFromDb } = require('./controllers/auth/helpers');
 
 const app = createApp({ router: routes });
 
@@ -33,6 +38,7 @@ async function start() {
   try {
     await connectWithRetry();
     await sequelize.sync();
+    await hydrateSessionCacheFromDb();
     console.log('Database connected');
     app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
   } catch (err) {
@@ -40,5 +46,35 @@ async function start() {
     process.exit(1);
   }
 }
+
+let shuttingDown = false;
+
+const shutdown = async (signal) => {
+  if (shuttingDown) return;
+  shuttingDown = true;
+
+  try {
+    console.log(`Received ${signal}. Flushing in-memory session state to database...`);
+    await flushSessionStateToDb();
+  } catch (err) {
+    console.error('Failed to flush session state during shutdown:', err);
+  }
+
+  httpServer.close(() => {
+    process.exit(0);
+  });
+
+  setTimeout(() => {
+    process.exit(1);
+  }, 10_000).unref?.();
+};
+
+process.on('SIGINT', () => {
+  void shutdown('SIGINT');
+});
+
+process.on('SIGTERM', () => {
+  void shutdown('SIGTERM');
+});
 
 start();
