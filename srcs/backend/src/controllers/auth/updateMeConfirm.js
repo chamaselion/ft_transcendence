@@ -47,7 +47,7 @@ const createUpdateMeConfirmHandler = ({
       const verification = await oneTimeCodeService.verifyChallenge({
         challengeId: confirmationId,
         recipient: email,
-        purpose: 'profile-update',
+        purpose: 'profile update',
         code,
       });
 

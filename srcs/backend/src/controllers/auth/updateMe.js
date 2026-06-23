@@ -80,7 +80,7 @@ const createUpdateMeHandler = ({
       };
 
       const challenge = await oneTimeCodeService.issueChallenge({
-        purpose: 'profile-update',
+        purpose: 'profile update',
         recipient: recipientEmail,
         subject: 'Confirm your profile update',
         payload: {

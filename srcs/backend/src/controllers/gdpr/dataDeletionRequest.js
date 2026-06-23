@@ -28,7 +28,7 @@ const createDataDeletionRequestHandler = ({ userModel, tokenLib = jwt, secret = 
 
       const reference = `deletion-${user.id}-${Date.now()}`;
       const challenge = await oneTimeCodeService.issueChallenge({
-        purpose: 'data-deletion',
+        purpose: 'data deletion',
         recipient: user.email,
         subject: 'Confirm your data deletion request',
         payload: {

@@ -20,7 +20,7 @@ const createPasswordResetConfirmHandler = ({ userModel, hashLib = bcrypt, oneTim
       const verification = await oneTimeCodeService.verifyChallenge({
         challengeId: confirmationId,
         recipient: email,
-        purpose: 'password-reset',
+        purpose: 'password reset',
         code,
       });
 

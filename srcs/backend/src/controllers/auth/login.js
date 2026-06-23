@@ -30,7 +30,7 @@ const createLoginHandler = ({ userModel, hashLib = bcrypt, oneTimeCodeService = 
       if (!match) return res.status(401).json({ error: 'Invalid credentials' });
 
       const challenge = await oneTimeCodeService.issueChallenge({
-        purpose: 'login-2fa',
+        purpose: 'login 2fa',
         recipient: user.email,
         subject: 'Your login verification code',
         payload: {

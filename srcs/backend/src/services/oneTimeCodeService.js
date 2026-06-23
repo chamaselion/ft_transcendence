@@ -7,7 +7,7 @@ const CODE_HASH_ROUNDS = requireNumberEnv('BCRYPT_SALT_ROUNDS');
 
 const normalizeRecipient = (value) => String(value || '').trim().toLowerCase();
 const normalizeCode = (value) => String(value || '').trim();
-const buildPurposeLabel = (purpose) => String(purpose || 'confirmation').replace(/[-_]+/g, ' ');
+const buildPurposeLabel = (purpose) => String(purpose || 'confirmation').trim();
 
 const defaultTextBuilder = ({ code, purposeLabel, expiresInMinutes, attemptsRemaining }) => (
   [

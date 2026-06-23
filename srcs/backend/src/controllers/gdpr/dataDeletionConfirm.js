@@ -36,7 +36,7 @@ const createDataDeletionConfirmHandler = ({ userModel, tokenLib = jwt, secret = 
       const verification = await oneTimeCodeService.verifyChallenge({
         challengeId: confirmationId,
         recipient: user.email,
-        purpose: 'data-deletion',
+        purpose: 'data deletion',
         code,
       });
 

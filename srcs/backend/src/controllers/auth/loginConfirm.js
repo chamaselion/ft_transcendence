@@ -25,7 +25,7 @@ const createLoginConfirmHandler = ({
       const verification = await oneTimeCodeService.verifyChallenge({
         challengeId,
         recipient: email,
-        purpose: 'login-2fa',
+        purpose: 'login 2fa',
         code,
       });
 

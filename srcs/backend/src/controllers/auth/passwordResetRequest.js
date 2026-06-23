@@ -21,7 +21,7 @@ const createPasswordResetRequestHandler = ({ userModel, oneTimeCodeService = def
       }
 
       await oneTimeCodeService.issueChallenge({
-        purpose: 'password-reset',
+        purpose: 'password reset',
         recipient: email,
         subject: 'Reset your password',
         payload: {
