@@ -49,8 +49,6 @@ const ensureSession = async ({ token, user }) => {
   await authSessionModel.upsert({
     token,
     userId: user.id,
-    login: user.login,
-    email: user.email,
     loginAt: existing?.loginAt || now,
     lastSeenAt: now,
     expiresAt: getTokenExpiryDate(token),
@@ -127,14 +125,19 @@ const listActiveSessionsForUser = async (userId) => {
         },
       ],
     },
+	include: [{
+      model: sequelize.models.user,
+      attributes: ['login', 'email'],
+      required: false,
+    }],
     order: [['lastSeenAt', 'DESC']],
   });
 
   return rows.map((row) => ({
     sessionId: row.token,
     userId: row.userId,
-    login: row.login,
-    email: row.email,
+    login: row.user?.login || null,
+    email: row.user?.email || null,
     loginAt: row.loginAt,
     lastSeenAt: row.lastSeenAt,
     expiresAt: row.expiresAt,

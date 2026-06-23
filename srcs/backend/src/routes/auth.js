@@ -15,7 +15,7 @@ const { createDataExportHandler } = require('../controllers/gdpr/dataExport');
 const { createDataExportCsvHandler } = require('../controllers/gdpr/dataExportCsv');
 const { createDataDeletionRequestHandler } = require('../controllers/gdpr/dataDeletionRequest');
 const { createDataDeletionConfirmHandler } = require('../controllers/gdpr/dataDeletionConfirm');
-const { createDevFillDataHandler } = require('../controllers/auth/devFillData');
+// const { createDevFillDataHandler } = require('../controllers/auth/devFillData');
 const { createRateLimiter, getClientIp, normalizeIdentity } = require('../middleware/rateLimit');
 
 const { login } = createLoginHandler();
@@ -34,7 +34,7 @@ const { dataExport } = createDataExportHandler();
 const { dataExportCsv } = createDataExportCsvHandler();
 const { dataDeletionRequest } = createDataDeletionRequestHandler();
 const { dataDeletionConfirm } = createDataDeletionConfirmHandler();
-const { fillData } = createDevFillDataHandler();
+// const { fillData } = createDevFillDataHandler();
 
 const router = express.Router();
 
@@ -78,6 +78,6 @@ router.get('/me/data-export', dataExport);
 router.get('/me/data-export/csv', dataExportCsv);
 router.post('/me/data-deletion/request', authRequestLimiter, otpIssueLimiter, dataDeletionRequest);
 router.post('/me/data-deletion/confirm', authRequestLimiter, otpVerifyLimiter, dataDeletionConfirm);
-router.post('/me/dev/fill-data', fillData);
+// router.post('/me/dev/fill-data', fillData);
 
 module.exports = router;

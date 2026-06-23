@@ -32,12 +32,7 @@ async function connectWithRetry() {
 async function start() {
   try {
     await connectWithRetry();
-    if (NODE_ENV === 'production') {
-      console.log('Production mode: skipping sequelize.sync(); use migrations for schema changes.');
-    } else {
-      await sequelize.sync({ alter: true });
-      console.log(`Schema synchronized in ${NODE_ENV} mode`);
-    }
+    await sequelize.sync();
     console.log('Database connected');
     app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
   } catch (err) {
