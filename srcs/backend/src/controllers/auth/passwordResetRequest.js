@@ -1,4 +1,5 @@
 const sequelize = require('../../db');
+const { randomUUID } = require('crypto');
 const { oneTimeCodeService: defaultOneTimeCodeService } = require('./oneTimeCodeToolkit');
 
 const createPasswordResetRequestHandler = ({ userModel, oneTimeCodeService = defaultOneTimeCodeService } = {}) => {
@@ -17,10 +18,13 @@ const createPasswordResetRequestHandler = ({ userModel, oneTimeCodeService = def
       const user = await resolvedUserModel.findOne({ where: { email } });
 
       if (!user) {
-        return res.status(202).json(genericAcceptedResponse);
+        return res.status(202).json({
+          ...genericAcceptedResponse,
+          confirmationId: randomUUID(),
+        });
       }
 
-      await oneTimeCodeService.issueChallenge({
+      const challenge = await oneTimeCodeService.issueChallenge({
         purpose: 'password reset',
         recipient: email,
         subject: 'Reset your password',
@@ -38,8 +42,11 @@ const createPasswordResetRequestHandler = ({ userModel, oneTimeCodeService = def
         ),
       });
 
-      // Intentionally avoid returning challenge metadata to prevent account enumeration.
-      return res.status(202).json(genericAcceptedResponse);
+      return res.status(202).json({
+        ...genericAcceptedResponse,
+        confirmationId: challenge.challengeId,
+        codeLength: challenge.codeLength,
+      });
     } catch (err) {
       console.error(err);
       return res.status(500).json({ error: 'Server error' });
