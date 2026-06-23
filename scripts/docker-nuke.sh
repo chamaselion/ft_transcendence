@@ -5,7 +5,9 @@
 
 set -e
 
-PROJECT_NAME="transcendence"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+PROJECT_NAME="$(basename "$PROJECT_DIR")"
 FORCE_FLAG="${1:-}"
 
 echo "=========================================="

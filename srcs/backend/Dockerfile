@@ -10,4 +10,4 @@ COPY . .
 ENV NODE_ENV=production
 EXPOSE 3001
 
-CMD ["node", "src/server.js"]
+CMD ["node", "src/bootstrap.js"]
