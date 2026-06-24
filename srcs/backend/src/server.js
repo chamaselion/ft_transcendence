@@ -4,10 +4,9 @@ const sequelize = require('./db');
 const { createApp } = require('./app');
 const { requireEnv, requireNumberEnv } = require('./config');
 const routes = require('./routes');
-const { createWsServer } = require('./wsServer');      // add this
-const { startBinanceConnection } = require('./services/binanceService'); // add this
-const { startGoldPolling } = require('./services/goldService');         // add this
-const { startFinnhub } = require('./services/finnhubService');
+const { createWsServer } = require('./wsServer');
+const { seedAssets } = require('./db/seed');
+const { startValuationRecorder } = require('./services/valuationRecorder');
 const { flushSessionStateToDb, hydrateSessionCacheFromDb } = require('./controllers/auth/helpers');
 
 const app = createApp({ router: routes });
@@ -55,11 +54,10 @@ async function start() {
     await hydrateSessionCacheFromDb();
     console.log('Database connected');
     // Listen on the TLS server instance so HTTPS and WSS share the same port.
-    httpsServer.listen(PORT, () => {
+    httpsServer.listen(PORT, async () => {
       console.log(`Server running on port ${PORT}`);
-      startBinanceConnection();                        // start after server is up
-      startGoldPolling();                              // poll gold/silver prices
-      startFinnhub();                                  // stream US stock prices
+      await startValuationRecorder(); // persist prices before feeds tick
+	                                   // stream US stock prices
     });
   } catch (err) {
     console.error('Failed to start server:', err);
