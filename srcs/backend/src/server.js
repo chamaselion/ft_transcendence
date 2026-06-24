@@ -51,6 +51,7 @@ async function start() {
   try {
     await connectWithRetry();
     await sequelize.sync();
+    await seedAssets(sequelize);
     await hydrateSessionCacheFromDb();
     console.log('Database connected');
     // Listen on the TLS server instance so HTTPS and WSS share the same port.
