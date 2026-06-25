@@ -1,122 +1,200 @@
 # Backend Overview
 
-This document describes how the project's backend is built and structured.
+This document summarizes how the current backend starts, what it exposes, and where to find more detailed API documentation.
 
-## Core Stack
+## Core stack
 
-- **Runtime:** Node.js (see [srcs/backend/package.json](../../srcs/backend/package.json))
-- **Web Framework:** Express.js — handles HTTP routing and middleware
-- **Database:** PostgreSQL with Sequelize ORM
-- **Authentication:** JWT tokens with bcrypt password hashing
+- Node.js
+- Express
+- PostgreSQL
+- Sequelize
+- WebSocket server (`ws`)
+- JWT + bcrypt authentication
 
-## Architecture
+## Why these choices are used
 
-### Directory Structure
-- [srcs/backend/src/app.js](../../srcs/backend/src/app.js) — Express app factory with middleware setup (CORS, JSON parsing)
-- [srcs/backend/src/server.js](../../srcs/backend/src/server.js) — Entry point; starts the server and manages database connection with retry logic
-- [srcs/backend/src/db.js](../../srcs/backend/src/db.js) — Sequelize database connection to PostgreSQL
-- [srcs/backend/src/routes/](../../srcs/backend/src/routes/) — Request routing
-  - [auth.js](../../srcs/backend/src/routes/auth.js) — Authentication endpoints
-  - [index.js](../../srcs/backend/src/routes/index.js) — Router aggregation
-- [srcs/backend/src/controllers/authController.js](../../srcs/backend/src/controllers/authController.js) — Business logic for register and login
-- [srcs/backend/src/models/user.js](../../srcs/backend/src/models/user.js) — Sequelize User model (id, login, email, passwordHash, timestamps)
+### Express
 
-### Middleware
-- **CORS:** Enabled to allow cross-origin requests from the frontend
-- **JSON body parsing:** Express built-in middleware to parse request bodies
+Express is used as the HTTP layer because the backend mainly needs routing, middleware, JSON handling, and simple composition.
 
-### Implemented Endpoints
+Code example from the app setup:
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/health` | Health check — returns `{"status":"ok"}` |
-| POST | `/api/auth/register` | Register new user (login, email, password) |
-| POST | `/api/auth/login` | Login and receive JWT token (email, password) |
+```js
+const app = express();
+app.use(express.json());
+app.get('/health', (req, res) => res.json({ status: 'ok' }));
+app.use('/api', router);
+```
 
-## Environment Variables
+This comes from [srcs/backend/src/app.js](../srcs/backend/src/app.js).
 
-The backend loads shared configuration from the repository root [`.env`](../../.env) file.
+### Sequelize
 
-- `PORT` — server port
-- `DATABASE_URL` — PostgreSQL connection URL (format: `postgres://user:pass@host:port/db`)
-  - Parsed into host, port, username, password, and database name
-- `JWT_SECRET` — secret key for signing JWT tokens
-  - Generate a new one with `openssl rand -hex 32`
-- `BCRYPT_SALT_ROUNDS` — bcrypt work factor used for password hashing
-- `JWT_EXPIRES_IN` — JWT expiration value used when issuing tokens
-- `DB_RETRY_LIMIT` — max attempts to connect to database
-- `DB_RETRY_DELAY_MS` — milliseconds between retry attempts
-- `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` — PostgreSQL container settings
-- `BACKEND_HOST_PORT`, `DB_HOST_PORT`, `NGINX_HOST_PORT` — host port mappings for Docker Compose
+Sequelize is used to define models, register associations, and connect the application to PostgreSQL through one ORM layer.
 
-## Running the Backend
+Code example from the database bootstrap:
 
-### Via Docker Compose (recommended)
+```js
+const sequelize = new Sequelize(databaseUrl.pathname.slice(1), databaseUrl.username, databaseUrl.password, {
+	host: databaseUrl.hostname,
+	port: Number(databaseUrl.port),
+	dialect: 'postgres',
+	logging: false,
+	define: {
+		underscored: true
+	}
+});
+```
+
+This comes from [srcs/backend/src/db/index.js](../srcs/backend/src/db/index.js).
+
+### CORS
+
+CORS is enabled because the frontend and backend communicate across the reverse-proxy chain and authenticated requests need credential support.
+
+Code example from middleware setup:
+
+```js
+app.use(cors({
+	credentials: true,
+	allowedHeaders: ['Content-Type', 'Authorization'],
+	methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+}));
+```
+
+This comes from [srcs/backend/src/app.js](../srcs/backend/src/app.js).
+
+## Startup flow
+
+1. [srcs/backend/src/bootstrap.js](../srcs/backend/src/bootstrap.js) authenticates to Vault and injects `JWT_SECRET`, `SMTP_PASS`, and `DATABASE_URL` into `process.env`.
+2. [srcs/backend/src/server.js](../srcs/backend/src/server.js) creates the HTTPS server, attaches the WebSocket server, connects to PostgreSQL, syncs models, and seeds assets.
+3. [srcs/backend/src/app.js](../srcs/backend/src/app.js) mounts middleware, `/health`, `/internal/watched`, and `/api` routes.
+
+## Main files
+
+- [srcs/backend/src/app.js](../srcs/backend/src/app.js) — Express app and middleware setup
+- [srcs/backend/src/server.js](../srcs/backend/src/server.js) — HTTPS server startup
+- [srcs/backend/src/wsServer.js](../srcs/backend/src/wsServer.js) — `/ws` and `/internal/feed`
+- [srcs/backend/src/db/index.js](../srcs/backend/src/db/index.js) — Sequelize connection and model registration
+- [srcs/backend/src/routes/auth.js](../srcs/backend/src/routes/auth.js) — auth + GDPR routes
+- [srcs/backend/src/routes/portfolio.js](../srcs/backend/src/routes/portfolio.js) — portfolio routes
+- [srcs/backend/src/routes/symbols.js](../srcs/backend/src/routes/symbols.js) — search + history routes
+- [srcs/backend/src/routes/assets.js](../srcs/backend/src/routes/assets.js) — seeded assets + stored valuations routes
+
+## API surface
+
+- `GET /health`
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `POST /api/auth/login/confirm`
+- `POST /api/auth/password-reset/request`
+- `POST /api/auth/password-reset/confirm`
+- `GET /api/auth/me`
+- `PATCH /api/auth/me`
+- `POST /api/auth/me/update/confirm`
+- `POST /api/auth/logout`
+- `POST /api/auth/me/data-request`
+- `GET /api/auth/me/data-export`
+- `GET /api/auth/me/data-export/csv`
+- `POST /api/auth/me/data-deletion/request`
+- `POST /api/auth/me/data-deletion/confirm`
+- `GET /api/portfolio`
+- `GET /api/portfolio/history`
+- `GET /api/portfolio/transactions`
+- `POST /api/portfolio/transactions`
+- `PUT /api/portfolio/transactions/:id`
+- `DELETE /api/portfolio/transactions/:id`
+- `GET /api/symbols/search`
+- `GET /api/symbols/:symbol/history`
+- `GET /api/assets`
+- `GET /api/assets/:key/valuations`
+- `GET /api/assets/:key/valuations/latest`
+- `WS /ws`
+
+Detailed endpoint docs live in [API-s/README.md](API-s/README.md).
+
+## Configuration sources
+
+- `.env` provides non-secret runtime configuration such as ports, SMTP host settings, and `PRICE_FEED_TOKEN`.
+- Vault provides the main backend secrets: `DATABASE_URL`, `JWT_SECRET`, and `SMTP_PASS`.
+- Docker secrets provide the AppRole credentials used to authenticate to Vault.
+
+## Password hashing, salting, and storage
+
+Passwords are not stored as plain text in the database.
+The stored value is a salted bcrypt password hash.
+
+The user model stores only `passwordHash`:
+
+```js
+passwordHash: {
+	type: DataTypes.STRING,
+	allowNull: false,
+}
+```
+
+This is defined in [srcs/backend/src/db/models/user.js](../srcs/backend/src/db/models/user.js).
+
+### Registration
+
+During registration, the backend hashes and salts the validated password with bcrypt before creating the user record:
+
+```js
+const hash = await hashLib.hash(password, BCRYPT_SALT_ROUNDS);
+const user = await resolvedUserModel.create({ login, email, passwordHash: hash });
+```
+
+This is implemented in [srcs/backend/src/controllers/auth/register.js](../srcs/backend/src/controllers/auth/register.js).
+
+### Login verification
+
+During login, the submitted password is compared against the stored hash:
+
+```js
+const match = await hashLib.compare(password, user.passwordHash);
+```
+
+This is implemented in [srcs/backend/src/controllers/auth/login.js](../srcs/backend/src/controllers/auth/login.js).
+
+### Password reset
+
+When a password is changed through reset flow, the new password is hashed and salted again before storage:
+
+```js
+const passwordHash = await hashLib.hash(newPassword, BCRYPT_SALT_ROUNDS);
+await user.update({ passwordHash });
+```
+
+This is implemented in [srcs/backend/src/controllers/auth/passwordResetConfirm.js](../srcs/backend/src/controllers/auth/passwordResetConfirm.js).
+
+### Salting method
+
+The backend uses bcrypt's built-in salting through:
+
+- `bcrypt.hash(password, BCRYPT_SALT_ROUNDS)`
+
+`BCRYPT_SALT_ROUNDS` is loaded from configuration and controls the work factor.
+
+Based on the current user model and auth controllers, the codebase stores salted password hashes only and does not persist plain-text passwords.
+
+## Running
+
+Recommended path:
+
 ```bash
-docker compose up --build
+make up
 ```
 
-### Standalone (development)
-```bash
-cd srcs/backend
-npm install
-npm run start    # or use `npm run dev` for auto-reload with nodemon
-```
-
-The server will start on `PORT` and log `Server running on port XXXX`.
-
-## Testing
-
-### Health Check
-```bash
-curl http://localhost:3001/health
-```
-
-Expected: `{"status":"ok"}`
-
-### Register User
-```bash
-curl -X POST http://localhost:3001/api/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"login":"testuser","email":"test@example.com","password":"password123"}'
-```
-
-Expected response (201 Created):
-```json
-{"id":1,"login":"testuser","email":"test@example.com"}
-```
-
-### Login User
-```bash
-curl -X POST http://localhost:3001/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"test@example.com","password":"password123"}'
-```
-
-Expected response (200 OK, valid JWT token):
-```json
-{"token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."}
-```
-
-## Deployment & Containerization
-
-- Backend is containerized (see [srcs/backend/Dockerfile](../../srcs/backend/Dockerfile))
-- Deployed with Nginx reverse proxy for HTTPS (see [nginx/nginx.conf](../../nginx/nginx.conf))
-- All services orchestrated via [docker-compose.yaml](../../docker-compose.yaml)
-
-## Security Considerations
-
-- Passwords are hashed with bcrypt using `BCRYPT_SALT_ROUNDS`
-- JWT tokens expire using `JWT_EXPIRES_IN`
-- For HTTPS requirements: see subject requirements on all communications to backend using HTTPS
+Running the backend directly is possible, but you must provide TLS files and Vault-related environment setup manually.
 
 ## Troubleshooting
 
-Check service logs:
+- `GET /health` should return `{ "status": "ok" }`.
+- If startup fails before the backend listens, check Vault status first.
+- For service logs:
+
 ```bash
 docker compose logs -f backend
 docker compose logs -f db
-docker compose logs -f nginx
+docker compose logs -f vault
 ```
-
-````

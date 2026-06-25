@@ -188,7 +188,7 @@ User management: 2FA authentication minor 1
 Implement a complete 2FA (Two-Factor Authentication) system for the
 users.
 
-**Responsible:** 
+**Responsible:** Balint
 
 **Brief description of functionality:**
 
