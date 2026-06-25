@@ -9,6 +9,7 @@ This document summarizes how the current backend starts, what it exposes, and wh
 - PostgreSQL
 - Sequelize
 - WebSocket server (`ws`)
+- Nodemailer
 - JWT + bcrypt authentication
 
 ## Why these choices are used
@@ -63,6 +64,25 @@ app.use(cors({
 ```
 
 This comes from [srcs/backend/src/app.js](../srcs/backend/src/app.js).
+
+### Nodemailer
+
+Nodemailer is used for OTP and confirmation email delivery (login challenge, password reset, profile update, GDPR actions).
+
+Code example from the email service:
+
+```js
+const transporter = nodemailer.createTransport(smtpOptions);
+const info = await transporter.sendMail({
+	from: fromAddress,
+	to,
+	subject,
+	text,
+	html,
+});
+```
+
+This comes from [srcs/backend/src/services/emailService.js](../srcs/backend/src/services/emailService.js).
 
 ## Startup flow
 
