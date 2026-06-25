@@ -8,6 +8,18 @@ const { createGdprNotificationService } = require('../../services/gdprNotificati
 
 const gdprNotificationService = createGdprNotificationService();
 
+const buildAssetsById = (transactions) => {
+  const assetsById = new Map();
+
+  for (const transaction of transactions || []) {
+    if (transaction.asset && !assetsById.has(transaction.asset.id)) {
+      assetsById.set(transaction.asset.id, transaction.asset.toJSON());
+    }
+  }
+
+  return assetsById;
+};
+
 const createDataExportHandler = ({ userModel, tokenLib = jwt, secret = requireEnv('JWT_SECRET') } = {}) => {
   const resolvedUserModel = userModel || sequelize.models.user;
 
@@ -70,32 +82,18 @@ const createDataExportHandler = ({ userModel, tokenLib = jwt, secret = requireEn
         attributes: ['id', 'login', 'email', 'createdAt', 'updatedAt'],
         include: [
           {
-            association: 'asset',
-            attributes: ['id', 'type', 'name'],
-            include: [
-              {
-                association: 'transactions',
-                attributes: ['id', 'quantity', 'createdAt', 'updatedAt']
-              },
-              {
-                association: 'assetValuations',
-                attributes: ['id', 'valuationDate', 'open', 'high', 'low', 'close']
-              }
-            ]
-          },
-          {
             association: 'transactions',
-            attributes: ['id', 'quantity', 'createdAt', 'updatedAt'],
+            attributes: ['id', 'quantity', 'date', 'createdAt', 'updatedAt'],
             include: [
               {
                 association: 'asset',
-                attributes: ['id', 'type', 'name'],
+                attributes: ['id', 'key', 'type', 'name', 'symbol'],
                 include: [
                   {
                     association: 'assetValuations',
-                    attributes: ['id', 'valuationDate', 'open', 'high', 'low', 'close']
+                    attributes: ['id', 'valuationDate', 'open', 'high', 'low', 'close'],
                   }
-                ]
+                ],
               }
             ]
           }
@@ -105,16 +103,8 @@ const createDataExportHandler = ({ userModel, tokenLib = jwt, secret = requireEn
       if (!user) return res.status(401).json({ error: 'Unauthorized' });
       await ensureSession({ token, user });
 
-      const assetsById = new Map();
-      if (user.asset) {
-        assetsById.set(user.asset.id, user.asset.toJSON());
-      }
-
-      for (const transaction of user.transactions || []) {
-        if (transaction.asset && !assetsById.has(transaction.asset.id)) {
-          assetsById.set(transaction.asset.id, transaction.asset.toJSON());
-        }
-      }
+      const transactions = user.transactions ? user.transactions.map((transaction) => transaction.toJSON()) : [];
+      const assetsById = buildAssetsById(user.transactions);
 
       const exportData = {
         exportDate: new Date().toISOString(),
@@ -126,7 +116,7 @@ const createDataExportHandler = ({ userModel, tokenLib = jwt, secret = requireEn
           updatedAt: user.updatedAt
         },
         assets: Array.from(assetsById.values()),
-        transactions: user.transactions ? user.transactions.map(t => t.toJSON()) : []
+        transactions,
       };
       const exportReference = `export-${user.id}-${Date.now()}`;
 
@@ -170,7 +160,7 @@ const createDataExportHandler = ({ userModel, tokenLib = jwt, secret = requireEn
           metadata: {
             endpoint: '/me/data-export',
             assetCount: exportData.assets.length,
-            transactionCount: exportData.transactions.length,
+            transactionCount: transactions.length,
           },
         });
 

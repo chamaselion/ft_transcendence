@@ -32,7 +32,7 @@ const createDataDeletionConfirmHandler = ({ userModel, tokenLib = jwt, secret = 
       const code = codeValidation.value;
 
       const user = await resolvedUserModel.findByPk(payload.id, {
-        attributes: ['id', 'login', 'email', 'assetId'],
+        attributes: ['id', 'login', 'email'],
       });
 
       if (!user) return res.status(401).json({ error: 'Unauthorized' });
@@ -57,12 +57,6 @@ const createDataDeletionConfirmHandler = ({ userModel, tokenLib = jwt, secret = 
       }
 
       const { asset, assetValuation, transaction, gdprExportQuota, gdprAuditEvent } = sequelize.models;
-      const assetIds = new Set();
-
-      if (user.assetId) {
-        assetIds.add(user.assetId);
-      }
-
       const relatedAssetRows = await transaction.findAll({
         where: { userId: user.id },
         attributes: ['assetId'],
@@ -70,6 +64,7 @@ const createDataDeletionConfirmHandler = ({ userModel, tokenLib = jwt, secret = 
         raw: true,
       });
 
+      const assetIds = new Set();
       for (const row of relatedAssetRows) {
         if (row.assetId) {
           assetIds.add(row.assetId);
@@ -85,16 +80,6 @@ const createDataDeletionConfirmHandler = ({ userModel, tokenLib = jwt, secret = 
       };
 
       await sequelize.transaction(async (dbTransaction) => {
-        if (user.assetId) {
-          await resolvedUserModel.update(
-            { assetId: null },
-            {
-              where: { id: user.id },
-              transaction: dbTransaction,
-            },
-          );
-        }
-
         await transaction.destroy({
           where: { userId: user.id },
           transaction: dbTransaction,

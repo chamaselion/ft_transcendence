@@ -22,6 +22,7 @@ The backend provides a secure authentication system using JWT (JSON Web Tokens) 
 8. **Persistent Session Management**: Active sessions are stored in PostgreSQL (not in-process memory), enabling secure multi-instance deployments and session durability across restarts.
 9. **Persistent OTP Challenges**: One-time password challenges are persisted in the database with transactional verification, preventing race conditions and enabling shared state across instances.
 10. **Account Enumeration Protection**: Password reset and similar endpoints return generic responses regardless of account existence, preventing attackers from enumerating registered email addresses.
+11. **Transaction-Scoped GDPR Exports/Deletion**: GDPR export and deletion endpoints derive asset data from the authenticated user's transactions, matching the current portfolio data model.
 
 Implementation note: auth handlers are split by endpoint in `srcs/backend/src/controllers/auth/` (`register.js`, `passwordResetRequest.js`, `passwordResetConfirm.js`, `login.js`, `me.js`, `updateMe.js`, `updateMeConfirm.js`, `logout.js`, `listSessions.js`) and share session/cookie logic via `helpers.js`. The reusable email code toolkit lives in `oneTimeCodeToolkit.js` and wraps the one-time-code service.
 
@@ -123,9 +124,9 @@ Content-Type: application/json
 **Request Body:**
 ```json
 {
-  "login": "string (username)",
+  "login": "string (3-32 chars, letters/numbers/underscore)",
   "email": "string (valid email)",
-  "password": "string"
+  "password": "string (8-128 chars)"
 }
 ```
 
@@ -143,7 +144,12 @@ Content-Type: application/json
 
 | Status | Response | Reason |
 |--------|----------|--------|
-| 400 | `{ "error": "Missing fields" }` | Missing login, email, or password |
+| 400 | `{ "error": "login is required" }` | Login is missing, blank, or whitespace-only |
+| 400 | `{ "error": "login must be 3-32 characters long" }` | Login length is outside the allowed range |
+| 400 | `{ "error": "login may only contain letters, numbers, and underscores" }` | Login contains unsupported characters |
+| 400 | `{ "error": "Invalid email format" }` | Email is missing, blank, or malformed |
+| 400 | `{ "error": "password is required" }` | Password is missing, blank, or whitespace-only |
+| 400 | `{ "error": "password must be 8-128 characters long" }` | Password length is outside the allowed range |
 | 409 | `{ "error": "Email already in use" }` | Email already registered |
 | 500 | `{ "error": "Server error" }` | Unexpected server error |
 
@@ -164,7 +170,7 @@ Content-Type: application/json
 ```json
 {
   "email": "string",
-  "password": "string"
+  "password": "string (8-128 chars)"
 }
 ```
 
@@ -187,7 +193,9 @@ Content-Type: application/json
 
 | Status | Response | Reason |
 |--------|----------|--------|
-| 400 | `{ "error": "Missing fields" }` | Missing email or password |
+| 400 | `{ "error": "Invalid email format" }` | Email is missing, blank, or malformed |
+| 400 | `{ "error": "password is required" }` | Password is missing, blank, or whitespace-only |
+| 400 | `{ "error": "password must be 8-128 characters long" }` | Password length is outside the allowed range |
 | 401 | `{ "error": "Invalid credentials" }` | Email not found or password incorrect |
 | 500 | `{ "error": "Server error" }` | Unexpected server error |
 
@@ -225,7 +233,9 @@ Content-Type: application/json
 
 | Status | Response | Reason |
 |--------|----------|--------|
-| 400 | `{ "error": "Missing fields" }` | Missing challengeId, email, or code |
+| 400 | `{ "error": "challengeId must be a valid UUID" }` | Challenge identifier is missing or malformed |
+| 400 | `{ "error": "Invalid email format" }` | Email is missing, blank, or malformed |
+| 400 | `{ "error": "code must contain only digits" }` | Verification code is missing, blank, or malformed |
 | 401 | `{ "error": "Invalid code..." }` | Code mismatch or attempts exhausted |
 | 404 | `{ "error": "User not found" }` | User record no longer exists |
 | 410 | `{ "error": "Confirmation code expired or was not found" }` | Expired or missing login challenge |
@@ -319,6 +329,9 @@ Content-Type: application/json
 | Status | Response | Reason |
 |--------|----------|--------|
 | 400 | `{ "error": "No changes requested" }` | Neither login nor email changes are requested |
+| 400 | `{ "error": "login must be 3-32 characters long" }` | Requested login length is outside the allowed range |
+| 400 | `{ "error": "login may only contain letters, numbers, and underscores" }` | Requested login contains unsupported characters |
+| 400 | `{ "error": "Invalid email format" }` | Requested email is blank or malformed |
 | 401 | `{ "error": "Unauthorized" }` | Missing/invalid token or inactive session |
 | 409 | `{ "error": "Login already in use" }` | Requested login is already taken |
 | 500 | `{ "error": "Server error" }` | Unexpected server error |
@@ -368,7 +381,9 @@ Content-Type: application/json
 
 | Status | Response | Reason |
 |--------|----------|--------|
-| 400 | `{ "error": "Missing fields" }` | Missing confirmationId, email, or code |
+| 400 | `{ "error": "confirmationId must be a valid UUID" }` | Confirmation identifier is missing or malformed |
+| 400 | `{ "error": "Invalid email format" }` | Email is missing, blank, or malformed |
+| 400 | `{ "error": "code must contain only digits" }` | Verification code is missing, blank, or malformed |
 | 400 | `{ "error": "No changes requested" }` | Challenge payload has no effective profile changes |
 | 400 | `{ "error": "Confirmation code purpose mismatch" }` | Code was issued for a different action |
 | 400 | `{ "error": "Confirmation code recipient mismatch" }` | Email does not match challenge recipient |
@@ -473,6 +488,13 @@ Content-Type: application/json
 - **In the Background:** If the email is registered, a one-time password is generated and delivered via the configured email transport (SMTP or console).
 - **Frontend Implication:** You cannot pre-validate if an account exists before showing a confirmation screen. Present a generic "check your email" confirmation to all users.
 
+**Error Responses:**
+
+| Status | Response | Reason |
+|--------|----------|--------|
+| 400 | `{ "error": "Invalid email format" }` | Email is missing, blank, or malformed |
+| 500 | `{ "error": "Server error" }` | Unexpected server error |
+
 ---
 
 ### 7. Confirm Password Reset
@@ -492,7 +514,7 @@ Content-Type: application/json
   "confirmationId": "c8ef6a31-9c34-4a8d-9d16-2d7b7b8f1a12",
   "email": "john@example.com",
   "code": "123456",
-  "newPassword": "new-password"
+  "newPassword": "string (8-128 chars)"
 }
 ```
 
@@ -507,7 +529,11 @@ Content-Type: application/json
 
 | Status | Response | Reason |
 |--------|----------|--------|
-| 400 | `{ "error": "Missing fields" }` | Required reset fields are missing |
+| 400 | `{ "error": "confirmationId must be a valid UUID" }` | Confirmation identifier is missing or malformed |
+| 400 | `{ "error": "Invalid email format" }` | Email is missing, blank, or malformed |
+| 400 | `{ "error": "code must contain only digits" }` | Verification code is missing, blank, or malformed |
+| 400 | `{ "error": "newPassword is required" }` | New password is missing, blank, or whitespace-only |
+| 400 | `{ "error": "newPassword must be 8-128 characters long" }` | New password length is outside the allowed range |
 | 401 | `{ "error": "Invalid code..." }` | Code mismatch or attempts exhausted |
 | 404 | `{ "error": "User not found" }` | User record no longer exists |
 | 410 | `{ "error": "Confirmation code expired or was not found" }` | Expired or missing code |

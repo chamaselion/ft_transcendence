@@ -60,6 +60,9 @@ Cookie: token=JWT_TOKEN_HERE
 	- `X-RateLimit-Remaining`
 	- `X-RateLimit-Reset`
 - Exported JSON fields:
+	- `userData`: current account profile fields
+	- `assets`: distinct assets referenced by the user's transactions
+	- `transactions`: the user's transaction rows, including their linked asset data
 
 ```json
 {
@@ -71,8 +74,33 @@ Cookie: token=JWT_TOKEN_HERE
 		"createdAt": "timestamp",
 		"updatedAt": "timestamp"
 	},
-	"assets": [],
-	"transactions": []
+	"assets": [
+		{
+			"id": "uuid",
+			"key": "bitcoin",
+			"symbol": "BTC-USD",
+			"type": "crypto",
+			"name": "Bitcoin",
+			"assetValuations": []
+		}
+	],
+	"transactions": [
+		{
+			"id": "uuid",
+			"quantity": "0.5",
+			"date": "2026-06-20",
+			"createdAt": "timestamp",
+			"updatedAt": "timestamp",
+			"asset": {
+				"id": "uuid",
+				"key": "bitcoin",
+				"symbol": "BTC-USD",
+				"type": "crypto",
+				"name": "Bitcoin",
+				"assetValuations": []
+			}
+		}
+	]
 }
 ```
 
@@ -104,9 +132,9 @@ Cookie: token=JWT_TOKEN_HERE
 - CSV is organized into readable sections in one file:
 	- `meta` (export timestamp)
 	- `user` (profile fields)
-	- `asset` (owned/related assets)
+	- `asset` (assets referenced by the user's transactions)
 	- `assetValuation` (valuation history rows)
-	- `transaction` (transaction rows)
+	- `transaction` (transaction rows, including asset id/key/symbol metadata and trade date)
 
 **Error Responses:**
 
@@ -191,11 +219,14 @@ Content-Type: application/json
 }
 ```
 
+`deletedRecords.assets` and `deletedRecords.valuations` count orphaned assets and valuations that were only reachable through the deleted user's transactions. Shared assets that are still referenced by other users' transactions are preserved.
+
 **Error Responses:**
 
 | Status | Response | Reason |
 |--------|----------|--------|
-| 400 | `{ "error": "Missing fields" }` | Missing `confirmationId` or `code` |
+| 400 | `{ "error": "confirmationId must be a valid UUID" }` | Confirmation identifier is missing or malformed |
+| 400 | `{ "error": "code must contain only digits" }` | Confirmation code is missing, blank, or malformed |
 | 400 | `{ "error": "Confirmation code purpose mismatch", "attemptsRemaining": number }` | Code issued for a different purpose |
 | 400 | `{ "error": "Confirmation code recipient mismatch", "attemptsRemaining": number }` | Challenge recipient mismatch |
 | 401 | `{ "error": "Unauthorized" }` | Missing/invalid token, inactive session, user mismatch, or user not found |

@@ -8,6 +8,18 @@ const { createGdprNotificationService } = require('../../services/gdprNotificati
 
 const gdprNotificationService = createGdprNotificationService();
 
+const buildAssetsById = (transactions) => {
+  const assetsById = new Map();
+
+  for (const transaction of transactions || []) {
+    if (transaction.asset && !assetsById.has(transaction.asset.id)) {
+      assetsById.set(transaction.asset.id, transaction.asset.toJSON());
+    }
+  }
+
+  return assetsById;
+};
+
 const neutralizeCsvFormula = (value) => {
   const text = value === null || value === undefined ? '' : String(value);
   return /^\s*[=+\-@\t]/.test(text) ? `'${text}` : text;
@@ -84,26 +96,12 @@ const createDataExportCsvHandler = ({ userModel, tokenLib = jwt, secret = requir
         attributes: ['id', 'login', 'email', 'createdAt', 'updatedAt'],
         include: [
           {
-            association: 'asset',
-            attributes: ['id', 'type', 'name'],
-            include: [
-              {
-                association: 'transactions',
-                attributes: ['id', 'quantity', 'createdAt', 'updatedAt'],
-              },
-              {
-                association: 'assetValuations',
-                attributes: ['id', 'valuationDate', 'open', 'high', 'low', 'close'],
-              },
-            ],
-          },
-          {
             association: 'transactions',
-            attributes: ['id', 'quantity', 'createdAt', 'updatedAt'],
+            attributes: ['id', 'quantity', 'date', 'createdAt', 'updatedAt'],
             include: [
               {
                 association: 'asset',
-                attributes: ['id', 'type', 'name'],
+                attributes: ['id', 'key', 'type', 'name', 'symbol'],
                 include: [
                   {
                     association: 'assetValuations',
@@ -119,16 +117,7 @@ const createDataExportCsvHandler = ({ userModel, tokenLib = jwt, secret = requir
       if (!user) return res.status(401).json({ error: 'Unauthorized' });
       await ensureSession({ token, user });
 
-      const assetsById = new Map();
-      if (user.asset) {
-        assetsById.set(user.asset.id, user.asset.toJSON());
-      }
-
-      for (const transaction of user.transactions || []) {
-        if (transaction.asset && !assetsById.has(transaction.asset.id)) {
-          assetsById.set(transaction.asset.id, transaction.asset.toJSON());
-        }
-      }
+      const assetsById = buildAssetsById(user.transactions);
 
       const assets = Array.from(assetsById.values());
       const valuationsByAsset = new Map();
@@ -155,9 +144,9 @@ const createDataExportCsvHandler = ({ userModel, tokenLib = jwt, secret = requir
       res.write(toCsvRow(['user', user.id, user.login, user.email, user.createdAt, user.updatedAt]) + '\n');
       res.write('\n');
 
-      res.write(toCsvRow(['section', 'assetId', 'type', 'name']) + '\n');
+      res.write(toCsvRow(['section', 'assetId', 'assetKey', 'symbol', 'type', 'name']) + '\n');
       for (const asset of assets) {
-        res.write(toCsvRow(['asset', asset.id, asset.type, asset.name]) + '\n');
+        res.write(toCsvRow(['asset', asset.id, asset.key, asset.symbol, asset.type, asset.name]) + '\n');
       }
       res.write('\n');
 
@@ -182,9 +171,12 @@ const createDataExportCsvHandler = ({ userModel, tokenLib = jwt, secret = requir
         'section',
         'transactionId',
         'assetId',
+        'assetKey',
+        'assetSymbol',
         'assetType',
         'assetName',
         'quantity',
+        'date',
         'createdAt',
         'updatedAt',
       ]) + '\n');
@@ -196,9 +188,12 @@ const createDataExportCsvHandler = ({ userModel, tokenLib = jwt, secret = requir
           'transaction',
           transaction.id,
           transactionAsset.id || null,
+          transactionAsset.key || null,
+          transactionAsset.symbol || null,
           transactionAsset.type || null,
           transactionAsset.name || null,
           transaction.quantity,
+          transaction.date,
           transaction.createdAt,
           transaction.updatedAt,
         ]) + '\n');
