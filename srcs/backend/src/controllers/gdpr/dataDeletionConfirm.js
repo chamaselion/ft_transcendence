@@ -4,6 +4,7 @@ const sequelize = require('../../db');
 const { clearAuthCookie, ensureSession, getTokenFromCookie, isSessionActive, purgeSessionsForUser } = require('../auth/helpers');
 const { oneTimeCodeService: defaultOneTimeCodeService } = require('../auth/oneTimeCodeToolkit');
 const { createGdprNotificationService } = require('../../services/gdprNotificationService');
+const { validateChallengeId, validateOtpCode } = require('../auth/validation');
 
 const gdprNotificationService = createGdprNotificationService();
 
@@ -21,10 +22,14 @@ const createDataDeletionConfirmHandler = ({ userModel, tokenLib = jwt, secret = 
         return res.status(401).json({ error: 'Unauthorized' });
       }
 
-      const { confirmationId, code } = req.body;
-      if (!confirmationId || !code) {
-        return res.status(400).json({ error: 'Missing fields' });
-      }
+      const confirmationIdValidation = validateChallengeId(req.body?.confirmationId, 'confirmationId');
+      if (!confirmationIdValidation.ok) return res.status(400).json({ error: confirmationIdValidation.error });
+
+      const codeValidation = validateOtpCode(req.body?.code);
+      if (!codeValidation.ok) return res.status(400).json({ error: codeValidation.error });
+
+      const confirmationId = confirmationIdValidation.value;
+      const code = codeValidation.value;
 
       const user = await resolvedUserModel.findByPk(payload.id, {
         attributes: ['id', 'login', 'email', 'assetId'],

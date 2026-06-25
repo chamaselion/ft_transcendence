@@ -1,6 +1,7 @@
 const bcrypt = require('bcrypt');
 const sequelize = require('../../db');
 const { oneTimeCodeService: defaultOneTimeCodeService } = require('./oneTimeCodeToolkit');
+const { validateEmail, validatePassword } = require('./validation');
 
 const maskEmail = (email) => {
   const normalizedEmail = String(email || '').trim();
@@ -19,9 +20,15 @@ const createLoginHandler = ({ userModel, hashLib = bcrypt, oneTimeCodeService = 
 
   const login = async (req, res) => {
     try {
-      const { email, password } = req.body;
+      const emailValidation = validateEmail(req.body?.email);
+      if (!emailValidation.ok) return res.status(400).json({ error: emailValidation.error });
+
+      const passwordValidation = validatePassword(req.body?.password);
+      if (!passwordValidation.ok) return res.status(400).json({ error: passwordValidation.error });
+
+      const email = emailValidation.value;
+      const password = passwordValidation.value;
       console.log(`[AUTH] POST /login from ${req.ip}`, { email });
-      if (!email || !password) return res.status(400).json({ error: 'Missing fields' });
 
       const user = await resolvedUserModel.findOne({ where: { email } });
       if (!user) return res.status(401).json({ error: 'Invalid credentials' });

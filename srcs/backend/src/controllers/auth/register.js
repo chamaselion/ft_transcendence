@@ -1,10 +1,9 @@
 const bcrypt = require('bcrypt');
 const { requireNumberEnv } = require('../../config');
 const sequelize = require('../../db');
+const { validateEmail, validateLogin, validatePassword } = require('./validation');
 
 const BCRYPT_SALT_ROUNDS = requireNumberEnv('BCRYPT_SALT_ROUNDS');
-
-const isValidEmail = (email) => EMAIL_REGEX.test(email);
 
 const createRegisterHandler = ({ userModel, hashLib = bcrypt } = {}) => {
   const resolvedUserModel = userModel || sequelize.models.user;
@@ -12,9 +11,18 @@ const createRegisterHandler = ({ userModel, hashLib = bcrypt } = {}) => {
   const register = async (req, res) => {
     try {
       console.log(`[AUTH] POST /register from ${req.ip}`, { body: { login: req.body.login, email: req.body.email } });
-      const { login, email, password } = req.body;
-      console.log(`[AUTH] POST /register from ${req.ip}`, { login, email });
-      if (!login || !email || !password) return res.status(400).json({ error: 'Missing fields' });
+      const loginValidation = validateLogin(req.body?.login);
+      if (!loginValidation.ok) return res.status(400).json({ error: loginValidation.error });
+
+      const emailValidation = validateEmail(req.body?.email);
+      if (!emailValidation.ok) return res.status(400).json({ error: emailValidation.error });
+
+      const passwordValidation = validatePassword(req.body?.password);
+      if (!passwordValidation.ok) return res.status(400).json({ error: passwordValidation.error });
+
+      const login = loginValidation.value;
+      const email = emailValidation.value;
+      const password = passwordValidation.value;
 
       const existing = await resolvedUserModel.findOne({ where: { email } });
       if (existing) return res.status(409).json({ error: 'Email already in use' });

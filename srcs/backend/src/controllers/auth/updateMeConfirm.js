@@ -9,10 +9,16 @@ const {
   setAuthCookie,
 } = require('./helpers');
 const { oneTimeCodeService: defaultOneTimeCodeService } = require('./oneTimeCodeToolkit');
+const {
+  normalizeText,
+  validateChallengeId,
+  validateEmail,
+  validateOtpCode,
+  validateOptionalEmail,
+  validateOptionalLogin,
+} = require('./validation');
 
 const JWT_EXPIRES_IN = requireEnv('JWT_EXPIRES_IN');
-
-const normalizeText = (value) => String(value || '').trim();
 
 const createUpdateMeConfirmHandler = ({
   userModel,
@@ -39,10 +45,18 @@ const createUpdateMeConfirmHandler = ({
       }
       if (!(await isSessionActive(token))) return res.status(401).json({ error: 'Unauthorized' });
 
-      const { confirmationId, email, code } = req.body;
-      if (!confirmationId || !email || !code) {
-        return res.status(400).json({ error: 'Missing fields' });
-      }
+      const confirmationIdValidation = validateChallengeId(req.body?.confirmationId, 'confirmationId');
+      if (!confirmationIdValidation.ok) return res.status(400).json({ error: confirmationIdValidation.error });
+
+      const emailValidation = validateEmail(req.body?.email);
+      if (!emailValidation.ok) return res.status(400).json({ error: emailValidation.error });
+
+      const codeValidation = validateOtpCode(req.body?.code);
+      if (!codeValidation.ok) return res.status(400).json({ error: codeValidation.error });
+
+      const confirmationId = confirmationIdValidation.value;
+      const email = emailValidation.value;
+      const code = codeValidation.value;
 
       const verification = await oneTimeCodeService.verifyChallenge({
         challengeId: confirmationId,
@@ -66,8 +80,14 @@ const createUpdateMeConfirmHandler = ({
       if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
       const requestedChanges = verification.payload.changes || {};
-      const requestedLogin = normalizeText(requestedChanges.login);
-      const requestedEmail = normalizeText(requestedChanges.email);
+      const requestedLoginValidation = validateOptionalLogin(requestedChanges.login);
+      if (!requestedLoginValidation.ok) return res.status(400).json({ error: requestedLoginValidation.error });
+
+      const requestedEmailValidation = validateOptionalEmail(requestedChanges.email);
+      if (!requestedEmailValidation.ok) return res.status(400).json({ error: requestedEmailValidation.error });
+
+      const requestedLogin = normalizeText(requestedLoginValidation.value);
+      const requestedEmail = normalizeText(requestedEmailValidation.value);
 
       const updatePayload = {};
 

@@ -3,8 +3,7 @@ const sequelize = require('../../db');
 const { requireEnv } = require('../../config');
 const { ensureSession, getTokenFromCookie, isSessionActive } = require('./helpers');
 const { oneTimeCodeService: defaultOneTimeCodeService } = require('./oneTimeCodeToolkit');
-
-const normalizeText = (value) => String(value || '').trim();
+const { validateOptionalEmail, validateOptionalLogin } = require('./validation');
 
 const createUpdateMeHandler = ({
   userModel,
@@ -56,8 +55,14 @@ const createUpdateMeHandler = ({
 
       await ensureSession({ token, user });
 
-      const requestedLogin = normalizeText(req.body.login);
-      const requestedEmail = normalizeText(req.body.email);
+      const requestedLoginValidation = validateOptionalLogin(req.body?.login);
+      if (!requestedLoginValidation.ok) return res.status(400).json({ error: requestedLoginValidation.error });
+
+      const requestedEmailValidation = validateOptionalEmail(req.body?.email);
+      if (!requestedEmailValidation.ok) return res.status(400).json({ error: requestedEmailValidation.error });
+
+      const requestedLogin = requestedLoginValidation.value;
+      const requestedEmail = requestedEmailValidation.value;
 
       const wantsLoginChange = Boolean(requestedLogin && requestedLogin !== user.login);
       const wantsEmailChange = Boolean(requestedEmail && requestedEmail !== user.email);

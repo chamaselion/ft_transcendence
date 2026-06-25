@@ -3,6 +3,7 @@ const { requireEnv } = require('../../config');
 const sequelize = require('../../db');
 const { ensureSession, setAuthCookie } = require('./helpers');
 const { oneTimeCodeService: defaultOneTimeCodeService } = require('./oneTimeCodeToolkit');
+const { validateChallengeId, validateEmail, validateOtpCode } = require('./validation');
 
 const JWT_EXPIRES_IN = requireEnv('JWT_EXPIRES_IN');
 
@@ -16,11 +17,18 @@ const createLoginConfirmHandler = ({
 
   const loginConfirm = async (req, res) => {
     try {
-      const { challengeId, email, code } = req.body;
+      const challengeIdValidation = validateChallengeId(req.body?.challengeId);
+      if (!challengeIdValidation.ok) return res.status(400).json({ error: challengeIdValidation.error });
 
-      if (!challengeId || !email || !code) {
-        return res.status(400).json({ error: 'Missing fields' });
-      }
+      const emailValidation = validateEmail(req.body?.email);
+      if (!emailValidation.ok) return res.status(400).json({ error: emailValidation.error });
+
+      const codeValidation = validateOtpCode(req.body?.code);
+      if (!codeValidation.ok) return res.status(400).json({ error: codeValidation.error });
+
+      const challengeId = challengeIdValidation.value;
+      const email = emailValidation.value;
+      const code = codeValidation.value;
 
       const verification = await oneTimeCodeService.verifyChallenge({
         challengeId,

@@ -1,14 +1,17 @@
 const sequelize = require('../../db');
 const { randomUUID } = require('crypto');
 const { oneTimeCodeService: defaultOneTimeCodeService } = require('./oneTimeCodeToolkit');
+const { validateEmail } = require('./validation');
 
 const createPasswordResetRequestHandler = ({ userModel, oneTimeCodeService = defaultOneTimeCodeService } = {}) => {
   const resolvedUserModel = userModel || sequelize.models.user;
 
   const passwordResetRequest = async (req, res) => {
     try {
-      const { email } = req.body;
-      if (!email) return res.status(400).json({ error: 'Missing fields' });
+      const emailValidation = validateEmail(req.body?.email);
+      if (!emailValidation.ok) return res.status(400).json({ error: emailValidation.error });
+
+      const email = emailValidation.value;
 
       const genericAcceptedResponse = {
         accepted: true,

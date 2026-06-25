@@ -3,6 +3,7 @@ const sequelize = require('../../db');
 const { requireNumberEnv } = require('../../config');
 const { purgeSessionsForUser } = require('./helpers');
 const { oneTimeCodeService: defaultOneTimeCodeService } = require('./oneTimeCodeToolkit');
+const { validateChallengeId, validateEmail, validateOtpCode, validatePassword } = require('./validation');
 
 const BCRYPT_SALT_ROUNDS = requireNumberEnv('BCRYPT_SALT_ROUNDS');
 
@@ -11,11 +12,22 @@ const createPasswordResetConfirmHandler = ({ userModel, hashLib = bcrypt, oneTim
 
   const passwordResetConfirm = async (req, res) => {
     try {
-      const { confirmationId, email, code, newPassword } = req.body;
+      const confirmationIdValidation = validateChallengeId(req.body?.confirmationId, 'confirmationId');
+      if (!confirmationIdValidation.ok) return res.status(400).json({ error: confirmationIdValidation.error });
 
-      if (!confirmationId || !email || !code || !newPassword) {
-        return res.status(400).json({ error: 'Missing fields' });
-      }
+      const emailValidation = validateEmail(req.body?.email);
+      if (!emailValidation.ok) return res.status(400).json({ error: emailValidation.error });
+
+      const codeValidation = validateOtpCode(req.body?.code);
+      if (!codeValidation.ok) return res.status(400).json({ error: codeValidation.error });
+
+      const passwordValidation = validatePassword(req.body?.newPassword, 'newPassword');
+      if (!passwordValidation.ok) return res.status(400).json({ error: passwordValidation.error });
+
+      const confirmationId = confirmationIdValidation.value;
+      const email = emailValidation.value;
+      const code = codeValidation.value;
+      const newPassword = passwordValidation.value;
 
       const verification = await oneTimeCodeService.verifyChallenge({
         challengeId: confirmationId,
