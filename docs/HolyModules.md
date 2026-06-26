@@ -16,11 +16,11 @@ Web: Framework frontend and backend  major 2
 
 **Brief description of functionality:**
 
-> Frontend:, Backend:
+> Backend: The Backend server is implemented with Express, organized into route modules, controllers, middleware, services, and Sequelize models. It exposes REST endpoints under `/api`, runs HTTPS, and shares infrastructure with a websocket server.
 
 **Justification of subject compliance:**
 
-> Frontend:, Backend:
+> Backend compliance: We use a backend framework (Express) with framework-native routing/middleware/controller patterns, satisfying the requirement to use a backend framework.
 
 ---
 
@@ -113,11 +113,20 @@ Data & Analytics: GDPR compliance minor 1
 
 **Brief description of functionality:**
 
-> _Fill in here_
+> GDPR endpoints are implemented in authenticated account settings under `/api/auth`:
+> `POST /me/data-request`, `GET /me/data-export`, `GET /me/data-export/csv`, `POST /me/data-deletion/request`, and `POST /me/data-deletion/confirm`.
+>
+> Users can request their data, download exports in readable formats (JSON and CSV), and perform account/data deletion with an explicit confirmation step (email one-time code). GDPR operations are audited and trigger confirmation emails.
 
 **Justification of subject compliance:**
 
-> _Fill in here_
+> Allow users to request their data: implemented via `POST /me/data-request`.
+>
+> Data deletion with confirmation: implemented as a two-step flow (`/me/data-deletion/request` then `/me/data-deletion/confirm`) with a one-time email code.
+>
+> Export user data in a readable format: implemented through downloadable JSON and CSV exports (`/me/data-export`, `/me/data-export/csv`).
+>
+> Confirmation emails for data operations: implemented through the GDPR notification service for request, export, and deletion operations.
 
 ---
 
@@ -192,8 +201,14 @@ users.
 
 **Brief description of functionality:**
 
-> _Fill in here_
+> The project uses a complete challenge/confirmation 2FA flow based on one-time email codes. Login is split into two steps: credential check (`POST /login`) and verification (`POST /login/confirm`) before issuing an authenticated session.
+>
+> The same one-time-code infrastructure is also used for sensitive account actions (password reset confirmation, profile update confirmation, and GDPR deletion confirmation), giving consistent second-factor protection.
 
 **Justification of subject compliance:**
 
-> _Fill in here_
+> Complete 2FA system: implemented with challenge issuance, secure code hashing, TTL expiration, limited attempts, and server-side verification before granting access.
+>
+> Delivery and user flow: verification codes are sent by email and consumed in dedicated confirmation endpoints.
+>
+> Security completeness: route-level rate limiting is applied to challenge issuance and verification endpoints, and invalid/expired challenges are rejected, which makes the 2FA flow production-grade rather than partial.
