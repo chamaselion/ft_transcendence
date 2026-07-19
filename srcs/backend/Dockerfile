@@ -7,7 +7,7 @@ RUN npm ci --only=production || npm install --production
 
 COPY . .
 
-ENV NODE_ENV=production
+# ENV NODE_ENV=production
 EXPOSE 3001
 
-CMD ["node", "src/bootstrap.js"]
+CMD ["node", "src/server.js"]

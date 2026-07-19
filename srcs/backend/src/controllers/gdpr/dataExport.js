@@ -8,17 +8,16 @@ const { createGdprNotificationService } = require('../../services/gdprNotificati
 
 const gdprNotificationService = createGdprNotificationService();
 
-const buildAssetsById = (transactions) => {
-  const assetsById = new Map();
-
-  for (const transaction of transactions || []) {
-    if (transaction.asset && !assetsById.has(transaction.asset.id)) {
-      assetsById.set(transaction.asset.id, transaction.asset.toJSON());
-    }
-  }
-
-  return assetsById;
-};
+const buildExportPayload = (user) => ({
+  exportDate: new Date().toISOString(),
+  userData: {
+    id: user.id,
+    login: user.login,
+    email: user.email,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+  },
+});
 
 const createDataExportHandler = ({ userModel, tokenLib = jwt, secret = requireEnv('JWT_SECRET') } = {}) => {
   const resolvedUserModel = userModel || sequelize.models.user;
@@ -80,44 +79,12 @@ const createDataExportHandler = ({ userModel, tokenLib = jwt, secret = requireEn
 
       const user = await resolvedUserModel.findByPk(payload.id, {
         attributes: ['id', 'login', 'email', 'createdAt', 'updatedAt'],
-        include: [
-          {
-            association: 'transactions',
-            attributes: ['id', 'quantity', 'date', 'createdAt', 'updatedAt'],
-            include: [
-              {
-                association: 'asset',
-                attributes: ['id', 'key', 'type', 'name', 'symbol'],
-                include: [
-                  {
-                    association: 'assetValuations',
-                    attributes: ['id', 'valuationDate', 'open', 'high', 'low', 'close'],
-                  }
-                ],
-              }
-            ]
-          }
-        ]
       });
 
       if (!user) return res.status(401).json({ error: 'Unauthorized' });
       await ensureSession({ token, user });
 
-      const transactions = user.transactions ? user.transactions.map((transaction) => transaction.toJSON()) : [];
-      const assetsById = buildAssetsById(user.transactions);
-
-      const exportData = {
-        exportDate: new Date().toISOString(),
-        userData: {
-          id: user.id,
-          login: user.login,
-          email: user.email,
-          createdAt: user.createdAt,
-          updatedAt: user.updatedAt
-        },
-        assets: Array.from(assetsById.values()),
-        transactions,
-      };
+      const exportData = buildExportPayload(user);
       const exportReference = `export-${user.id}-${Date.now()}`;
 
       // Set headers for secure download
@@ -126,27 +93,10 @@ const createDataExportHandler = ({ userModel, tokenLib = jwt, secret = requireEn
       res.setHeader('Content-Disposition', `attachment; filename="user-data-${user.id}-${Date.now()}.json"`);
       res.setHeader('Cache-Control', 'no-store');
 
-      // Stream the JSON response to minimize memory pressure and avoid creating a temp file
-      // Write top-level fields and stream arrays item-by-item
+      // Stream the JSON response to minimize memory pressure and avoid creating a temp file.
       res.write('{' );
       res.write('"exportDate":' + JSON.stringify(exportData.exportDate) + ',');
-      res.write('"userData":' + JSON.stringify(exportData.userData) + ',');
-
-      // assets array
-      res.write('"assets":[');
-      for (let i = 0; i < exportData.assets.length; i++) {
-        if (i > 0) res.write(',');
-        res.write(JSON.stringify(exportData.assets[i]));
-      }
-      res.write('],');
-
-      // transactions array
-      res.write('"transactions":[');
-      for (let i = 0; i < exportData.transactions.length; i++) {
-        if (i > 0) res.write(',');
-        res.write(JSON.stringify(exportData.transactions[i]));
-      }
-      res.write(']');
+      res.write('"userData":' + JSON.stringify(exportData.userData));
 
       res.write('}');
       res.once('finish', () => {
@@ -159,8 +109,7 @@ const createDataExportHandler = ({ userModel, tokenLib = jwt, secret = requireEn
           userAgent: req.get('user-agent'),
           metadata: {
             endpoint: '/me/data-export',
-            assetCount: exportData.assets.length,
-            transactionCount: transactions.length,
+            fields: ['exportDate', 'userData'],
           },
         });
 

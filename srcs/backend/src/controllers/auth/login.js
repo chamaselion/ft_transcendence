@@ -1,4 +1,4 @@
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const sequelize = require('../../db');
 const { oneTimeCodeService: defaultOneTimeCodeService } = require('./oneTimeCodeToolkit');
 const { validateEmail, validatePassword } = require('./validation');

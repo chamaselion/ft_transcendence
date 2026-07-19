@@ -8,9 +8,8 @@ This document summarizes how the current backend starts, what it exposes, and wh
 - Express
 - PostgreSQL
 - Sequelize
-- WebSocket server (`ws`)
 - Nodemailer
-- JWT + bcrypt authentication
+- JWT + bcryptjs authentication
 
 ## Why these choices are used
 
@@ -51,7 +50,7 @@ This comes from [srcs/backend/src/db/index.js](../srcs/backend/src/db/index.js).
 
 ### CORS
 
-CORS is enabled because the frontend and backend communicate across the reverse-proxy chain and authenticated requests need credential support.
+CORS is enabled to allow authenticated browser requests with cookies.
 
 Code example from middleware setup:
 
@@ -86,20 +85,16 @@ This comes from [srcs/backend/src/services/emailService.js](../srcs/backend/src/
 
 ## Startup flow
 
-1. [srcs/backend/src/bootstrap.js](../srcs/backend/src/bootstrap.js) authenticates to Vault and injects `JWT_SECRET`, `SMTP_PASS`, and `DATABASE_URL` into `process.env`.
-2. [srcs/backend/src/server.js](../srcs/backend/src/server.js) creates the HTTPS server, attaches the WebSocket server, connects to PostgreSQL, syncs models, and seeds assets.
-3. [srcs/backend/src/app.js](../srcs/backend/src/app.js) mounts middleware, `/health`, `/internal/watched`, and `/api` routes.
+1. [srcs/backend/src/config.js](../srcs/backend/src/config.js) loads environment variables from a local `.env` file.
+2. [srcs/backend/src/server.js](../srcs/backend/src/server.js) starts the HTTP server, connects to PostgreSQL, syncs models, and hydrates the session cache.
+3. [srcs/backend/src/app.js](../srcs/backend/src/app.js) mounts middleware, `/health`, and `/api` routes.
 
 ## Main files
 
 - [srcs/backend/src/app.js](../srcs/backend/src/app.js) — Express app and middleware setup
-- [srcs/backend/src/server.js](../srcs/backend/src/server.js) — HTTPS server startup
-- [srcs/backend/src/wsServer.js](../srcs/backend/src/wsServer.js) — `/ws` and `/internal/feed`
+- [srcs/backend/src/server.js](../srcs/backend/src/server.js) — HTTP server startup
 - [srcs/backend/src/db/index.js](../srcs/backend/src/db/index.js) — Sequelize connection and model registration
 - [srcs/backend/src/routes/auth.js](../srcs/backend/src/routes/auth.js) — auth + GDPR routes
-- [srcs/backend/src/routes/portfolio.js](../srcs/backend/src/routes/portfolio.js) — portfolio routes
-- [srcs/backend/src/routes/symbols.js](../srcs/backend/src/routes/symbols.js) — search + history routes
-- [srcs/backend/src/routes/assets.js](../srcs/backend/src/routes/assets.js) — seeded assets + stored valuations routes
 
 ## API surface
 
@@ -118,26 +113,12 @@ This comes from [srcs/backend/src/services/emailService.js](../srcs/backend/src/
 - `GET /api/auth/me/data-export/csv`
 - `POST /api/auth/me/data-deletion/request`
 - `POST /api/auth/me/data-deletion/confirm`
-- `GET /api/portfolio`
-- `GET /api/portfolio/history`
-- `GET /api/portfolio/transactions`
-- `POST /api/portfolio/transactions`
-- `PUT /api/portfolio/transactions/:id`
-- `DELETE /api/portfolio/transactions/:id`
-- `GET /api/symbols/search`
-- `GET /api/symbols/:symbol/history`
-- `GET /api/assets`
-- `GET /api/assets/:key/valuations`
-- `GET /api/assets/:key/valuations/latest`
-- `WS /ws`
 
-Detailed endpoint docs live in [API-s/README.md](API-s/README.md).
+Detailed endpoint docs live in [docs/API-s/auth-register.md](API-s/auth-register.md), [docs/API-s/auth-login.md](API-s/auth-login.md), [docs/API-s/auth-password-reset.md](API-s/auth-password-reset.md), [docs/API-s/auth-profile.md](API-s/auth-profile.md), [docs/API-s/auth-logout.md](API-s/auth-logout.md), and [docs/API-s/gdpr-api.md](API-s/gdpr-api.md).
 
 ## Configuration sources
 
-- `.env` provides non-secret runtime configuration such as ports, SMTP host settings, and `PRICE_FEED_TOKEN`.
-- Vault provides the main backend secrets: `DATABASE_URL`, `JWT_SECRET`, and `SMTP_PASS`.
-- Docker secrets provide the AppRole credentials used to authenticate to Vault.
+- `.env` provides runtime configuration, including database connection values, JWT settings, and SMTP settings.
 
 ## Password hashing, salting, and storage
 
@@ -189,9 +170,9 @@ This is implemented in [srcs/backend/src/controllers/auth/passwordResetConfirm.j
 
 ### Salting method
 
-The backend uses bcrypt's built-in salting through:
+The backend uses bcryptjs salting through:
 
-- `bcrypt.hash(password, BCRYPT_SALT_ROUNDS)`
+- `hashLib.hash(password, BCRYPT_SALT_ROUNDS)`
 
 `BCRYPT_SALT_ROUNDS` is loaded from configuration and controls the work factor.
 
@@ -205,16 +186,26 @@ Recommended path:
 make up
 ```
 
-Running the backend directly is possible, but you must provide TLS files and Vault-related environment setup manually.
+Running the backend directly is possible as long as required `.env` values are set.
 
 ## Troubleshooting
 
 - `GET /health` should return `{ "status": "ok" }`.
-- If startup fails before the backend listens, check Vault status first.
 - For service logs:
 
 ```bash
 docker compose logs -f backend
 docker compose logs -f db
-docker compose logs -f vault
 ```
+
+## Some useful resources:
+
+- Backend on node.js: https://www.geeksforgeeks.org/node-js/how-to-use-node-js-for-backend-web-development/
+- API-s: https://swagger.io/specification/
+- API-s: https://spec.openapis.org/oas/v3.1.0.html
+- API-s: https://www.youtube.com/watch?v=-MTSQjw5DrM
+- API-s: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods
+- JWT: https://www.youtube.com/watch?v=7Q17ubqLfaM
+- JWT: https://www.youtube.com/watch?v=iFeVEFVmFZw
+- JWT: https://www.jwt.io/introduction#what-is-json-web-token
+- node.js at its best: https://www.theodinproject.com/paths/full-stack-javascript/courses/nodejs

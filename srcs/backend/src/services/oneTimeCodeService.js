@@ -1,4 +1,4 @@
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const { randomInt, randomUUID } = require('crypto');
 const { requireNumberEnv } = require('../config');
 const sequelize = require('../db');

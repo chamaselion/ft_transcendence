@@ -1,4 +1,4 @@
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const sequelize = require('../../db');
 const { requireNumberEnv } = require('../../config');
 const { purgeSessionsForUser } = require('./helpers');

@@ -1,15 +1,11 @@
 services:
-  frontend:
-    build: srcs/frontend
-    env_file:
-      - .env
-    volumes:
-      - shared-data:/shared
 
   backend:
     build: srcs/backend
     env_file:
       - .env
+    volumes:
+      - ./.env:/usr/src/app/.env:ro
     ports:
       - "${BACKEND_HOST_PORT}:${PORT}"
     depends_on:
@@ -30,19 +26,5 @@ services:
       timeout: 5s
       retries: 5
 
-  nginx:
-    build: srcs/nginx
-    env_file:
-      - .env
-    ports:
-      - "${NGINX_HOST_PORT}:80"
-      - 9443:443
-    volumes:
-      - shared-data:/usr/share/nginx/html
-    depends_on:
-      - frontend
-      - backend
-
 volumes:
-  shared-data:
   postgres-data:

@@ -8,18 +8,6 @@ const { createGdprNotificationService } = require('../../services/gdprNotificati
 
 const gdprNotificationService = createGdprNotificationService();
 
-const buildAssetsById = (transactions) => {
-  const assetsById = new Map();
-
-  for (const transaction of transactions || []) {
-    if (transaction.asset && !assetsById.has(transaction.asset.id)) {
-      assetsById.set(transaction.asset.id, transaction.asset.toJSON());
-    }
-  }
-
-  return assetsById;
-};
-
 const neutralizeCsvFormula = (value) => {
   const text = value === null || value === undefined ? '' : String(value);
   return /^\s*[=+\-@\t]/.test(text) ? `'${text}` : text;
@@ -94,36 +82,10 @@ const createDataExportCsvHandler = ({ userModel, tokenLib = jwt, secret = requir
 
       const user = await resolvedUserModel.findByPk(payload.id, {
         attributes: ['id', 'login', 'email', 'createdAt', 'updatedAt'],
-        include: [
-          {
-            association: 'transactions',
-            attributes: ['id', 'quantity', 'date', 'createdAt', 'updatedAt'],
-            include: [
-              {
-                association: 'asset',
-                attributes: ['id', 'key', 'type', 'name', 'symbol'],
-                include: [
-                  {
-                    association: 'assetValuations',
-                    attributes: ['id', 'valuationDate', 'open', 'high', 'low', 'close'],
-                  },
-                ],
-              },
-            ],
-          },
-        ],
       });
 
       if (!user) return res.status(401).json({ error: 'Unauthorized' });
       await ensureSession({ token, user });
-
-      const assetsById = buildAssetsById(user.transactions);
-
-      const assets = Array.from(assetsById.values());
-      const valuationsByAsset = new Map();
-      for (const asset of assets) {
-        valuationsByAsset.set(asset.id, asset.assetValuations || []);
-      }
 
       const exportReference = `export-${user.id}-${Date.now()}`;
       const fileTimestamp = Date.now();
@@ -142,62 +104,6 @@ const createDataExportCsvHandler = ({ userModel, tokenLib = jwt, secret = requir
 
       res.write(toCsvRow(['section', 'id', 'login', 'email', 'createdAt', 'updatedAt']) + '\n');
       res.write(toCsvRow(['user', user.id, user.login, user.email, user.createdAt, user.updatedAt]) + '\n');
-      res.write('\n');
-
-      res.write(toCsvRow(['section', 'assetId', 'assetKey', 'symbol', 'type', 'name']) + '\n');
-      for (const asset of assets) {
-        res.write(toCsvRow(['asset', asset.id, asset.key, asset.symbol, asset.type, asset.name]) + '\n');
-      }
-      res.write('\n');
-
-      res.write(toCsvRow(['section', 'assetId', 'valuationId', 'valuationDate', 'open', 'high', 'low', 'close']) + '\n');
-      for (const [assetId, valuations] of valuationsByAsset.entries()) {
-        for (const valuation of valuations) {
-          res.write(toCsvRow([
-            'assetValuation',
-            assetId,
-            valuation.id,
-            valuation.valuationDate,
-            valuation.open,
-            valuation.high,
-            valuation.low,
-            valuation.close,
-          ]) + '\n');
-        }
-      }
-      res.write('\n');
-
-      res.write(toCsvRow([
-        'section',
-        'transactionId',
-        'assetId',
-        'assetKey',
-        'assetSymbol',
-        'assetType',
-        'assetName',
-        'quantity',
-        'date',
-        'createdAt',
-        'updatedAt',
-      ]) + '\n');
-
-      const transactions = user.transactions ? user.transactions.map((transaction) => transaction.toJSON()) : [];
-      for (const transaction of transactions) {
-        const transactionAsset = transaction.asset || {};
-        res.write(toCsvRow([
-          'transaction',
-          transaction.id,
-          transactionAsset.id || null,
-          transactionAsset.key || null,
-          transactionAsset.symbol || null,
-          transactionAsset.type || null,
-          transactionAsset.name || null,
-          transaction.quantity,
-          transaction.date,
-          transaction.createdAt,
-          transaction.updatedAt,
-        ]) + '\n');
-      }
 
       res.once('finish', () => {
         void recordGdprAuditEvent({
@@ -210,8 +116,7 @@ const createDataExportCsvHandler = ({ userModel, tokenLib = jwt, secret = requir
           metadata: {
             endpoint: '/me/data-export/csv',
             format: 'csv',
-            assetCount: assets.length,
-            transactionCount: transactions.length,
+            sections: ['meta', 'user'],
           },
         });
 

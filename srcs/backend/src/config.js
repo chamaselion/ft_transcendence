@@ -1,7 +1,24 @@
+const fs = require('fs');
 const path = require('path');
 const dotenv = require('dotenv');
 
-dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
+const loadEnvFile = () => {
+  const candidatePaths = [
+    path.resolve(process.cwd(), '.env'),
+    path.resolve(process.cwd(), '..', '.env'),
+    path.resolve(process.cwd(), '..', '..', '.env'),
+    path.resolve(process.cwd(), '..', '..', '..', '.env'),
+    path.resolve(__dirname, '../../.env'),
+    path.resolve(__dirname, '../../../.env'),
+  ];
+
+  const envPath = candidatePaths.find((candidatePath) => fs.existsSync(candidatePath));
+  if (envPath) {
+    dotenv.config({ path: envPath });
+  }
+};
+
+loadEnvFile();
 
 const requireEnv = (name) => {
   const value = process.env[name];

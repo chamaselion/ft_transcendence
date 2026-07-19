@@ -1,33 +1,16 @@
-const fs = require('fs');
-const https = require('https');
+const http = require('http');
 const sequelize = require('./db');
 const { createApp } = require('./app');
 const { requireEnv, requireNumberEnv } = require('./config');
 const routes = require('./routes');
-const { createWsServer } = require('./wsServer');
-const { seedAssets } = require('./db/seed');
-const { startValuationRecorder } = require('./services/valuationRecorder');
 const { flushSessionStateToDb, hydrateSessionCacheFromDb } = require('./controllers/auth/helpers');
 
 const app = createApp({ router: routes });
-
-const tlsCertFile = requireEnv('TLS_CERT_FILE');
-const tlsKeyFile = requireEnv('TLS_KEY_FILE');
-
-const httpsServer = https.createServer(
-  {
-    cert: fs.readFileSync(tlsCertFile),
-    key: fs.readFileSync(tlsKeyFile),
-  },
-  app
-);
-
-createWsServer(httpsServer);                            // attach WS server
-
 const PORT = requireNumberEnv('PORT');
 const DB_RETRY_LIMIT = requireNumberEnv('DB_RETRY_LIMIT');
 const DB_RETRY_DELAY_MS = requireNumberEnv('DB_RETRY_DELAY_MS');
 const NODE_ENV = process.env.NODE_ENV || 'development';
+const httpServer = http.createServer(app);
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -51,14 +34,10 @@ async function start() {
   try {
     await connectWithRetry();
     await sequelize.sync();
-    await seedAssets(sequelize);
     await hydrateSessionCacheFromDb();
     console.log('Database connected');
-    // Listen on the TLS server instance so HTTPS and WSS share the same port.
-    httpsServer.listen(PORT, async () => {
-      console.log(`Server running on port ${PORT}`);
-      await startValuationRecorder(); // persist prices before feeds tick
-	                                   // stream US stock prices
+    httpServer.listen(PORT, () => {
+      console.log(`Server running on port ${PORT} in ${NODE_ENV} mode`);
     });
   } catch (err) {
     console.error('Failed to start server:', err);
@@ -79,7 +58,7 @@ const shutdown = async (signal) => {
     console.error('Failed to flush session state during shutdown:', err);
   }
 
-  httpsServer.close(() => {
+  httpServer.close(() => {
     process.exit(0);
   });
 

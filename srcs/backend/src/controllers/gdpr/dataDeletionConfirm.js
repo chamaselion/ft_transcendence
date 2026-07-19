@@ -56,60 +56,16 @@ const createDataDeletionConfirmHandler = ({ userModel, tokenLib = jwt, secret = 
         return res.status(401).json({ error: 'Unauthorized' });
       }
 
-      const { asset, assetValuation, transaction, gdprExportQuota, gdprAuditEvent } = sequelize.models;
-      const relatedAssetRows = await transaction.findAll({
-        where: { userId: user.id },
-        attributes: ['assetId'],
-        group: ['assetId'],
-        raw: true,
-      });
-
-      const assetIds = new Set();
-      for (const row of relatedAssetRows) {
-        if (row.assetId) {
-          assetIds.add(row.assetId);
-        }
-      }
-
-      const deletableAssetIds = [...assetIds];
+      const { gdprExportQuota, gdprAuditEvent } = sequelize.models;
 
       const deletionCounts = {
-        transactions: await transaction.count({ where: { userId: user.id } }),
-        valuations: deletableAssetIds.length ? await assetValuation.count({ where: { assetId: deletableAssetIds } }) : 0,
-        assets: deletableAssetIds.length ? await asset.count({ where: { id: deletableAssetIds } }) : 0,
+        user: 1,
+        authSessions: 'all',
+        gdprExportQuota: 'all',
+        gdprAuditEvents: 'all',
       };
 
       await sequelize.transaction(async (dbTransaction) => {
-        await transaction.destroy({
-          where: { userId: user.id },
-          transaction: dbTransaction,
-        });
-
-        if (deletableAssetIds.length) {
-          const survivingAssetRows = await transaction.findAll({
-            where: { assetId: deletableAssetIds },
-            attributes: ['assetId'],
-            group: ['assetId'],
-            raw: true,
-            transaction: dbTransaction,
-          });
-
-          const survivingAssetIds = new Set(survivingAssetRows.map((row) => row.assetId));
-          const orphanedAssetIds = deletableAssetIds.filter((assetId) => !survivingAssetIds.has(assetId));
-
-          if (orphanedAssetIds.length) {
-            await assetValuation.destroy({
-              where: { assetId: orphanedAssetIds },
-              transaction: dbTransaction,
-            });
-
-            await asset.destroy({
-              where: { id: orphanedAssetIds },
-              transaction: dbTransaction,
-            });
-          }
-        }
-
         await gdprExportQuota.destroy({
           where: { userId: user.id },
           transaction: dbTransaction,

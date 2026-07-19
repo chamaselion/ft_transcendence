@@ -1,4 +1,4 @@
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const { requireNumberEnv } = require('../../config');
 const sequelize = require('../../db');
 const { validateEmail, validateLogin, validatePassword } = require('./validation');

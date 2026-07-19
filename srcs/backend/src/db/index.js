@@ -20,9 +20,6 @@ const sequelize = new Sequelize(databaseUrl.pathname.slice(1), databaseUrl.usern
 
 const modelDefiners = [
   require('./models/user'),
-  require('./models/asset'),
-  require('./models/asset-valuation'),
-  require('./models/transaction'),
   require('./models/gdpr-export-quota'),
   require('./models/gdpr-audit-event'),
   require('./models/auth-session'),

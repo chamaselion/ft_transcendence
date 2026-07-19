@@ -24,7 +24,7 @@ Success response (`202`):
 - Method: `GET`
 - Path: `/me/data-export`
 
-Returns a downloadable JSON file containing user data, referenced assets, and transactions.
+Returns a downloadable JSON file containing user account data and export metadata.
 
 ## Data export (CSV)
 
@@ -83,9 +83,10 @@ Success response (`200`):
   "loggedOut": true,
   "message": "Your data has been deleted.",
   "deletedRecords": {
-    "transactions": 0,
-    "valuations": 0,
-    "assets": 0
+    "user": 1,
+    "authSessions": "all",
+    "gdprExportQuota": "all",
+    "gdprAuditEvents": "all"
   }
 }
 ```
