@@ -11,6 +11,14 @@ services:
     depends_on:
       - backend
 
+  # Placeholder until the real SPA exists. Keeps the service wired into
+  # the stack (idles via the Dockerfile keep-alive CMD). nginx still serves
+  # the static placeholder page directly for now; once the SPA is ready,
+  # this container will build/serve it and nginx will point here.
+  frontend:
+    build: srcs/frontend
+    restart: unless-stopped
+
   backend:
     build: srcs/backend
     env_file:
