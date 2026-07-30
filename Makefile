@@ -13,3 +13,8 @@ down:
 
 clear:
 	$(COMPOSE) -f $(COMPOSE_FILE) down -v --rmi all --remove-orphans
+
+re:
+	$(COMPOSE) -f $(COMPOSE_FILE) down -v --rmi all --remove-orphans
+	$(COMPOSE) -f $(COMPOSE_FILE) up --build -d
+	

@@ -1,0 +1,29 @@
+Launch:
+cp .env.example .env
+make up
+
+health:
+curl -s http://localhost:3001/health
+
+Registration:
+curl -X POST http://localhost:3001/api/auth/register \
+-H "Content-Type: application/json" \
+-d '{
+"login": "alice",
+"email": "pavlovchic2626artem@gmail.com",
+"password": "secret123"
+}'
+
+Log in:
+curl -X POST http://localhost:3001/api/auth/login \
+-H "Content-Type: application/json" \
+-d '{
+"email": "pavlovchic2626artem@gmail.com",
+"password": "secret123"
+}'
+
+Если логин прошёл, backend вернёт:
+loginChallenge: true
+challengeId
+debugCode
+Это значит, что у вас уже работает двухфакторный flow.
