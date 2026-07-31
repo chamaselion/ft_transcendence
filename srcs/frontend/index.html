@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ft_transcendence</title>
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+            background: #0f1020;
+            color: #e6e6f0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+        h1 { font-size: 2.5rem; margin-bottom: 0.5rem; }
+        p  { color: #9a9ab5; }
+        code { background: #23233a; padding: 2px 6px; border-radius: 4px; }
+        #api-status { margin-top: 1.5rem; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+    <h1>ft_transcendence</h1>
+    <p>nginx is up and serving the frontend. Replace this with the real one.</p>
+    <div id="api-status">Backend: checking…</div>
+
+    <script>
+        // Quick check that /api and the backend are reachable through nginx.
+        fetch('/health')
+            .then(r => r.json())
+            .then(d => {
+                document.getElementById('api-status').textContent =
+                    'Backend /health: ' + JSON.stringify(d);
+            })
+            .catch(() => {
+                document.getElementById('api-status').textContent =
+                    'Backend /health: unreachable';
+            });
+    </script>
+</body>
+</html>
