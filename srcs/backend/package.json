@@ -18,7 +18,8 @@
     "nodemailer": "^6.10.1",
     "pg": "^8.11.2",
     "pg-hstore": "^2.3.4",
-    "sequelize": "^6.32.1"
+    "sequelize": "^6.32.1",
+    "ws": "^8.21.1"
   },
   "devDependencies": {
     "nodemon": "^2.0.22"
