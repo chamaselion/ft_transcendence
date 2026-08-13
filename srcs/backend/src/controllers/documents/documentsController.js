@@ -1,4 +1,5 @@
 const sequelize = require('../../db');
+const { sanitizePlainText } = require('./sanitize');
 
 // CRUD for the generic collaborative document.
 // All handlers are owner-scoped: a user only sees and edits their own
@@ -23,9 +24,19 @@ const createDocumentsController = ({ documentModel } = {}) => {
         return res.status(400).json({ error: 'content must be a string' });
       }
 
+      // Sanitize before re-checking non-emptiness: a title/content that is
+      // only markup (e.g. a bare "<script>...</script>") passes the raw
+      // non-empty check above but can collapse to "" once stripped, so we
+      // validate again on the sanitized value rather than store blanks.
+      const sanitizedTitle = title !== undefined ? sanitizePlainText(title.trim()) : undefined;
+      const sanitizedContent = content !== undefined ? sanitizePlainText(content) : undefined;
+      if (sanitizedTitle !== undefined && !isNonEmptyString(sanitizedTitle)) {
+        return res.status(400).json({ error: 'title must be a non-empty string' });
+      }
+
       const document = await resolvedModel.create({
-        title: title?.trim() || undefined,
-        content: content ?? undefined,
+        title: sanitizedTitle,
+        content: sanitizedContent,
         ownerId: req.user.id,
       });
 
@@ -80,11 +91,19 @@ const createDocumentsController = ({ documentModel } = {}) => {
         return res.status(400).json({ error: 'content must be a string' });
       }
 
+      // See create(): re-check non-emptiness after sanitizing, since
+      // markup-only input can collapse to "" once stripped.
+      const sanitizedTitle = title !== undefined ? sanitizePlainText(title.trim()) : undefined;
+      const sanitizedContent = content !== undefined ? sanitizePlainText(content) : undefined;
+      if (sanitizedTitle !== undefined && !isNonEmptyString(sanitizedTitle)) {
+        return res.status(400).json({ error: 'title must be a non-empty string' });
+      }
+
       const document = await findOwned(req.params.id, req.user.id);
       if (!document) return res.status(404).json({ error: 'Document not found' });
 
-      if (title !== undefined) document.title = title.trim();
-      if (content !== undefined) document.content = content;
+      if (sanitizedTitle !== undefined) document.title = sanitizedTitle;
+      if (sanitizedContent !== undefined) document.content = sanitizedContent;
       await document.save();
 
       return res.json({ document: pick(document, PUBLIC_ATTRS) });
