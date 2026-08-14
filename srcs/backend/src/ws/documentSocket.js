@@ -4,6 +4,7 @@ const { parse: parseUrl } = require('url');
 const { requireEnv } = require('../config');
 const sequelize = require('../db');
 const { getTokenFromCookie, isSessionActive } = require('../controllers/auth/helpers');
+const { sanitizePlainText } = require('../controllers/documents/sanitize');
 
 // Real-time layer for collaborative documents.
 //
@@ -134,7 +135,9 @@ const attachDocumentSocket = (
         });
         if (!doc) return sendError(ws, 'Document not found');
 
-        doc.content = msg.content;
+
+        const sanitizedContent = sanitizePlainText(msg.content);
+        doc.content = sanitizedContent;
         await doc.save();
 
         broadcast(
@@ -142,7 +145,7 @@ const attachDocumentSocket = (
           {
             type: 'update',
             documentId: ws.documentId,
-            content: msg.content,
+            content: sanitizedContent,
             userId: ws.userId,
           },
           ws, // don't echo back to the sender
