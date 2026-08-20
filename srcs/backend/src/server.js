@@ -4,6 +4,7 @@ const { createApp } = require('./app');
 const { requireEnv, requireNumberEnv } = require('./config');
 const routes = require('./routes');
 const { flushSessionStateToDb, hydrateSessionCacheFromDb } = require('./controllers/auth/helpers');
+const { attachDocumentSocket } = require('./ws/documentSocket');
 
 const app = createApp({ router: routes });
 const PORT = requireNumberEnv('PORT');
@@ -11,6 +12,9 @@ const DB_RETRY_LIMIT = requireNumberEnv('DB_RETRY_LIMIT');
 const DB_RETRY_DELAY_MS = requireNumberEnv('DB_RETRY_DELAY_MS');
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const httpServer = http.createServer(app);
+
+// Real-time collaboration layer (WebSocket on /api/ws).
+attachDocumentSocket(httpServer);
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
