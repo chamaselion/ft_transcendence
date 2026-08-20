@@ -24,6 +24,7 @@ const modelDefiners = [
   require('./models/gdpr-audit-event'),
   require('./models/auth-session'),
   require('./models/one-time-challenge'),
+  require('./models/document'),
 ];
 
 for (const modelDefiner of modelDefiners) {
