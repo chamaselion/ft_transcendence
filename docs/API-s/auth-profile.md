@@ -17,10 +17,14 @@ Success response (`200`):
   "user": {
     "id": "uuid",
     "login": "john_doe",
-    "email": "john@example.com"
+    "email": "john@example.com",
+    "role": "user"
   }
 }
 ```
+
+`role` is either `"user"` or `"admin"` and is what the frontend uses to decide
+whether to show admin-only views (see [Users API](users-api.md)).
 
 Unauthenticated response (`401`):
 
