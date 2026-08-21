@@ -1,16 +1,47 @@
 const sequelize = require('../../db');
+const { validateUuid } = require('../auth/validation');
+const { pick } = require('../../utils/pick');
 const { sanitizePlainText } = require('./sanitize');
 
 // CRUD for the generic collaborative document.
-// All handlers are owner-scoped: a user only sees and edits their own
-// documents. Sharing / roles come later with the permissions module.
+//
+// Regular users are owner-scoped: they only ever see and edit their own
+// documents. Admins are the exception - they can list, read, edit and delete
+// every document in the system, and their responses additionally carry
+// `ownerId` so they can tell whose document they are looking at. That is the
+// "different views and actions depending on role" half of the permissions
+// module. Sharing between regular users still comes later.
 const createDocumentsController = ({ documentModel } = {}) => {
   const resolvedModel = documentModel || sequelize.models.document;
 
   const PUBLIC_ATTRS = ['id', 'title', 'content', 'createdAt', 'updatedAt'];
+  const ADMIN_ATTRS = [...PUBLIC_ATTRS, 'ownerId'];
+
+  const isAdmin = (user) => user.role === 'admin';
+  const attrsFor = (user) => (isAdmin(user) ? ADMIN_ATTRS : PUBLIC_ATTRS);
 
   const isNonEmptyString = (value) =>
     typeof value === 'string' && value.trim().length > 0;
+
+  // `:id` is a UUID. Validating it here keeps a malformed id from reaching
+  // Postgres, which rejects it as invalid uuid syntax and would turn a client
+  // mistake into a 500.
+  const readId = (req, res) => {
+    const result = validateUuid(req.params.id, 'document id');
+    if (!result.ok) {
+      res.status(400).json({ error: result.error });
+      return null;
+    }
+    return result.value;
+  };
+
+  // Admins reach every document, everyone else only their own. Both cases end
+  // in the same 404 so a non-admin can't use the response to probe which
+  // document ids exist.
+  const findAccessible = (id, user) =>
+    resolvedModel.findOne({
+      where: isAdmin(user) ? { id } : { id, ownerId: user.id },
+    });
 
   // POST /api/documents
   const create = async (req, res) => {
@@ -41,7 +72,7 @@ const createDocumentsController = ({ documentModel } = {}) => {
       });
 
       return res.status(201).json({
-        document: pick(document, PUBLIC_ATTRS),
+        document: pick(document, attrsFor(req.user)),
       });
     } catch (err) {
       console.error('[DOCUMENTS] create failed:', err);
@@ -53,8 +84,8 @@ const createDocumentsController = ({ documentModel } = {}) => {
   const list = async (req, res) => {
     try {
       const documents = await resolvedModel.findAll({
-        where: { ownerId: req.user.id },
-        attributes: PUBLIC_ATTRS,
+        where: isAdmin(req.user) ? undefined : { ownerId: req.user.id },
+        attributes: attrsFor(req.user),
         order: [['updatedAt', 'DESC']],
       });
       return res.json({ documents });
@@ -67,9 +98,12 @@ const createDocumentsController = ({ documentModel } = {}) => {
   // GET /api/documents/:id
   const get = async (req, res) => {
     try {
-      const document = await findOwned(req.params.id, req.user.id);
+      const id = readId(req, res);
+      if (!id) return undefined;
+
+      const document = await findAccessible(id, req.user);
       if (!document) return res.status(404).json({ error: 'Document not found' });
-      return res.json({ document: pick(document, PUBLIC_ATTRS) });
+      return res.json({ document: pick(document, attrsFor(req.user)) });
     } catch (err) {
       console.error('[DOCUMENTS] get failed:', err);
       return res.status(500).json({ error: 'Failed to fetch document' });
@@ -79,6 +113,9 @@ const createDocumentsController = ({ documentModel } = {}) => {
   // PATCH /api/documents/:id
   const update = async (req, res) => {
     try {
+      const id = readId(req, res);
+      if (!id) return undefined;
+
       const { title, content } = req.body || {};
 
       if (title === undefined && content === undefined) {
@@ -99,14 +136,14 @@ const createDocumentsController = ({ documentModel } = {}) => {
         return res.status(400).json({ error: 'title must be a non-empty string' });
       }
 
-      const document = await findOwned(req.params.id, req.user.id);
+      const document = await findAccessible(id, req.user);
       if (!document) return res.status(404).json({ error: 'Document not found' });
 
       if (sanitizedTitle !== undefined) document.title = sanitizedTitle;
       if (sanitizedContent !== undefined) document.content = sanitizedContent;
       await document.save();
 
-      return res.json({ document: pick(document, PUBLIC_ATTRS) });
+      return res.json({ document: pick(document, attrsFor(req.user)) });
     } catch (err) {
       console.error('[DOCUMENTS] update failed:', err);
       return res.status(500).json({ error: 'Failed to update document' });
@@ -116,7 +153,10 @@ const createDocumentsController = ({ documentModel } = {}) => {
   // DELETE /api/documents/:id
   const remove = async (req, res) => {
     try {
-      const document = await findOwned(req.params.id, req.user.id);
+      const id = readId(req, res);
+      if (!id) return undefined;
+
+      const document = await findAccessible(id, req.user);
       if (!document) return res.status(404).json({ error: 'Document not found' });
       await document.destroy();
       return res.status(204).send();
@@ -126,19 +166,7 @@ const createDocumentsController = ({ documentModel } = {}) => {
     }
   };
 
-  const findOwned = (id, ownerId) =>
-    resolvedModel.findOne({ where: { id, ownerId } });
-
   return { create, list, get, update, remove };
-};
-
-// Small helper: return a plain object with only the listed attributes.
-const pick = (instance, attrs) => {
-  const data = typeof instance.get === 'function' ? instance.get({ plain: true }) : instance;
-  return attrs.reduce((acc, key) => {
-    acc[key] = data[key];
-    return acc;
-  }, {});
 };
 
 module.exports = { createDocumentsController };

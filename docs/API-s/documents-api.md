@@ -4,7 +4,16 @@ Base path: `/api/documents`
 
 All endpoints below require the auth cookie and an active session
 (`requireAuth` middleware). Access is owner-scoped: a user can only see,
-edit, or delete documents they own — there is no sharing yet.
+edit, or delete documents they own — there is no sharing between regular
+users yet.
+
+Admins (`role: "admin"`, see [Users API](users-api.md)) are the exception:
+they can list, read, edit and delete **every** document in the system, and
+their responses additionally carry `ownerId` so they can tell whose document
+they are looking at. The same rule applies to the WebSocket layer — an admin
+can join and edit any document room.
+
+`:id` must be a UUID. A malformed id is rejected with `400`, not `404`.
 
 `title` and `content` are sanitized server-side before being stored (all
 HTML tags/attributes are stripped, see
@@ -49,7 +58,8 @@ sanitization), or `content` is provided but not a string.
 - Method: `GET`
 - Path: `/`
 
-Returns every document owned by the caller, newest first.
+Returns every document owned by the caller, newest first — or every document
+in the system if the caller is an admin.
 
 Success response (`200`):
 
@@ -80,7 +90,8 @@ Success response (`200`):
 }
 ```
 
-Errors: `404` if the document doesn't exist or isn't owned by the caller.
+Errors: `400` if `:id` is not a valid UUID, `404` if the document doesn't
+exist or isn't owned by the caller (admins: only if it doesn't exist).
 
 ## Update a document
 
@@ -101,8 +112,9 @@ Request body:
 
 Success response (`200`): same shape as [Get a document](#get-a-document).
 
-Errors: `400` nothing to update / invalid field, `404` document not found
-or not owned by the caller.
+Errors: `400` nothing to update / invalid field / `:id` is not a valid UUID,
+`404` document not found or not owned by the caller (admins: only if it
+doesn't exist).
 
 ## Delete a document
 
@@ -111,7 +123,8 @@ or not owned by the caller.
 
 Success response: `204` (no body).
 
-Errors: `404` document not found or not owned by the caller.
+Errors: `400` if `:id` is not a valid UUID, `404` document not found or not
+owned by the caller (admins: only if it doesn't exist).
 
 Common errors across all endpoints above: `401` unauthorized (missing/invalid
 session), `500` internal server error.
