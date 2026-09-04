@@ -11,6 +11,7 @@ FROM node:22-bookworm-slim AS dev
 WORKDIR /app
 
 COPY ./scripts/init.sh /init.sh
+RUN chmod +x /init.sh
 
 EXPOSE 8081
 
