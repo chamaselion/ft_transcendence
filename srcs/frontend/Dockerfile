@@ -6,9 +6,13 @@
 # once the SPA is here, replace the keep-alive CMD with the real build
 # and serve steps (e.g. npm ci && npm run build / dev server).
 
-FROM node:18-alpine
+FROM node:22-bookworm-slim AS dev
 
-WORKDIR /usr/src/app
+WORKDIR /app
+
+COPY ./scripts/init.sh /init.sh
+
+EXPOSE 8081
 
 # Keep the container running without doing anything yet.
-CMD ["tail", "-f", "/dev/null"]
+CMD ["/init.sh"]
