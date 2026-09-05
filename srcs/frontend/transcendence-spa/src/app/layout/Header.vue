@@ -5,10 +5,10 @@
 <template>
   <header>
     <div>
-      <h1>Header</h1>
+      <router-link to="/">Home</router-link>
     </div>
     <div>
-      <button>Login</button>
+      <router-link to="/login">Login</router-link>
     </div>
     <div>
       <p>More informaion placeholder or so</p>
