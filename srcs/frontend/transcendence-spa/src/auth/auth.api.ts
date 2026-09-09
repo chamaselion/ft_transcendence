@@ -38,7 +38,7 @@ const RELATIVE_URL_BASE = 'https://localhost:8080/api/auth/'
 // as a relative path and will be appended to the baseUrl or RELATIVE_URL_BASE with a leading /
 // added. The query params are optional and will be appended to the URL if provided.
 // The URL object is returned.
-export function buildUrl(path: string, baseUrl?: string, query?: QueryParams): URL {
+function buildUrl(path: string, baseUrl?: string, query?: QueryParams): URL {
   const url = new URL(path, baseUrl || RELATIVE_URL_BASE)
 
   if (query) {
@@ -48,6 +48,80 @@ export function buildUrl(path: string, baseUrl?: string, query?: QueryParams): U
       }
     })
   }
-
+  console.log('buildUrl', url.toString())
   return url
 }
+
+export class HttpClient {
+  private baseUrl?: string
+
+  constructor(config: HttpClientConfig = {}) {
+    this.baseUrl = config?.baseUrl
+  }
+
+  async request<TResponse, TBody = unknown>(
+    path: string,
+    config: RequestConfig<TBody> = {},
+  ): Promise<TResponse> {
+      const headers: Record<string, string> = {
+        ...DEFAULT_HEADERS,
+        ...(config.headers ?? {}),
+    }
+
+    const response = await fetch(buildUrl(path, this.baseUrl, config.query),{
+      method: config.method ?? 'GET',
+      headers,
+      body: config.body ? JSON.stringify(config.body) : undefined,
+      signal: config.signal,
+    })
+    if (!response.ok) {
+      let message = `HTTP ${response.status} ${response.statusText}`
+
+      try {
+        const errorResponse: ErrorResponseShape = await response.json()
+        if (errorResponse?.error?.message) {
+          message = errorResponse.error.message
+        }
+      } catch (e) {
+        // Ignore JSON parsing errors and use the default message
+      }
+
+      throw new Error(message)
+    }
+
+    return (await response.json()) as TResponse
+  }
+
+  get<TResponse>(
+    path: string,
+    config: RequestConfig = {}
+  ): Promise<TResponse> {
+    return this.request<TResponse>(path, { ...config, method: 'GET' })
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
