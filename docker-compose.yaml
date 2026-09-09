@@ -18,6 +18,11 @@ services:
   frontend:
     build: srcs/frontend
     restart: unless-stopped
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./srcs/frontend/transcendence-spa/:/app/transcendence-spa
+      - frontend_modules:/app/transcendence-spa/node_modules
 
   backend:
     build: srcs/backend
@@ -48,3 +53,4 @@ services:
 
 volumes:
   postgres-data:
+  frontend_modules:
