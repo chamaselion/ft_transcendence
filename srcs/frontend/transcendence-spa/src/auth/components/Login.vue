@@ -1,23 +1,37 @@
 <script setup lang="ts">
-  import { ref } from 'vue'
-  import { httpClient } from '../auth.api'
+  import { ref, onMounted } from 'vue'
+  import { httpClient,  HttpError } from '../auth.api'
 
   const username = ref()
   const password = ref()
+  const errorFlag = ref(false)
+  const message = ref('')
 
-  const handleLogin = () => {
-    httpClient.post('login', {
-      username: username.value,
-      password: password.value
-    })
-    .then(response => {
-      console.log('Login successful:', response.data)
-      // Handle successful login (e.g., store token, redirect, etc.)
-    })
-    .catch(error => {
-      console.error('Login failed:', error)
-      // Handle login error (e.g., show error message)
-    })
+  const handleLogin = async () => {
+    try {
+      const data = await httpClient.post('login', {
+        username: username.value,
+        password: password.value
+      })
+
+      console.log('Login successful:', data)
+
+    } catch (error) {
+      if (error instanceof HttpError) {
+        if (error.status === 400) {
+          errorFlag.value = true
+          message.value = error.message
+          console.log(error.message)
+        } else if (error.status === 401) {
+          console.log('Wrong username or password')
+        } else {
+          errorFlag.value = true
+          message.value = error.message
+          console.log(`Request failed: ${error.status}`)
+        }
+        console.log(error.message)
+      }
+    }
   }
 </script>
 
@@ -25,6 +39,9 @@
 <template>
   <div class="login-container">
     <h1>Login</h1>
+    <div v-if="errorFlag" class="error-message">
+      {{ message }}
+    </div>
     <form @submit.prevent="handleLogin">
       <div class="form-group">
         <label for="username">Username:</label>
@@ -69,6 +86,13 @@
   border: 1px solid var(--border-color);
   border-radius: 4px;
   box-sizing: border-box;
+}
+
+.error-message {
+  background-color: var(--error-color);
+  margin: 10px 5px;
+  text-align: center;
+
 }
 
 button {
