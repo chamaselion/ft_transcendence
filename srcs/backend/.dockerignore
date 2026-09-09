@@ -1,0 +1,11 @@
+# Never ship the host's node_modules into the image - it would overwrite the
+# dependencies installed by `npm ci` above with whatever happens to lie on the
+# developer's machine (built for a different OS/Node version). The image
+# installs its own.
+node_modules
+npm-debug.log*
+
+# Not needed at build time, and secrets have no business in an image layer.
+.env
+.env.*
+.git

@@ -29,7 +29,7 @@ const createRequireAuth = ({
       }
 
       const user = await resolvedUserModel.findByPk(payload.id, {
-        attributes: ['id', 'login', 'email'],
+        attributes: ['id', 'login', 'email', 'role'],
       });
       if (!user) return res.status(401).json({ error: 'Not authenticated' });
 
