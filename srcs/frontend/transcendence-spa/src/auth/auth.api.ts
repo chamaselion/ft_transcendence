@@ -19,10 +19,17 @@ export interface HttpClientConfig {
   baseUrl?: string
 }
 
-interface ErrorResponseShape {
-  error?: {
-    message?: string
+export class HttpError extends Error {
+  constructor(
+    message: string,
+    public status: number
+  ) {
+    super(message)
   }
+}
+
+interface ErrorResponseShape {
+  error?: string
 }
 
 const DEFAULT_HEADERS: Record<string, string> = {
@@ -78,15 +85,16 @@ export class HttpClient {
       let message = `HTTP ${response.status} ${response.statusText}`
 
       try {
-        const errorResponse: ErrorResponseShape = await response.json()
-        if (errorResponse?.error?.message) {
-          message = errorResponse.error.message
+        const errorResponse = (await response.json()) as ErrorResponseShape
+
+        if (errorResponse.error) {
+          message = errorResponse.error
         }
-      } catch (e) {
-        // Ignore JSON parsing errors and use the default message
+      } catch {
+        // Keep fallback message
       }
 
-      throw new Error(message)
+      throw new HttpError(message, response.status)
     }
 
     return (await response.json()) as TResponse
@@ -98,30 +106,15 @@ export class HttpClient {
   ): Promise<TResponse> {
     return this.request<TResponse>(path, { ...config, method: 'GET' })
   }
+
+  post<TResponse>(
+    path: string,
+    body: unknown,
+    config: RequestConfig = {}
+  ): Promise<TResponse> {
+    return this.request<TResponse>(path, { ...config, method: 'POST', body })
+  }
 }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+export const httpClient = new HttpClient({baseUrl: "https://localhost:8443/api/auth/"})

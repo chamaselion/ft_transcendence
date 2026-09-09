@@ -1,5 +1,9 @@
 :root {
-  --light-bg: #DBEAFE;
+  --light-bg: #FBF8FC;
+  --border-color: #E0CCEB;
+  --success-color: #4CAF50;
+  --active-color: #0B5B26;
+  --error-color: #FF0008;
 }
 
 body {
