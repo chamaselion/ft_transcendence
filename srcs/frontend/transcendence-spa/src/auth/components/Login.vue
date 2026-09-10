@@ -1,6 +1,10 @@
 <script setup lang="ts">
-  import { ref } from 'vue'
+  import { ref, defineProps } from 'vue'
   import { httpClient,  HttpError } from '../auth.api'
+
+  const props = defineProps<{
+    email?: string
+  }>()
 
 export interface LoginResponse {
   loginChallenge: boolean
@@ -14,7 +18,7 @@ export interface LoginResponse {
   message: string
 }
 
-  const email = ref()
+  const email = ref(props.email)
   const password = ref()
   const errorFlag = ref(false)
   const message = ref('')
