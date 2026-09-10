@@ -2,20 +2,34 @@
   import { ref, onMounted } from 'vue'
   import { httpClient,  HttpError } from '../auth.api'
 
-  const username = ref()
+export interface LoginResponse {
+  loginChallenge: boolean
+  challengeId: string
+  email: string
+  emailMasked: string
+  attemptsRemaining: number
+  codeLength: number
+  expiresAt: number
+  codeSent: boolean
+  message: string
+}
+
+  const email = ref()
   const password = ref()
   const errorFlag = ref(false)
   const message = ref('')
+  const otpConfirmationRequired = ref(false)
+  const otp = ref('')
+  let callengeID: string
 
   const handleLogin = async () => {
     try {
-      const data = await httpClient.post('login', {
-        username: username.value,
+      const data = await httpClient.post<LoginResponse>('login', {
+        email: email.value,
         password: password.value
       })
-
-      console.log('Login successful:', data)
-
+      callengeID = data.challengeId
+      otpConfirmationRequired.value = true
     } catch (error) {
       if (error instanceof HttpError) {
         if (error.status === 400) {
@@ -23,7 +37,33 @@
           message.value = error.message
           console.log(error.message)
         } else if (error.status === 401) {
-          console.log('Wrong username or password')
+          console.log('Wrong email or password')
+        } else {
+          errorFlag.value = true
+          message.value = error.message
+          console.log(`Request failed: ${error.status}`)
+        }
+        console.log(error.message)
+      }
+    }
+  }
+
+  const handleOtpConfirmation = async () => {
+    try {
+      const data = await httpClient.post('login/confirm', {
+        challengeId: callengeID,
+        email: email.value,
+        code: otp.value
+      })
+      console.log('OTP confirmed successfully')
+    } catch (error) {
+      if (error instanceof HttpError) {
+        if (error.status === 400) {
+          errorFlag.value = true
+          message.value = error.message
+          console.log(error.message)
+        } else if (error.status === 401) {
+          console.log('Wrong OTP')
         } else {
           errorFlag.value = true
           message.value = error.message
@@ -44,8 +84,8 @@
     </div>
     <form @submit.prevent="handleLogin">
       <div class="form-group">
-        <label for="username">Username:</label>
-        <input type="text" id="username" v-model="username" required />
+        <label for="email">E-mail:</label>
+        <input type="text" id="email" v-model="email" required />
       </div>
       <div class="form-group">
         <label for="password">Password:</label>
@@ -54,10 +94,20 @@
       <button type="submit">Login</button>
     </form>
   </div>
+  <div class="otp-confirm" v-if="otpConfirmationRequired">
+    <h1>OTP Confirmation</h1>
+    <form @submit.prevent="handleOtpConfirmation">
+      <div class="form-group">
+        <label for="otp">Enter OTP:</label>
+        <input type="text" id="otp" v-model="otp" required />
+      </div>
+      <button type="submit">Confirm OTP</button>
+    </form>
+  </div>
 </template>
 
 <style scoped>
-.login-container {
+.login-container, .otp-confirm {
   width: 100%;
   max-width: 400px;
   margin: 80px auto;
