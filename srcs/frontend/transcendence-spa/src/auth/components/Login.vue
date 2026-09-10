@@ -1,5 +1,5 @@
 <script setup lang="ts">
-  import { ref, onMounted } from 'vue'
+  import { ref } from 'vue'
   import { httpClient,  HttpError } from '../auth.api'
 
 export interface LoginResponse {
@@ -112,7 +112,7 @@ export interface LoginResponse {
   max-width: 400px;
   margin: 80px auto;
   padding: 24px;
-  border: 1px solid var(--border-color);
+  background-color: var(--bg-subtle);
   border-radius: 8px;
 }
 
@@ -133,29 +133,15 @@ export interface LoginResponse {
 .form-group input {
   width: 100%;
   padding: 10px;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border-default);
   border-radius: 4px;
   box-sizing: border-box;
 }
 
 .error-message {
-  background-color: var(--error-color);
+  background-color: red;
   margin: 10px 5px;
   text-align: center;
 
-}
-
-button {
-  width: 100%;
-  padding: 10px;
-  border: none;
-  border-radius: 4px;
-  background-color: var(--border-color);
-  color: white;
-  cursor: pointer;
-}
-
-button:hover {
-  background-color: var(--active-color);
 }
 </style>
