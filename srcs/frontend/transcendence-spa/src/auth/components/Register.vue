@@ -1,6 +1,6 @@
 <script setup lang="ts">
   import { ref } from 'vue'
-  import { httpClient } from '../auth.api'
+  import { httpClient, HttpError } from '../auth.api'
 
   const username = ref('')
   const email = ref('')
@@ -13,10 +13,19 @@
         email: email.value,
         password: password.value
       })
-      console.log('Registration successful:', response)
       window.location.href = `/login?email=${email.value}`
       } catch (error) {
-      console.error('Registration failed:', error)
+        if (error instanceof HttpError) {
+          if (error.status === 400) {
+            console.log('Invalid data:', error.message)
+          } else if (error.status === 409) {
+            console.log('User already exists:', error.message)
+          } else {
+            console.log(`Request failed: ${error.status}`, error.message)
+          }
+        } else {
+          console.log('An unexpected error occurred:', error)
+        }
     }
   }
 </script>
