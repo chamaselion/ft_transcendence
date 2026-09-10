@@ -77,7 +77,7 @@ export interface LoginResponse {
 
 
 <template>
-  <div class="login-container">
+  <div class="login-container" v-if="!otpConfirmationRequired">
     <h1>Login</h1>
     <div v-if="errorFlag" class="error-message">
       {{ message }}
