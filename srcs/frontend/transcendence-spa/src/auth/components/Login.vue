@@ -25,6 +25,7 @@ export interface LoginResponse {
   const otpConfirmationRequired = ref(false)
   const otp = ref('')
   let callengeID: string
+  const loggeInSuccess = ref(false)
 
   const handleLogin = async () => {
     try {
@@ -60,6 +61,8 @@ export interface LoginResponse {
         code: otp.value
       })
       console.log('OTP confirmed successfully')
+      loggeInSuccess.value = true
+      redirectToHome();
     } catch (error) {
       if (error instanceof HttpError) {
         if (error.status === 400) {
@@ -76,6 +79,12 @@ export interface LoginResponse {
         console.log(error.message)
       }
     }
+  }
+
+  const redirectToHome = () => {
+    setTimeout(() => {
+    window.location.href = '/'
+    }, 2500)
   }
 </script>
 
@@ -98,7 +107,7 @@ export interface LoginResponse {
       <button type="submit">Login</button>
     </form>
   </div>
-  <div class="otp-confirm" v-if="otpConfirmationRequired">
+  <div class="otp-confirm" v-if="otpConfirmationRequired && !loggeInSuccess">
     <h1>OTP Confirmation</h1>
     <form @submit.prevent="handleOtpConfirmation">
       <div class="form-group">
@@ -108,10 +117,15 @@ export interface LoginResponse {
       <button type="submit">Confirm OTP</button>
     </form>
   </div>
+
+  <div v-if="loggeInSuccess" class="login-success">
+    <h1>Login Successful</h1>
+    <p>You have successfully logged in.</p>
+  </div>
 </template>
 
 <style scoped>
-.login-container, .otp-confirm {
+.login-container, .otp-confirm, .login-success {
   width: 100%;
   max-width: 400px;
   margin: 80px auto;
