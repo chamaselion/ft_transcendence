@@ -124,10 +124,9 @@ export interface LoginResponse {
     </form>
   </div>
 
-  <div v-if="loggeInSuccess" class="login-success">
-    <h1>Login Successful</h1>
-    <p>You have successfully logged in.</p>
-  </div>
+  <MessageCard v-if="loggeInSuccess"
+               message="Login successful!"
+               hint="Redirecting to home page..."/>
 </template>
 
 <style scoped>
