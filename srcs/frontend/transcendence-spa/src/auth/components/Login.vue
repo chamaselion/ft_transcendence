@@ -135,6 +135,7 @@ export interface LoginResponse {
   max-width: 400px;
   margin: 80px auto;
   padding: 24px;
+  border: 1px solid var(--border-default);
   background-color: var(--bg-subtle);
   border-radius: 8px;
 }
@@ -142,23 +143,6 @@ export interface LoginResponse {
 .login-container h1 {
   margin-bottom: 24px;
   text-align: center;
-}
-
-.form-group {
-  margin-bottom: 16px;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 6px;
-}
-
-.form-group input {
-  width: 100%;
-  padding: 10px;
-  border: 1px solid var(--border-default);
-  border-radius: 4px;
-  box-sizing: border-box;
 }
 
 .error-message {

@@ -63,28 +63,15 @@
 <style scoped>
   .register-container {
     max-width: 400px;
-    margin: 0 auto;
+    margin: 80px auto;
     padding: 20px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--border-default);
     border-radius: 5px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     background-color: var(--bg-subtle);
   }
 
-.form-group {
-  margin-bottom: 16px;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 6px;
-}
-
-.form-group input {
-  width: 100%;
-  padding: 10px;
-  border: 1px solid var(--border-default);
-  border-radius: 4px;
-  box-sizing: border-box;
-}
+  .register-container h1 {
+    text-align: center;
+    margin-bottom: 24px;
+  }
 </style>

@@ -92,3 +92,20 @@ button:hover {
   background: var(--bg-subtle);
   color: var(--text-primary);
 }
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  box-sizing: border-box;
+}
