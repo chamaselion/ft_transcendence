@@ -8,9 +8,6 @@ const props = withDefaults(defineProps<{
   variant?: Variant
   color?: string
   size?: Size
-  block?: boolean
-  rounded?: boolean
-  loading?: boolean
   disabled?: boolean
   type?: 'button' | 'submit' | 'reset'
 }>(), {
@@ -25,7 +22,6 @@ const classes = computed(() => [
   `btn--v-${props.variant ?? "flat"}`,
   `btn--s-${props.size ?? "default"}`,
   `btn--c-${props.color ?? "default"}`,
-  { 'btn--block': props.block, 'btn--rounded': props.rounded, 'btn--loading': props.loading },
 ])
 
 const style = computed(() => {
@@ -86,7 +82,7 @@ const style = computed(() => {
   color: var(--btn-contrast, var(--text-primary));
 }
 
-.btn--v-elevated { box-shadow: var(--shadow-md); }
+.btn--v-elevated { box-shadow: var(--shadow-xl); }
 
 .btn--v-elevated:hover,
 .btn--v-flat:hover {
@@ -103,7 +99,10 @@ const style = computed(() => {
   background-color: color-mix(in srgb, var(--btn-color) 12%, transparent);
 }
 
-/* "default" has no theme token, so it is mapped here */
+.btn--disabled {
+  --btn-color: var()
+}
+
 .btn--c-default {
   --btn-color: var(--bg-surface);
   --btn-color-hover: var(--bg-subtle);
