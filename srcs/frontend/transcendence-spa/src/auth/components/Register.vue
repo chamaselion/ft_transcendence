@@ -1,10 +1,13 @@
 <script setup lang="ts">
   import { ref } from 'vue'
   import { httpClient, HttpError } from '../auth.api'
+  import MessageCard from '@/app/components/MessageCard.vue'
 
   const username = ref('')
   const email = ref('')
   const password = ref('')
+  const errorFlag = ref(false)
+  const msg = ref('')
 
   const handleRegister = async () => {
     try {
@@ -15,6 +18,8 @@
       })
       window.location.href = `/login?email=${email.value}&redirect=true`
       } catch (error) {
+        errorFlag.value = true
+        msg.value = error.message
         if (error instanceof HttpError) {
           if (error.status === 400) {
             console.log('Invalid data:', error.message)
@@ -33,6 +38,9 @@
 <template>
   <div class="register-container">
     <h1>Register</h1>
+    <MessageCard v-if="errorFlag"
+                 :message="msg"
+                 :errorMsg="true" />
     <form @submit.prevent="handleRegister">
       <div class="form-group">
         <label for="username">Username:</label>
