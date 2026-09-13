@@ -7,6 +7,7 @@
 
 <template>
 
-  <Login :email="route.query.email" />
+  <Login  :email="route.query.email"
+          :isRegisterRedirect="route.query.redirect"/>
 
 </template>
