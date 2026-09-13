@@ -108,7 +108,113 @@ const toastType = ref<(typeof toastTypes)[number]>('good')
         <UserIcon name="No Avatar" show-name />
       </div>
     </section>
+
+    <section class="catalogue__section">
+      <h2 class="catalogue__heading">Modal</h2>
+      <div class="catalogue__row">
+        <Button @click="modalOpen = true">Open modal</Button>
+      </div>
+      <Modal v-model="modalOpen" title="Example modal">
+        <p>
+          This is the modal body. Press Escape or click the overlay to close.
+        </p>
+        <template #footer>
+          <Button variant="outlined" @click="modalOpen = false">Cancel</Button>
+          <Button @click="modalOpen = false">Confirm</Button>
+        </template>
+      </Modal>
+    </section>
+
+    <section class="catalogue__section">
+      <h2 class="catalogue__heading">Toast</h2>
+      <div class="catalogue__row">
+        <Button
+          v-for="type in toastTypes"
+          :key="type"
+          :color="type === 'info' ? 'primary' : type"
+          variant="outlined"
+          @click="((toastType = type), (toastOpen = true))"
+        >
+          {{ type }}
+        </Button>
+      </div>
+      <div class="catalogue__stack">
+        <Toast
+          v-for="type in toastTypes"
+          :key="type"
+          :model-value="true"
+          :type="type"
+          :message="`A ${type} toast message`"
+          :duration="0"
+        />
+      </div>
+      <Toast v-model="toastOpen" :type="toastType" :message="`A ${toastType} toast message`" />
+    </section>
+
+    <section class="catalogue__section">
+      <h2 class="catalogue__heading">Tooltip</h2>
+      <div class="catalogue__row">
+        <Tooltip text="Tooltip on top">
+          <Button variant="outlined">Top</Button>
+        </Tooltip>
+        <Tooltip text="Tooltip on bottom" placement="bottom">
+          <Button variant="outlined">Bottom</Button>
+        </Tooltip>
+        <Tooltip text="Tooltip on left" placement="left">
+          <Button variant="outlined">Left</Button>
+        </Tooltip>
+        <Tooltip text="Tooltip on right" placement="right">
+          <Button variant="outlined">Right</Button>
+        </Tooltip>
+      </div>
+    </section>
+
+    <section class="catalogue__section">
+      <h2 class="catalogue__heading">EditorHeading</h2>
+      <EditorHeading v-for="level in headings" :key="level" :level="level">
+        Heading level {{ level }}
+      </EditorHeading>
+    </section>
+
+    <section class="catalogue__section">
+      <h2 class="catalogue__heading">EditorList</h2>
+      <div class="catalogue__grid">
+        <EditorList :items="['First item', 'Second item', 'Third item']" />
+        <EditorList
+          :items="['First item', 'Second item', 'Third item']"
+          ordered
+        />
+        <EditorList
+          :items="['Alpha', 'Beta', 'Gamma']"
+          marker="lower-alpha"
+        />
+        <EditorList
+          :items="['Dashed', 'Custom', 'Marker']"
+          marker="square"
+        />
+      </div>
+    </section>
+
+    <section class="catalogue__section">
+      <h2 class="catalogue__heading">EditorCitation</h2>
+      <EditorCitation source="Ada Lovelace">
+        That brain of mine is something more than merely mortal, as time will show.
+      </EditorCitation>
+      <EditorCitation accent="var(--color-good)" bg-color="var(--bg-subtle)">
+        A citation with a custom accent stripe.
+      </EditorCitation>
+    </section>
+
+    <section class="catalogue__section">
+      <h2 class="catalogue__heading">EditorCode</h2>
+      <EditorCode language="typescript" code="const answer: number = 42" />
+      <EditorCode language="python" size="1rem">
+def greet(name):
+    print(f"Hello, {name}")
+      </EditorCode>
+    </section>
   </div>
+  
 </template>
 
 <style scoped>
