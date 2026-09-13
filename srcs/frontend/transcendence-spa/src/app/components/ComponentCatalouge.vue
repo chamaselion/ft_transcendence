@@ -11,6 +11,7 @@ import EditorCitation from '@/app/components/EditorCitation.vue'
 import EditorCode from '@/app/components/EditorCode.vue'
 import EditorHeading from '@/app/components/EditorHeading.vue'
 import EditorList from '@/app/components/EditorList.vue'
+import EditorHyperlink from '@/app/components/EditorHyperlink.vue'
 
 const variants = ['elevated', 'flat', 'outlined'] as const
 const sizes = ['x-small', 'small', 'default', 'large', 'x-large'] as const
@@ -212,6 +213,20 @@ const toastType = ref<(typeof toastTypes)[number]>('good')
 def greet(name):
     print(f"Hello, {name}")
       </EditorCode>
+    </section>
+
+    <section class="catalogue__section">
+      <h2 class="catalogue__heading">EditorHyperlink</h2>
+      <div class="catalogue__row">
+        <EditorHyperlink url="https://vuejs.org">Default link</EditorHyperlink>
+        <EditorHyperlink url="https://vuejs.org" color="var(--color-good)">Green link</EditorHyperlink>
+        <EditorHyperlink url="https://vuejs.org" size="1.25rem">Larger link</EditorHyperlink>
+        <EditorHyperlink url="https://vuejs.org" :underline="false">No underline</EditorHyperlink>
+      </div>
+      <div class="catalogue__row">
+        <EditorHyperlink url="javascript:alert(1)">Rejected javascript: URL</EditorHyperlink>
+        <EditorHyperlink url="/relative/path">Rejected relative URL</EditorHyperlink>
+      </div>
     </section>
   </div>
   
