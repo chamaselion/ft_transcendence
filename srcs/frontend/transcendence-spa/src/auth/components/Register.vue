@@ -13,7 +13,7 @@
         email: email.value,
         password: password.value
       })
-      window.location.href = `/login?email=${email.value}`
+      window.location.href = `/login?email=${email.value}&redirect=true`
       } catch (error) {
         if (error instanceof HttpError) {
           if (error.status === 400) {
@@ -48,7 +48,7 @@
       </div>
       <button type="submit">Register</button>
     </form>
-
+    <p>Already have an account? <router-link to="/login">Login here</router-link></p>
   </div>
 </template>
 
@@ -60,7 +60,7 @@
     border: 1px solid #ccc;
     border-radius: 5px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    background-color: #f9f9f9;
+    background-color: var(--bg-subtle);
   }
 
 .form-group {

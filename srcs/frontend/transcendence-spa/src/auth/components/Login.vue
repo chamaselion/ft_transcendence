@@ -1,9 +1,11 @@
 <script setup lang="ts">
   import { ref, defineProps } from 'vue'
   import { httpClient,  HttpError } from '../auth.api'
+  import MessageCard from '@/app/components/MessageCard.vue'
 
   const props = defineProps<{
     email?: string
+    isRegisterRedirect?: boolean
   }>()
 
 export interface LoginResponse {
@@ -26,6 +28,7 @@ export interface LoginResponse {
   const otp = ref('')
   let callengeID: string
   const loggeInSuccess = ref(false)
+  const registerRedirectFlag = ref(props.isRegisterRedirect)
 
   const handleLogin = async () => {
     try {
@@ -36,16 +39,14 @@ export interface LoginResponse {
       callengeID = data.challengeId
       otpConfirmationRequired.value = true
     } catch (error) {
+      errorFlag.value = true
+      message.value = error.message
       if (error instanceof HttpError) {
         if (error.status === 400) {
-          errorFlag.value = true
-          message.value = error.message
           console.log(error.message)
         } else if (error.status === 401) {
           console.log('Wrong email or password')
         } else {
-          errorFlag.value = true
-          message.value = error.message
           console.log(`Request failed: ${error.status}`)
         }
         console.log(error.message)
@@ -64,16 +65,14 @@ export interface LoginResponse {
       loggeInSuccess.value = true
       redirectToHome();
     } catch (error) {
+      errorFlag.value = true
+      message.value = error.message
       if (error instanceof HttpError) {
         if (error.status === 400) {
-          errorFlag.value = true
-          message.value = error.message
           console.log(error.message)
         } else if (error.status === 401) {
           console.log('Wrong OTP')
         } else {
-          errorFlag.value = true
-          message.value = error.message
           console.log(`Request failed: ${error.status}`)
         }
         console.log(error.message)
@@ -90,11 +89,16 @@ export interface LoginResponse {
 
 
 <template>
+
+  <MessageCard v-if="registerRedirectFlag"
+               message="Registered successfully!"
+               hint="Please login to receive an OTP validaiton code."/>
+
   <div class="login-container" v-if="!otpConfirmationRequired">
     <h1>Login</h1>
-    <div v-if="errorFlag" class="error-message">
-      {{ message }}
-    </div>
+    <MessageCard v-if="errorFlag"
+                :message="message"
+                 :errorMsg="true"/>
     <form @submit.prevent="handleLogin">
       <div class="form-group">
         <label for="email">E-mail:</label>
@@ -106,7 +110,9 @@ export interface LoginResponse {
       </div>
       <button type="submit">Login</button>
     </form>
+    <p v-if="!registerRedirectFlag">Don't have an account? <router-link to="/register">Register here</router-link></p>
   </div>
+
   <div class="otp-confirm" v-if="otpConfirmationRequired && !loggeInSuccess">
     <h1>OTP Confirmation</h1>
     <form @submit.prevent="handleOtpConfirmation">
