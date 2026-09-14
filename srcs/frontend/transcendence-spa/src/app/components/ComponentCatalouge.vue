@@ -12,6 +12,18 @@ import EditorCode from '@/app/components/EditorCode.vue'
 import EditorHeading from '@/app/components/EditorHeading.vue'
 import EditorList from '@/app/components/EditorList.vue'
 import EditorHyperlink from '@/app/components/EditorHyperlink.vue'
+import Icon, { type IconName } from '@/app/components/Icon.vue'
+
+const iconList: { name: IconName; description: string }[] = [
+  { name: 'H1', description: 'Heading 1 — Primary section heading' },
+  { name: 'Sparkles', description: 'Sparkles — AI actions and highlights' },
+  { name: 'Pencil', description: 'Pencil — Edit and modify content' },
+  { name: 'PencilPlus', description: 'Pencil Plus — Create or draft new item' },
+  { name: 'Trash', description: 'Trash — Delete and remove item' },
+  { name: 'LetterCase', description: 'Letter Case — Typography and formatting' },
+  { name: 'AdjustmentsHorizontal', description: 'Adjustments — Filters and controls' },
+  { name: 'Eye', description: 'Eye — View and preview visibility' },
+]
 
 const variants = ['elevated', 'flat', 'outlined'] as const
 const sizes = ['x-small', 'small', 'default', 'large', 'x-large'] as const
@@ -107,6 +119,57 @@ const toastType = ref<(typeof toastTypes)[number]>('good')
         <UserIcon name="Jane Roe" show-name size="large" />
         <UserIcon name="Sam Smith" size="small" show-name />
         <UserIcon name="No Avatar" show-name />
+      </div>
+    </section>
+
+    <section class="catalogue__section">
+      <h2 class="catalogue__heading">Icon</h2>
+      <div class="catalogue__row catalogue__row--wrap">
+        <Tooltip
+          v-for="item in iconList"
+          :key="item.name"
+          :text="item.description"
+          placement="top"
+        >
+          <div class="catalogue__icon-box">
+            <Icon :name="item.name" :size="28" />
+            <span class="catalogue__icon-label">{{ item.name }}</span>
+          </div>
+        </Tooltip>
+      </div>
+
+      <div class="catalogue__row" style="margin-top: 1rem;">
+        <Button variant="elevated">
+          <template #icon>
+            <Icon name="Pencil" :size="18" />
+          </template>
+          Edit with Icon
+        </Button>
+        <Button variant="outlined" color="alert">
+          <template #icon>
+            <Icon name="Trash" :size="18" />
+          </template>
+          Delete
+        </Button>
+        <Button variant="flat" square title="Settings">
+          <Icon name="AdjustmentsHorizontal" :size="18" />
+        <Button variant="flat" size="small" title="Settings">
+          <template #icon>
+            <Icon name="AdjustmentsHorizontal" />
+          </template>
+        </Button>
+        <Button variant="elevated" square title="AI Actions">
+          <Icon name="Sparkles" :size="18" />
+        <Button variant="elevated" size="default" title="AI Actions">
+          <template #icon>
+            <Icon name="Sparkles" />
+          </template>
+        </Button>
+        <Button variant="outlined" size="large" title="Preview">
+          <template #icon>
+            <Icon name="Eye" />
+          </template>
+        </Button>
       </div>
     </section>
 
@@ -300,5 +363,31 @@ def greet(name):
 .catalogue__note {
   color: var(--text-muted);
   font-size: 14px;
+}
+
+.catalogue__icon-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 16px;
+  min-width: 80px;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.catalogue__icon-box:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--border-default);
+}
+
+.catalogue__icon-label {
+  font-size: 12px;
+  color: var(--text-secondary);
 }
 </style>
