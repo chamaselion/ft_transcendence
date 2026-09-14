@@ -151,15 +151,11 @@ const toastType = ref<(typeof toastTypes)[number]>('good')
           </template>
           Delete
         </Button>
-        <Button variant="flat" square title="Settings">
-          <Icon name="AdjustmentsHorizontal" :size="18" />
         <Button variant="flat" size="small" title="Settings">
           <template #icon>
             <Icon name="AdjustmentsHorizontal" />
           </template>
         </Button>
-        <Button variant="elevated" square title="AI Actions">
-          <Icon name="Sparkles" :size="18" />
         <Button variant="elevated" size="default" title="AI Actions">
           <template #icon>
             <Icon name="Sparkles" />
