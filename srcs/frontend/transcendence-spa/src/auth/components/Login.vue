@@ -1,5 +1,5 @@
 <script setup lang="ts">
-  import { ref, defineProps } from 'vue'
+  import { ref } from 'vue'
   import { httpClient,  HttpError } from '../auth.api'
   import MessageCard from '@/app/components/MessageCard.vue'
 
