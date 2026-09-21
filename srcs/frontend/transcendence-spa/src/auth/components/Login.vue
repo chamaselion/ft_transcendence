@@ -4,7 +4,7 @@
   import MessageCard from '@/app/components/MessageCard.vue'
 
   const props = defineProps<{
-    email?: string
+     // email: string | null
     isRegisterRedirect?: boolean
   }>()
 
@@ -20,7 +20,7 @@ export interface LoginResponse {
   message: string
 }
 
-  const email = ref(props.email)
+  const email = ref('')
   const password = ref()
   const errorFlag = ref(false)
   const message = ref('')
@@ -40,7 +40,7 @@ export interface LoginResponse {
       otpConfirmationRequired.value = true
     } catch (error) {
       errorFlag.value = true
-      message.value = error.message
+      // message.value = error.message // TODO
       if (error instanceof HttpError) {
         if (error.status === 400) {
           console.log(error.message)
@@ -66,7 +66,7 @@ export interface LoginResponse {
       redirectToHome();
     } catch (error) {
       errorFlag.value = true
-      message.value = error.message
+      // message.value = error.message // TODO
       if (error instanceof HttpError) {
         if (error.status === 400) {
           console.log(error.message)

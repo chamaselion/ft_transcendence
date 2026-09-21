@@ -19,7 +19,7 @@
       window.location.href = `/login?email=${email.value}&redirect=true`
       } catch (error) {
         errorFlag.value = true
-        msg.value = error.message
+        // msg.value = error.message // TODO
         if (error instanceof HttpError) {
           if (error.status === 400) {
             console.log('Invalid data:', error.message)
