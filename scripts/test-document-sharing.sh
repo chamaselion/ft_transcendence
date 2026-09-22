@@ -105,6 +105,19 @@ register() {
 # escaping entirely and behaves the same on every shell.
 share_json() { printf '{"email":"%s","permission":"%s"}' "$1" "$2"; }
 
+# json_number <json> <key>  -> first numeric value for that key
+# Separate from json_field because `"total":3` has no quotes around the value.
+json_number() {
+  echo "$1" | grep -o "\"$2\":[0-9]*" | head -1 | cut -d: -f2
+}
+
+# count_matches <haystack> <needle>  -> how often the needle occurs
+# Used with '"permission":' to count the documents in a response: every
+# document carries exactly one, while '"id":' would also count the owner block.
+count_matches() {
+  echo "$1" | grep -o "$2" | wc -l | tr -d ' '
+}
+
 # contains <haystack> <needle>  -> yes|no
 contains() {
   case "$1" in
@@ -264,17 +277,67 @@ echo "    docker compose exec db psql -U \$POSTGRES_USER -d \$POSTGRES_DB \\"
 echo "      -c \"select count(*) from document_shares where document_id='$DOC_ID';\""
 echo
 
-# --- 9) rate limit (opt-in) --------------------------------------------------
+# --- 9) search, sorting, paging ----------------------------------------------
+
+echo "9) Search, sorting and paging"
+SEARCH_TAG="srch_${STAMP}"
+S1="$(json_field "$(body "$A_JAR" POST /api/documents "$(printf '{"title":"%s_aaa","content":"alpha"}' "$SEARCH_TAG")")" id)"
+S2="$(json_field "$(body "$A_JAR" POST /api/documents "$(printf '{"title":"%s_bbb","content":"beta"}' "$SEARCH_TAG")")" id)"
+S3="$(json_field "$(body "$A_JAR" POST /api/documents "$(printf '{"title":"%s_ccc","content":"gamma%s"}' "$SEARCH_TAG" "$STAMP")")" id)"
+body "$A_JAR" POST "/api/documents/$S3/shares" "$(share_json "$B_EMAIL" viewer)" > /dev/null
+
+FOUND="$(body "$A_JAR" GET "/api/documents?q=$SEARCH_TAG")"
+check "q finds exactly the three new documents" 3 "$(json_number "$FOUND" total)"
+check "and all three are returned"          3 "$(count_matches "$FOUND" '"permission":')"
+
+# The point of `total`: it counts the matches, not the rows on this page.
+PAGE1="$(body "$A_JAR" GET "/api/documents?q=$SEARCH_TAG&limit=2")"
+check "limit=2 returns two rows"            2 "$(count_matches "$PAGE1" '"permission":')"
+check "but total still says three"          3 "$(json_number "$PAGE1" total)"
+PAGE2="$(body "$A_JAR" GET "/api/documents?q=$SEARCH_TAG&limit=2&offset=2")"
+check "offset=2 returns the remaining one"  1 "$(count_matches "$PAGE2" '"permission":')"
+
+ASC="$(body "$A_JAR" GET "/api/documents?q=$SEARCH_TAG&sort=title&order=asc")"
+DESC="$(body "$A_JAR" GET "/api/documents?q=$SEARCH_TAG&sort=title&order=desc")"
+check "sort=title,asc starts at _aaa"       "${SEARCH_TAG}_aaa" "$(json_field "$ASC" title)"
+check "sort=title,desc starts at _ccc"      "${SEARCH_TAG}_ccc" "$(json_field "$DESC" title)"
+
+# Searching the content too is what makes this more than a title filter.
+check "q matches content, not just titles"  1 "$(json_number "$(body "$A_JAR" GET "/api/documents?q=gamma$STAMP")" total)"
+
+# scope separates your own documents from the ones shared with you - the filter
+# that replaces filtering by permission.
+check "B: scope=shared finds the shared one" 1 "$(json_number "$(body "$B_JAR" GET "/api/documents?q=$SEARCH_TAG&scope=shared")" total)"
+check "B: scope=own finds none of them"     0 "$(json_number "$(body "$B_JAR" GET "/api/documents?q=$SEARCH_TAG&scope=own")" total)"
+check "A: scope=own finds all three"        3 "$(json_number "$(body "$A_JAR" GET "/api/documents?q=$SEARCH_TAG&scope=own")" total)"
+
+# Invalid input is rejected, not silently ignored. The sort cases matter most:
+# a sort field cannot be a bound parameter, so an unchecked value would end up
+# as text inside the ORDER BY clause.
+check "unknown sort -> 400"                 400 "$(status "$A_JAR" GET "/api/documents?sort=bogus")"
+check "sort injection attempt -> 400"       400 "$(status "$A_JAR" GET "/api/documents?sort=title;DROP%20TABLE%20users")"
+check "unknown order -> 400"                400 "$(status "$A_JAR" GET "/api/documents?order=sideways")"
+check "unknown scope -> 400"                400 "$(status "$A_JAR" GET "/api/documents?scope=everything")"
+check "limit=0 -> 400"                      400 "$(status "$A_JAR" GET "/api/documents?limit=0")"
+check "limit=101 -> 400"                    400 "$(status "$A_JAR" GET "/api/documents?limit=101")"
+check "limit=12abc -> 400"                  400 "$(status "$A_JAR" GET "/api/documents?limit=12abc")"
+check "negative offset -> 400"              400 "$(status "$A_JAR" GET "/api/documents?offset=-1")"
+
+# Clean up after ourselves; the share on S3 goes with the cascade.
+for doc in "$S1" "$S2" "$S3"; do status "$A_JAR" DELETE "/api/documents/$doc" > /dev/null; done
+echo
+
+# --- 10) rate limit (opt-in) -------------------------------------------------
 
 if [ "${RATE_LIMIT_TEST:-0}" = "1" ]; then
-  echo "9) Share rate limit (60/min) - blocks user A for a minute afterwards"
+  echo "10) Share rate limit (60/min) - blocks user A for a minute afterwards"
   NEW_DOC_ID="$(json_field "$(body "$A_JAR" POST /api/documents '{"title":"rl","content":"x"}')" id)"
   LAST=200
   for _ in $(seq 1 65); do LAST="$(status "$A_JAR" GET "/api/documents/$NEW_DOC_ID/shares")"; done
   check "429 after 65 requests"             429 "$LAST"
   echo
 else
-  echo "9) Rate limit test skipped (set RATE_LIMIT_TEST=1 to enable)"
+  echo "10) Rate limit test skipped (set RATE_LIMIT_TEST=1 to enable)"
   echo
 fi
 
