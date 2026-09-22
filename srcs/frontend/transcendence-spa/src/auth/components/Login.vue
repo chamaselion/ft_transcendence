@@ -4,7 +4,7 @@
   import MessageCard from '@/app/components/MessageCard.vue'
 
   const props = defineProps<{
-     // email: string | null
+    email?: string | null
     isRegisterRedirect?: boolean
   }>()
 
@@ -20,7 +20,7 @@ export interface LoginResponse {
   message: string
 }
 
-  const email = ref('')
+  const email = ref(props.email)
   const password = ref()
   const errorFlag = ref(false)
   const message = ref('')
