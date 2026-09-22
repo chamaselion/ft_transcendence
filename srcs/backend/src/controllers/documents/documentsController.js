@@ -4,18 +4,9 @@ const { validateUuid } = require('../auth/validation');
 const { pick } = require('../../utils/pick');
 const { sanitizePlainText } = require('./sanitize');
 const { resolvePermission, atLeast } = require('./permissions');
+const { parseListQuery, likePattern, paginationOf } = require('../../utils/listQuery');
 
-// CRUD for the generic collaborative document.
-//
-// Access comes from three sources, all resolved by ./permissions:
-//   - ownership (document.ownerId)      -> 'owner'
-//   - a documentShare row               -> 'editor' or 'viewer'
-//   - the admin role                    -> 'owner' on every document
-// Admin responses additionally carry `ownerId` so an admin can tell whose
-// document they are looking at. Together with the per-level action gating
-// below (viewer reads, editor writes, only the owner deletes) that is the
-// "different views and actions depending on role" half of the permissions
-// module.
+
 const createDocumentsController = ({ documentModel, shareModel, userModel } = {}) => {
   const resolvedModel = documentModel || sequelize.models.document;
   const resolveShareModel = () => shareModel || sequelize.models.documentShare;
@@ -24,12 +15,10 @@ const createDocumentsController = ({ documentModel, shareModel, userModel } = {}
   const PUBLIC_ATTRS = ['id', 'title', 'content', 'createdAt', 'updatedAt'];
   const ADMIN_ATTRS = [...PUBLIC_ATTRS, 'ownerId'];
 
-  // Shown on documents the caller does *not* own, so they can see who shared
-  // it with them. The login, not just the id: GET /api/users is admin-only, so
-  // a regular user has no way to resolve an owner id into a name - handing
-  // back a bare uuid would be unusable, which is the same reason shares are
-  // addressed by email.
+
   const OWNER_ATTRS = ['id', 'login'];
+  const SORTABLE = ['updatedAt', 'createdAt', 'title'];
+  const SCOPES = ['own', 'shared', 'all'];
 
   const isAdmin = (user) => user.role === 'admin';
   const attrsFor = (user) => (isAdmin(user) ? ADMIN_ATTRS : PUBLIC_ATTRS);
@@ -37,9 +26,7 @@ const createDocumentsController = ({ documentModel, shareModel, userModel } = {}
   const isNonEmptyString = (value) =>
     typeof value === 'string' && value.trim().length > 0;
 
-  // `:id` is a UUID. Validating it here keeps a malformed id from reaching
-  // Postgres, which rejects it as invalid uuid syntax and would turn a client
-  // mistake into a 500.
+
   const readId = (req, res) => {
     const result = validateUuid(req.params.id, 'document id');
     if (!result.ok) {
@@ -49,13 +36,7 @@ const createDocumentsController = ({ documentModel, shareModel, userModel } = {}
     return result.value;
   };
 
-  // Every document that leaves this controller carries the caller's own
-  // permission on it, so the client can render a viewer read-only instead of
-  // asking again per document.
-  //
-  // `owner` is attached only where it says something: on a document the caller
-  // owns, the owner is the caller. Admins already get `ownerId` instead, and
-  // resolve to 'owner' everywhere, so they never take this branch.
+
   const present = (document, user, permission, owner) => {
     const presented = {
       ...pick(document, attrsFor(user)),
@@ -68,7 +49,6 @@ const createDocumentsController = ({ documentModel, shareModel, userModel } = {}
     return presented;
   };
 
-  // Resolve once, with the models this controller was built with.
   const permissionFor = (user, id) =>
     resolvePermission(user, id, {
       documentModel: resolvedModel,
@@ -87,10 +67,6 @@ const createDocumentsController = ({ documentModel, shareModel, userModel } = {}
         return res.status(400).json({ error: 'content must be a string' });
       }
 
-      // Sanitize before re-checking non-emptiness: a title/content that is
-      // only markup (e.g. a bare "<script>...</script>") passes the raw
-      // non-empty check above but can collapse to "" once stripped, so we
-      // validate again on the sanitized value rather than store blanks.
       const sanitizedTitle = title !== undefined ? sanitizePlainText(title.trim()) : undefined;
       const sanitizedContent = content !== undefined ? sanitizePlainText(content) : undefined;
       if (sanitizedTitle !== undefined && !isNonEmptyString(sanitizedTitle)) {
@@ -113,13 +89,23 @@ const createDocumentsController = ({ documentModel, shareModel, userModel } = {}
   };
 
   // GET /api/documents
-  // Own documents plus everything shared with the caller. Deliberately two
-  // queries rather than a join: the shared ids are needed as a lookup table
-  // anyway, to label each row with the caller's permission.
+
   const list = async (req, res) => {
     try {
-      // Admins resolve to 'owner' on every document, so their own share rows
-      // would never be consulted - skip the query entirely for them.
+      const parsed = parseListQuery(req.query, {
+        sortable: SORTABLE,
+        defaultSort: 'updatedAt',
+        defaultOrder: 'DESC',
+      });
+      if (!parsed.ok) return res.status(400).json({ error: parsed.error });
+      const { q, sort, order, limit, offset } = parsed.value;
+
+      const scope = req.query.scope === undefined ? 'all' : String(req.query.scope).trim();
+      if (!SCOPES.includes(scope)) {
+        return res.status(400).json({ error: `scope must be one of: ${SCOPES.join(', ')}` });
+      }
+
+
       const shares = isAdmin(req.user)
         ? []
         : await resolveShareModel().findAll({
@@ -130,24 +116,36 @@ const createDocumentsController = ({ documentModel, shareModel, userModel } = {}
         shares.map((share) => [String(share.documentId).toLowerCase(), share.permission]),
       );
 
-      const documents = await resolvedModel.findAll({
-        where: isAdmin(req.user)
-          ? undefined
-          : {
-              [Op.or]: [
-                { ownerId: req.user.id },
-                { id: { [Op.in]: [...sharedPermissions.keys()] } },
-              ],
-            },
-        // Always select ownerId internally - it decides owner vs. share below -
-        // and let present() strip it again for non-admins.
+      const ownClause = { ownerId: req.user.id };
+      const sharedClause = { id: { [Op.in]: [...sharedPermissions.keys()] } };
+      const visibility = {
+        own: ownClause,
+        shared: sharedClause,
+        all: isAdmin(req.user) ? null : { [Op.or]: [ownClause, sharedClause] },
+      }[scope];
+
+      const search = q
+        ? {
+            [Op.or]: [
+              { title: { [Op.iLike]: likePattern(q) } },
+              { content: { [Op.iLike]: likePattern(q) } },
+            ],
+          }
+        : null;
+
+      const clauses = [visibility, search].filter(Boolean);
+
+      const { rows: documents, count: total } = await resolvedModel.findAndCountAll({
+        where: clauses.length ? { [Op.and]: clauses } : undefined,
+
         attributes: ADMIN_ATTRS,
-        // One join instead of a lookup per shared row. Admins do not need it:
-        // they get ownerId directly.
+
         include: isAdmin(req.user)
           ? []
           : [{ model: resolveUserModel(), as: 'owner', attributes: OWNER_ATTRS }],
-        order: [['updatedAt', 'DESC']],
+        order: [[sort, order]],
+        limit,
+        offset,
       });
 
       const permissionOf = (document) => {
@@ -161,6 +159,7 @@ const createDocumentsController = ({ documentModel, shareModel, userModel } = {}
       return res.json({
         documents: documents.map((document) =>
           present(document, req.user, permissionOf(document), document.owner)),
+        pagination: paginationOf({ total, limit, offset }),
       });
     } catch (err) {
       console.error('[DOCUMENTS] list failed:', err);
@@ -179,8 +178,7 @@ const createDocumentsController = ({ documentModel, shareModel, userModel } = {}
         return res.status(404).json({ error: 'Document not found' });
       }
 
-      // Only a shared document needs this extra lookup; on your own documents
-      // it would answer a question nobody asked.
+
       const owner = permission === 'owner'
         ? null
         : await resolveUserModel().findByPk(document.ownerId, { attributes: OWNER_ATTRS });
@@ -210,16 +208,14 @@ const createDocumentsController = ({ documentModel, shareModel, userModel } = {}
         return res.status(400).json({ error: 'content must be a string' });
       }
 
-      // See create(): re-check non-emptiness after sanitizing, since
-      // markup-only input can collapse to "" once stripped.
+
       const sanitizedTitle = title !== undefined ? sanitizePlainText(title.trim()) : undefined;
       const sanitizedContent = content !== undefined ? sanitizePlainText(content) : undefined;
       if (sanitizedTitle !== undefined && !isNonEmptyString(sanitizedTitle)) {
         return res.status(400).json({ error: 'title must be a non-empty string' });
       }
 
-      // Writing needs 'editor'; a viewer gets the same 404 as a stranger so the
-      // response never confirms that the document exists.
+
       const { document, permission } = await permissionFor(req.user, id);
       if (!atLeast(permission, 'editor')) {
         return res.status(404).json({ error: 'Document not found' });
@@ -242,8 +238,7 @@ const createDocumentsController = ({ documentModel, shareModel, userModel } = {}
       const id = readId(req, res);
       if (!id) return undefined;
 
-      // Deleting is owner-only on purpose: an editor may change the contents
-      // but must not be able to destroy the document and every share on it.
+
       const { document, permission } = await permissionFor(req.user, id);
       if (!atLeast(permission, 'owner')) {
         return res.status(404).json({ error: 'Document not found' });
