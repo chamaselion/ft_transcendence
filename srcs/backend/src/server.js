@@ -5,6 +5,7 @@ const { requireEnv, requireNumberEnv } = require('./config');
 const routes = require('./routes');
 const { flushSessionStateToDb, hydrateSessionCacheFromDb } = require('./controllers/auth/helpers');
 const { attachDocumentSocket } = require('./ws/documentSocket');
+const { ensureAdminRole } = require('./services/adminBootstrap');
 
 const app = createApp({ router: routes });
 const PORT = requireNumberEnv('PORT');
@@ -37,8 +38,11 @@ async function connectWithRetry() {
 async function start() {
   try {
     await connectWithRetry();
-    await sequelize.sync();
+    // `alter: true` so schema changes (such as the `role` column) also reach
+    // databases that already exist, not just freshly created ones.
+    await sequelize.sync({ alter: true });
     await hydrateSessionCacheFromDb();
+    await ensureAdminRole();
     console.log('Database connected');
     httpServer.listen(PORT, () => {
       console.log(`Server running on port ${PORT} in ${NODE_ENV} mode`);

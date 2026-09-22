@@ -20,6 +20,11 @@ module.exports = (sequelize) => {
     passwordHash: {
       type: DataTypes.STRING,
       allowNull: false,
-    }
+    },
+    role: {
+      type: DataTypes.ENUM('admin', 'user'),
+      allowNull: false,
+      defaultValue: 'user',
+    },
   });
 };
