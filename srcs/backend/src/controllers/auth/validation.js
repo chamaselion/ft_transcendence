@@ -104,6 +104,8 @@ const validateChallengeId = (value, fieldName = 'challengeId') => {
   return buildFieldSuccess(normalizedValue);
 };
 
+const validateUuid = (value, fieldName = 'id') => validateChallengeId(value, fieldName);
+
 const validateOptionalEmail = (value, fieldName = 'email') => {
   if (value === undefined) {
     return buildFieldSuccess('');
@@ -129,4 +131,5 @@ module.exports = {
   validateOptionalLogin,
   validateOtpCode,
   validatePassword,
+  validateUuid,
 };

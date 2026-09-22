@@ -18,7 +18,7 @@ const createMeHandler = ({ userModel, tokenLib = jwt, secret = requireEnv('JWT_S
       }
 
       const user = await resolvedUserModel.findByPk(payload.id, {
-        attributes: ['id', 'login', 'email'],
+        attributes: ['id', 'login', 'email', 'role'],
       });
 
       if (!user) return res.status(401).json({ loggedIn: false });
