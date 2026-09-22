@@ -32,15 +32,35 @@ mitigation is that admin accounts are handed out sparingly.
 - Method: `GET`
 - Path: `/`
 
+### Query parameters
+
+| Parameter | Values | Default | Meaning |
+| --- | --- | --- | --- |
+| `q` | any text, max 100 chars | — | matches `login` **or** `email`, case-insensitive |
+| `role` | `admin`, `user` | — | only accounts with that role |
+| `sort` | `login`, `email`, `createdAt` | `createdAt` | |
+| `order` | `asc`, `desc` | `asc` | |
+| `limit` | 1–100 | 20 | page size |
+| `offset` | 0 or more | 0 | rows to skip |
+
+`%` and `_` in `q` are matched literally, not as SQL wildcards. Passing no
+parameters gives the previous behaviour — oldest account first — but paged.
+
 Success response (`200`):
 
 ```json
 {
   "users": [
     { "id": "uuid", "login": "alice", "email": "alice@example.com", "role": "user", "createdAt": "timestamp", "updatedAt": "timestamp" }
-  ]
+  ],
+  "pagination": { "total": 42, "limit": 20, "offset": 0 }
 }
 ```
+
+`total` is the number of matches **before** paging.
+
+Errors: `400` for an unknown `sort`, `order` or `role`, a `limit` outside
+1–100, a non-numeric `limit`/`offset`, or a `q` longer than 100 characters.
 
 ## Get a user
 
@@ -115,3 +135,8 @@ instead), `404` user not found.
 Common errors across all endpoints above: `401` unauthorized (missing/invalid
 session), `403` authenticated but not an admin, `429` rate limit exceeded,
 `500` internal server error.
+
+Smoke test: [`scripts/test-user-search.sh`](../../scripts/test-user-search.sh)
+covers the query parameters above, the role filter and the 403 for non-admins.
+It needs the stack running, `EMAIL_TRANSPORT=console`, and an admin account
+(`ADMIN_EMAIL` / `ADMIN_PASS`).
