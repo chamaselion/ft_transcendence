@@ -40,7 +40,7 @@ export interface LoginResponse {
       otpConfirmationRequired.value = true
     } catch (error) {
       errorFlag.value = true
-      // message.value = error.message // TODO
+      message.value = error instanceof Error ? error.message : typeof error === 'string' ? error : 'Something went wrong'
       if (error instanceof HttpError) {
         if (error.status === 400) {
           console.log(error.message)
@@ -66,7 +66,7 @@ export interface LoginResponse {
       redirectToHome();
     } catch (error) {
       errorFlag.value = true
-      // message.value = error.message // TODO
+      message.value = error instanceof Error ? error.message : typeof error === 'string' ? error : 'Something went wrong'
       if (error instanceof HttpError) {
         if (error.status === 400) {
           console.log(error.message)
