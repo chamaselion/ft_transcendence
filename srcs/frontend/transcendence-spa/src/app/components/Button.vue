@@ -127,10 +127,6 @@ const style = computed(() => {
   background-color: color-mix(in srgb, var(--btn-color) 12%, transparent);
 }
 
-.btn--disabled {
-  --btn-color: var()
-}
-
 .btn--c-default {
   --btn-color: var(--bg-surface);
   --btn-color-hover: var(--bg-subtle);
