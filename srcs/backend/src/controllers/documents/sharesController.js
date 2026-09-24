@@ -3,17 +3,6 @@ const { validateEmail, validateUuid } = require('../auth/validation');
 const { resolvePermission, atLeast, PERMISSION_VALUES } = require('./permissions');
 const { evictFromDocument, syncLivePermission } = require('../../ws/documentSocket');
 
-// Share management for a single document.
-//
-// Managing shares is owner-only (admins included, since they resolve to
-// 'owner'). Editors deliberately cannot re-share: otherwise every editor could
-// widen the circle further and the owner would lose control over who reaches
-// the document.
-//
-// Grants are addressed by *email*, not by user id. That is not cosmetic:
-// GET /api/users is admin-only, so a regular user has no way to turn an email
-// into an id and the feature would be unusable for everyone but admins. The
-// lookup therefore happens server-side.
 
 const createSharesController = ({ documentModel, shareModel, userModel } = {}) => {
   const resolveDocuments = () => documentModel || sequelize.models.document;
@@ -31,9 +20,6 @@ const createSharesController = ({ documentModel, shareModel, userModel } = {}) =
     return result.value;
   };
 
-  // Every route here needs the caller to own the document. A caller who does
-  // not gets the same 404 the documents controller gives, so share routes
-  // cannot be used to probe which document ids exist either.
   const requireOwnedDocument = async (req, res) => {
     const documentId = readUuid(res, req.params.id, 'document id');
     if (!documentId) return null;
@@ -80,8 +66,6 @@ const createSharesController = ({ documentModel, shareModel, userModel } = {}) =
 
       return res.json({
         shares: shares
-          // A share whose user vanished should not take the whole listing down
-          // with a null dereference; the cascade normally prevents this.
           .filter((share) => share.user)
           .map((share) => presentShare(share, share.user)),
       });
@@ -105,9 +89,6 @@ const createSharesController = ({ documentModel, shareModel, userModel } = {}) =
       const requestedPermission = readPermission(res, permission);
       if (!requestedPermission) return undefined;
 
-      // Emails are stored as the user typed them at registration, so match
-      // case-insensitively - the same reason adminBootstrap lowercases both
-      // sides before comparing.
       const target = await resolveUsers().findOne({
         where: sequelize.where(
           sequelize.fn('lower', sequelize.col('email')),
@@ -129,8 +110,6 @@ const createSharesController = ({ documentModel, shareModel, userModel } = {}) =
         where: { documentId: document.id, userId: target.id },
       });
 
-      // Re-sharing with someone who already has access changes their level
-      // instead of hitting the unique index with a duplicate row.
       if (existing) {
         existing.permission = requestedPermission;
         await existing.save();
@@ -168,18 +147,12 @@ const createSharesController = ({ documentModel, shareModel, userModel } = {}) =
       });
       if (!share) return res.status(404).json({ error: 'Share not found' });
 
-      // Load the target *before* writing. The other way round, a vanished
-      // account produces a 404 after the level has already been changed and
-      // pushed to the live socket - a request that fails and still leaves the
-      // system altered.
       const target = await resolveUsers().findByPk(userId, { attributes: SHARE_USER_ATTRS });
       if (!target) return res.status(404).json({ error: 'User not found' });
 
       share.permission = requestedPermission;
       await share.save();
 
-      // Push the new level into any open connection. Without this a user
-      // downgraded to viewer keeps writing until they reload the page.
       syncLivePermission(document.id, userId, requestedPermission);
 
       return res.json({ share: presentShare(share, target) });
@@ -203,8 +176,6 @@ const createSharesController = ({ documentModel, shareModel, userModel } = {}) =
       });
       if (!destroyed) return res.status(404).json({ error: 'Share not found' });
 
-      // Revoking has to reach the live session too, or the former editor keeps
-      // typing into a document they no longer have access to.
       evictFromDocument(document.id, userId);
 
       return res.status(204).send();

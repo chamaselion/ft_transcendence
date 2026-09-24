@@ -19,9 +19,7 @@ router.get('/:id', get);
 router.patch('/:id', update);
 router.delete('/:id', remove);
 
-// Sharing resolves an email address to an account, so the response reveals
-// whether an address is registered. Throttled per user (falling back to the
-// client IP) so it can't be used to walk through a list of addresses.
+
 const shareLimiter = createRateLimiter({
   name: 'document-shares',
   windowMs: 60 * 1000,
