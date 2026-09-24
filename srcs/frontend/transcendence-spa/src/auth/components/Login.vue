@@ -20,8 +20,8 @@ export interface LoginResponse {
   codeSent: boolean
   message: string
 }
-
-  const email = ref(props.email)
+  
+  const email = ref(props.email ?? '');
   const password = ref()
   const errorFlag = ref(false)
   const message = ref('')
