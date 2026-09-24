@@ -1,7 +1,8 @@
 <script setup lang="ts">
   import { ref } from 'vue'
   import { httpClient, HttpError } from '../auth.api'
-  import MessageCard from '@/app/components/MessageCard.vue'
+  import Toast from '@/app/components/Toast.vue'
+  import Input from '@/app/components/Input.vue'
 
   const username = ref('')
   const email = ref('')
@@ -38,21 +39,26 @@
 <template>
   <div class="register-container">
     <h1>Register</h1>
-    <MessageCard v-if="errorFlag"
-                 :message="msg"
-                 :errorMsg="true" />
+    <Toast
+      v-model="errorFlag"
+      type="alert"
+      :message="msg"
+      :duration="6000"
+      fluid
+      class="auth-toast"
+    />
     <form @submit.prevent="handleRegister">
       <div class="form-group">
         <label for="username">Username:</label>
-        <input type="text" id="username" v-model="username" required />
+        <Input type="text" id="username" v-model="username" required />
       </div>
       <div class="form-group">
         <label for="email">Email:</label>
-        <input type="email" id="email" v-model="email" required />
+        <Input type="email" id="email" v-model="email" required />
       </div>
       <div class="form-group">
         <label for="password">Password:</label>
-        <input type="password" v-model="password" required />
+        <Input type="password" v-model="password" required />
       </div>
       <button type="submit">Register</button>
     </form>
@@ -73,5 +79,9 @@
   .register-container h1 {
     text-align: center;
     margin-bottom: 24px;
+  }
+
+  .auth-toast {
+    margin-bottom: 16px;
   }
 </style>
