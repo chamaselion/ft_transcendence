@@ -1,7 +1,8 @@
 <script setup lang="ts">
   import { ref } from 'vue'
   import { httpClient,  HttpError } from '../auth.api'
-  import MessageCard from '@/app/components/MessageCard.vue'
+  import Toast from '@/app/components/Toast.vue'
+  import Input from '@/app/components/Input.vue'
 
   const props = defineProps<{
     email?: string | null
@@ -19,8 +20,8 @@ export interface LoginResponse {
   codeSent: boolean
   message: string
 }
-
-  const email = ref(props.email)
+  
+  const email = ref(props.email ?? '');
   const password = ref()
   const errorFlag = ref(false)
   const message = ref('')
@@ -28,7 +29,7 @@ export interface LoginResponse {
   const otp = ref('')
   let callengeID: string
   const loggeInSuccess = ref(false)
-  const registerRedirectFlag = ref(props.isRegisterRedirect)
+  const registerRedirectFlag = ref(Boolean(props.isRegisterRedirect))
 
   const handleLogin = async () => {
     try {
@@ -90,23 +91,34 @@ export interface LoginResponse {
 
 <template>
 
-  <MessageCard v-if="registerRedirectFlag"
-               message="Registered successfully!"
-               hint="Please login to receive an OTP validaiton code."/>
+  <Toast
+    v-model="registerRedirectFlag"
+    type="info"
+    message="Registered successfully!"
+    hint="Please login to receive an OTP validaiton code."
+    :duration="8000"
+    fluid
+    class="auth-toast"
+  />
 
   <div class="login-container" v-if="!otpConfirmationRequired">
     <h1>Login</h1>
-    <MessageCard v-if="errorFlag"
-                :message="message"
-                 :errorMsg="true"/>
+    <Toast
+      v-model="errorFlag"
+      type="alert"
+      :message="message"
+      :duration="6000"
+      fluid
+      class="auth-toast"
+    />
     <form @submit.prevent="handleLogin">
       <div class="form-group">
         <label for="email">E-mail:</label>
-        <input type="text" id="email" v-model="email" required />
+        <Input type="text" id="email" v-model="email" required />
       </div>
       <div class="form-group">
         <label for="password">Password:</label>
-        <input type="password" id="password" v-model="password" required />
+        <Input type="password" id="password" v-model="password" required />
       </div>
       <button type="submit">Login</button>
     </form>
@@ -115,6 +127,14 @@ export interface LoginResponse {
 
   <div class="otp-confirm" v-if="otpConfirmationRequired && !loggeInSuccess">
     <h1>OTP Confirmation</h1>
+    <Toast
+      v-model="errorFlag"
+      type="alert"
+      :message="message"
+      :duration="6000"
+      fluid
+      class="auth-toast"
+    />
     <form @submit.prevent="handleOtpConfirmation">
       <div class="form-group">
         <label for="otp">Enter OTP:</label>
@@ -124,9 +144,15 @@ export interface LoginResponse {
     </form>
   </div>
 
-  <MessageCard v-if="loggeInSuccess"
-               message="Login successful!"
-               hint="Redirecting to home page..."/>
+  <Toast
+    v-model="loggeInSuccess"
+    type="good"
+    message="Login successful!"
+    hint="Redirecting to home page..."
+    :duration="2500"
+    fluid
+    class="auth-toast"
+  />
 </template>
 
 <style scoped>
@@ -145,10 +171,8 @@ export interface LoginResponse {
   text-align: center;
 }
 
-.error-message {
-  background-color: red;
-  margin: 10px 5px;
-  text-align: center;
-
+.auth-toast {
+  margin: 16px auto;
+  max-width: 400px;
 }
 </style>

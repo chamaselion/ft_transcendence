@@ -16,6 +16,17 @@
   --color-primary-hover: #1d4ed8;
   --color-primary-contrast: #ffffff;
 
+  /* Status Colors */
+  --color-alert: #dc2626;
+  --color-alert-hover: #b91c1c;
+  --color-alert-contrast: #ffffff;
+  --color-warn: #f59e0b;
+  --color-warn-hover: #d97706;
+  --color-warn-contrast: #1f2937;
+  --color-good: #16a34a;
+  --color-good-hover: #15803d;
+  --color-good-contrast: #ffffff;
+
   /* Borders & Dividers */
   --border-default: #cbd5e1;
   --border-subtle: #e2e8f0;
@@ -23,7 +34,8 @@
   /* Shadows */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-
+  --shadow-xl: 0 6px 10px -1px rgba(0, 0, 0, 0.4);
+  
 }
 
 :root[data-theme="dark"] {
@@ -44,6 +56,17 @@
   --color-primary: #3b82f6;
   --color-primary-hover: #60a5fa;
   --color-primary-contrast: #ffffff;
+
+  /* Status Colors */
+  --color-alert: #ef4444;
+  --color-alert-hover: #f87171;
+  --color-alert-contrast: #ffffff;
+  --color-warn: #fbbf24;
+  --color-warn-hover: #fcd34d;
+  --color-warn-contrast: #1f2937;
+  --color-good: #22c55e;
+  --color-good-hover: #4ade80;
+  --color-good-contrast: #052e16;
 
   /* Borders & Dividers */
   --border-default: #334155;
@@ -108,4 +131,20 @@ button:hover {
   border: 1px solid var(--border-default);
   border-radius: 4px;
   box-sizing: border-box;
+}
+
+.page-container{
+  box-sizing: border-box;
+  width: 100%;
+  min-height: calc(100vh - 60px);
+  background-color: var(--bg-app);
+  background: var(--bg-app-gradient);
+  padding: 2rem 3rem;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: var(--text-primary);
+}
+
+button:hover {
+  background: var(--bg-subtle);
+  color: var(--text-primary);
 }
