@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import { httpClient, HttpError } from '../auth.api'
 import Card from '@/app/components/Card.vue'
 import Toast from '@/app/components/Toast.vue'
-import UserIcon from '@/app/components/UserIcon.vue'
+// import UserIcon from '@/app/components/UserIcon.vue'
 import Button from '@/app/components/Button.vue'
 import { type Root, type User } from '../types/user'
 
@@ -58,6 +58,10 @@ const loadProfile = async () => {
 const goToLogin = () => router.push('/login')
 
 onMounted(loadProfile)
+
+function updateProfile(newProfile: User) {
+  user.value = newProfile
+}
 </script>
 
 <template>
@@ -103,7 +107,7 @@ onMounted(loadProfile)
 
     <Card v-else-if="loggedIn" class="user-settings__card">
       <div class="profile__identity">
-        <UserIcon :name="user?.login" size="large" />
+        <!-- <UserIcon :name="user?.login" size="large" /> -->
         <div class="profile__meta">
           <span class="profile__login">{{ user?.login }}</span>
           <span v-if="roleLabel" class="profile__role">{{ roleLabel }}</span>
@@ -112,10 +116,12 @@ onMounted(loadProfile)
 
       <dl class="profile__details">
         <div v-for="detail in details" :key="detail.label" class="profile__detail">
-          <dt class="profile__detail-label">{{ detail.label }}</dt>
-          <dd class="profile__detail-value">{{ detail.value || '—' }}</dd>
+          <label :for="detail.label" class="profile__detail-label">{{ detail.label }}</label>
+          <input type="text" class="profile__detail-value" :id="detail.label" :value="detail.value"/>
         </div>
       </dl>
+
+
 
       <template #footer>
         <div class="status" :class="`status--${status}`" role="status">
