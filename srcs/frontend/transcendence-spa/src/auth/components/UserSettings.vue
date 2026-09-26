@@ -6,12 +6,14 @@ import Card from '@/app/components/Card.vue'
 import Toast from '@/app/components/Toast.vue'
 // import UserIcon from '@/app/components/UserIcon.vue'
 import Button from '@/app/components/Button.vue'
+import Input from '@/app/components/Input.vue'
 import { type Root, type User } from '../types/user'
 
 const router = useRouter()
 
 const res = ref<Root | null>(null)
 const user = ref<User | null>(null)
+const safed = ref<User | null>(null) // This is used to store the last saved user data for comparsion
 
 const pending = ref(true)
 const failed = ref(false)
@@ -31,9 +33,9 @@ const roleLabel = computed(() => {
 })
 
 const details = computed(() => [
-  { label: 'E-mail', value: user.value?.email },
-  { label: 'Role', value: roleLabel.value },
-  { label: 'User ID', value: user.value?.id },
+  { label: 'E-mail', value: user.value?.email, editable: true},
+  { label: 'Role', value: roleLabel.value, editable: false},
+  { label: 'User ID', value: user.value?.id, editable: false},
 ])
 
 const loadProfile = async () => {
@@ -44,6 +46,7 @@ const loadProfile = async () => {
     const response = await httpClient.get<Root>('me')
     res.value = response
     user.value = response.user ?? null
+    safed.value = response.user ?? null
   } catch (error) {
     if (!(error instanceof HttpError) || error.status !== 401) {
       failed.value = true
@@ -58,10 +61,6 @@ const loadProfile = async () => {
 const goToLogin = () => router.push('/login')
 
 onMounted(loadProfile)
-
-function updateProfile(newProfile: User) {
-  user.value = newProfile
-}
 </script>
 
 <template>
@@ -115,10 +114,14 @@ function updateProfile(newProfile: User) {
       </div>
 
       <dl class="profile__details">
+        <form @submit.prevent>
         <div v-for="detail in details" :key="detail.label" class="profile__detail">
           <label :for="detail.label" class="profile__detail-label">{{ detail.label }}</label>
-          <input type="text" class="profile__detail-value" :id="detail.label" :value="detail.value"/>
+          <Input v-if="detail.editable" type="text" :id="detail.label" :modelValue="detail.value"/>
+          <span v-else class="profile__detail-value">{{ detail.value }}</span>
         </div>
+        <Button variant="elevated" type="submit" v-if="true">Update Profile</Button>
+        </form>
       </dl>
 
 
@@ -217,17 +220,13 @@ function updateProfile(newProfile: User) {
 }
 
 .profile__details {
-  margin: 16px 0 0;
   display: flex;
   flex-direction: column;
-  gap: 12px;
 }
 
 .profile__detail {
-  display: flex;
   align-items: baseline;
-  justify-content: space-between;
-  gap: 16px;
+  margin-bottom: 8px;
 }
 
 .profile__detail-label {
