@@ -128,18 +128,6 @@ async function confirmUpdateDetails() {
     />
 
     <Card v-if="pending" class="user-settings__card">
-      <div class="skeleton" aria-hidden="true">
-        <div class="skeleton__identity">
-          <div class="skeleton__avatar" />
-          <div class="skeleton__lines">
-            <div class="skeleton__line skeleton__line--title" />
-            <div class="skeleton__line skeleton__line--sub" />
-          </div>
-        </div>
-        <div class="skeleton__line" />
-        <div class="skeleton__line" />
-        <div class="skeleton__line" />
-      </div>
       <p class="skeleton__caption">Loading your profile…</p>
     </Card>
 
