@@ -228,6 +228,11 @@ onMounted(loadProfile)
 </template>
 
 <style lang="css" scoped>
+form {
+  display: grid;
+  gap:8px;
+}
+
 .user-settings {
   box-sizing: border-box;
   width: 100%;
