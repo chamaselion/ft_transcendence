@@ -25,6 +25,8 @@ const message = ref('')
 const otpCode = ref('')
 let cofirmationID: string | null = null
 const displayOTP = ref(false)
+const updateSuccess = ref(false)
+const updateSuccessMessage = ref('')
 
 const loggedIn = computed(() => res.value?.loggedIn === true)
 
@@ -96,6 +98,10 @@ async function confirmUpdateDetails() {
     const res = await httpClient.post<OtpConfirmationResponse>('me/update/confirm',
     { confirmationId: cofirmationID, email: email.value, code: otpCode.value })
     console.log('OTP confirmed successfully:', res)
+    displayOTP.value = false
+    cofirmationID = null
+    updateSuccessMessage.value = 'Your details have been updated successfully.'
+    updateSuccess.value = true
     loadProfile()
   } catch (error) {
     console.error('Error confirming OTP:', error)
@@ -147,6 +153,14 @@ async function confirmUpdateDetails() {
     </Card>
 
     <Card v-else-if="loggedIn" class="user-settings__card">
+      <Toast
+        v-model="updateSuccess"
+        type="info"
+        :message="updateSuccessMessage"
+        :duration="6000"
+        fluid
+        class="user-settings__toast"
+      />
       <div class="profile__identity">
         <!-- <UserIcon :name="user?.login" size="large" /> -->
         <div class="profile__meta">
