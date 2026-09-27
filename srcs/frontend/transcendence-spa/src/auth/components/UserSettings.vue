@@ -6,19 +6,24 @@ import Card from '@/app/components/Card.vue'
 import Toast from '@/app/components/Toast.vue'
 // import UserIcon from '@/app/components/UserIcon.vue'
 import Button from '@/app/components/Button.vue'
-import Input from '@/app/components/Input.vue'
+// import Input from '@/app/components/Input.vue'
 import { type Root, type User } from '../types/user'
+import { type OtpConfirmationResponse } from '../types/auth.types'
 
 const router = useRouter()
 
 const res = ref<Root | null>(null)
 const user = ref<User | null>(null)
-const safed = ref<User | null>(null) // This is used to store the last saved user data for comparsion
+const email = ref<string | null>(null) // Watchers for updating email and login
+const login = ref<string | null>(null)
+
 
 const pending = ref(true)
 const failed = ref(false)
 const errorFlag = ref(false)
 const message = ref('')
+const otpCode = ref('')
+let cofirmationID: string | null = null
 
 const loggedIn = computed(() => res.value?.loggedIn === true)
 
@@ -32,11 +37,11 @@ const roleLabel = computed(() => {
   return role.charAt(0).toUpperCase() + role.slice(1)
 })
 
-const details = computed(() => [
-  { label: 'E-mail', value: user.value?.email, editable: true},
-  { label: 'Role', value: roleLabel.value, editable: false},
-  { label: 'User ID', value: user.value?.id, editable: false},
-])
+// const details = computed(() => [
+//   { label: 'E-mail', value: user.value?.email, editable: true},
+//   { label: 'Role', value: roleLabel.value, editable: false},
+//   { label: 'User ID', value: user.value?.id, editable: false},
+// ])
 
 const loadProfile = async () => {
   pending.value = true
@@ -46,7 +51,8 @@ const loadProfile = async () => {
     const response = await httpClient.get<Root>('me')
     res.value = response
     user.value = response.user ?? null
-    safed.value = response.user ?? null
+    email.value = user.value?.email ?? null
+    login.value = user.value?.login ?? null
   } catch (error) {
     if (!(error instanceof HttpError) || error.status !== 401) {
       failed.value = true
@@ -60,7 +66,44 @@ const loadProfile = async () => {
 
 const goToLogin = () => router.push('/login')
 
+function isChanged(current: string | null, inputMail: string | null): boolean {
+if (current === null && inputMail === null) return false
+if (current === null || inputMail === null) return true
+return current !== inputMail
+}
+
 onMounted(loadProfile)
+
+async function updateUserDetails(email: string | null, login :string|null) {
+  // Implement the logic to update user details here
+  // For example, you can make an API call to update the user's email and login
+  console.log('Updating user details:', { email, login })
+  try {
+    const res = await httpClient.patch<OtpConfirmationResponse>('me', { email, login })
+    cofirmationID = res.confirmationId
+  } catch (error) {
+    console.error('Error updating user details:', error)
+    errorFlag.value = true
+    message.value = error instanceof Error ? error.message : 'Something went wrong while updating user details'
+  }
+}
+
+async function confirmUpdateDetails() {
+  if (!cofirmationID) {
+    console.error('No confirmation ID available for OTP confirmation.')
+    return
+  }
+  try {
+    const res = await httpClient.post<OtpConfirmationResponse>('me/update/confirm',
+    { confirmationId: cofirmationID, email: email.value, code: otpCode.value })
+    console.log('OTP confirmed successfully:', res)
+    loadProfile()
+  } catch (error) {
+    console.error('Error confirming OTP:', error)
+    errorFlag.value = true
+    message.value = error instanceof Error ? error.message : 'Something went wrong while confirming OTP'
+  }
+}
 </script>
 
 <template>
@@ -113,16 +156,48 @@ onMounted(loadProfile)
         </div>
       </div>
 
-      <dl class="profile__details">
-        <form @submit.prevent>
-        <div v-for="detail in details" :key="detail.label" class="profile__detail">
-          <label :for="detail.label" class="profile__detail-label">{{ detail.label }}</label>
-          <Input v-if="detail.editable" type="text" :id="detail.label" :modelValue="detail.value"/>
-          <span v-else class="profile__detail-value">{{ detail.value }}</span>
+      <dl class="profile__details" v-if="user">
+        <div class="provile__detail">
+          <label for="userID" class="profile__detail-label">User ID</label>
+          <p class="profile__detail-value" id="userID">{{ user?.id }}</p>
         </div>
-        <Button variant="elevated" type="submit" v-if="true">Update Profile</Button>
+        <div class="profile__detail">
+        <form @submit.prevent>
+          <label for="email" class="profile__detail-label">Email</label>
+          <input type="text" id="email" v-model="email"/>
+          <Button variant="elevated"
+                  type="submit"
+                  v-if="isChanged(user.email, email)"
+                  @click="updateUserDetails(email, login)"
+            >Update Email</Button>
         </form>
-      </dl>
+        </div>
+        <div class="profile__detail">
+          <form @submit.prevent>
+            <label for="username" class="profile__detail-label">Username</label>
+            <input type="text" id="email" v-model="login"/>
+            <Button variant="elevated"
+                      type="submit"
+                      v-if="isChanged(user.login, login)"
+                      @click="updateUserDetails(email, login)">
+              Update Username
+            </Button>
+          </form>
+          </div>
+          <div>
+            <form @submit.prevent>
+              <label for="otp" class="profile__detail-label">OTP Code</label>
+              <input type="text" id="otp" v-model="otpCode"/>
+              <Button variant="elevated"
+                        type="submit"
+                        v-if="cofirmationID"
+                        @click="confirmUpdateDetails">
+                Confirm OTP
+              </Button>
+            </form>
+          </div>
+        </dl>
+
 
 
 
