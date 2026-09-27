@@ -123,7 +123,7 @@ This comes from [srcs/backend/src/services/emailService.js](../srcs/backend/src/
 - `PATCH|DELETE /api/documents/:id/shares/:userId`
 - `WS /api/ws` — live document collaboration
 
-Detailed endpoint docs live in [docs/API-s/auth-register.md](API-s/auth-register.md), [docs/API-s/auth-login.md](API-s/auth-login.md), [docs/API-s/auth-password-reset.md](API-s/auth-password-reset.md), [docs/API-s/auth-profile.md](API-s/auth-profile.md), [docs/API-s/auth-logout.md](API-s/auth-logout.md), [docs/API-s/gdpr-api.md](API-s/gdpr-api.md), [docs/API-s/users-api.md](API-s/users-api.md), and [docs/API-s/documents-api.md](API-s/documents-api.md).
+Detailed endpoint docs live in [docs/API-s/auth-register.md](API-s/auth-register.md), [docs/API-s/auth-login.md](API-s/auth-login.md), [docs/API-s/auth-password-reset.md](API-s/auth-password-reset.md), [docs/API-s/auth-profile.md](API-s/auth-profile.md), [docs/API-s/auth-logout.md](API-s/auth-logout.md), [docs/API-s/gdpr-api.md](API-s/gdpr-api.md), [docs/API-s/users-api.md](API-s/users-api.md), [docs/API-s/documents/](API-s/documents/README.md), and [docs/API-s/shares/](API-s/shares/README.md).
 
 ## Configuration sources
 
