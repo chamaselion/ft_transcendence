@@ -6,7 +6,7 @@ import Card from '@/app/components/Card.vue'
 import Toast from '@/app/components/Toast.vue'
 // import UserIcon from '@/app/components/UserIcon.vue'
 import Button from '@/app/components/Button.vue'
-// import Input from '@/app/components/Input.vue'
+import Input from '@/app/components/Input.vue'
 import { type Root, type User } from '../types/user'
 import { type OtpConfirmationResponse } from '../types/auth.types'
 
@@ -14,8 +14,8 @@ const router = useRouter()
 
 const res = ref<Root | null>(null)
 const user = ref<User | null>(null)
-const email = ref<string | null>(null) // Watchers for updating email and login
-const login = ref<string | null>(null)
+const email = ref<string | undefined>(undefined) // Watchers for updating email and login
+const login = ref<string | undefined>(undefined)
 
 
 const pending = ref(true)
@@ -24,6 +24,7 @@ const errorFlag = ref(false)
 const message = ref('')
 const otpCode = ref('')
 let cofirmationID: string | null = null
+const displayOTP = ref(false)
 
 const loggedIn = computed(() => res.value?.loggedIn === true)
 
@@ -51,8 +52,8 @@ const loadProfile = async () => {
     const response = await httpClient.get<Root>('me')
     res.value = response
     user.value = response.user ?? null
-    email.value = user.value?.email ?? null
-    login.value = user.value?.login ?? null
+    email.value = user.value?.email ?? undefined
+    login.value = user.value?.login ?? undefined
   } catch (error) {
     if (!(error instanceof HttpError) || error.status !== 401) {
       failed.value = true
@@ -66,18 +67,19 @@ const loadProfile = async () => {
 
 const goToLogin = () => router.push('/login')
 
-function isChanged(current: string | null, inputMail: string | null): boolean {
-if (current === null && inputMail === null) return false
-if (current === null || inputMail === null) return true
-return current !== inputMail
+function isChanged(current: string | undefined, input: string | undefined): boolean {
+if (current === undefined && input === undefined) return false
+if (current === undefined || input === undefined) return true
+return current !== input
 }
 
 onMounted(loadProfile)
 
-async function updateUserDetails(email: string | null, login :string|null) {
+async function updateUserDetails(email: string | undefined, login :string | undefined) {
   try {
     const res = await httpClient.patch<OtpConfirmationResponse>('me', { email, login })
     cofirmationID = res.confirmationId
+    displayOTP.value = true
   } catch (error) {
     console.error('Error updating user details:', error)
     errorFlag.value = true
@@ -161,10 +163,10 @@ async function confirmUpdateDetails() {
         <div class="profile__detail">
         <form @submit.prevent>
           <label for="email" class="profile__detail-label">Email</label>
-          <input type="text" id="email" v-model="email"/>
+          <Input type="text" id="email" v-model="email"/>
           <Button variant="elevated"
                   type="submit"
-                  v-if="isChanged(user.email, email)"
+                  v-if="isChanged(user.email, email) && !displayOTP"
                   @click="updateUserDetails(email, login)"
             >Update Email</Button>
         </form>
@@ -172,19 +174,19 @@ async function confirmUpdateDetails() {
         <div class="profile__detail">
           <form @submit.prevent>
             <label for="username" class="profile__detail-label">Username</label>
-            <input type="text" id="email" v-model="login"/>
+            <Input type="text" id="email" v-model="login"/>
             <Button variant="elevated"
                       type="submit"
-                      v-if="isChanged(user.login, login)"
+                      v-if="isChanged(user.login, login) && !displayOTP"
                       @click="updateUserDetails(email, login)">
               Update Username
             </Button>
           </form>
           </div>
-          <div>
+          <div v-if="displayOTP">
             <form @submit.prevent>
               <label for="otp" class="profile__detail-label">OTP Code</label>
-              <input type="text" id="otp" v-model="otpCode"/>
+              <Input type="text" id="otp" v-model="otpCode"/>
               <Button variant="elevated"
                         type="submit"
                         v-if="cofirmationID"
@@ -218,6 +220,25 @@ async function confirmUpdateDetails() {
 </template>
 
 <style lang="css" scoped>
+.provile__detail {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 2px;
+  background-color: var(--bg-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+}
+
+.profile__detail-value{
+  margin: 0;
+  min-width: 0;
+  font-size: 14px;
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  padding: 4px 8px;
+}
 .user-settings {
   box-sizing: border-box;
   width: 100%;
