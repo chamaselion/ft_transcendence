@@ -118,6 +118,7 @@ async function confirmUpdateDetails() {
       <p class="user-settings__subtitle">Your account details and session status.</p>
     </header>
 
+    <!-- Error Display -->
     <Toast
       v-model="errorFlag"
       type="alert"
@@ -126,6 +127,16 @@ async function confirmUpdateDetails() {
       fluid
       class="user-settings__toast"
     />
+
+    <!-- Success Toast -->
+    <Toast
+        v-model="updateSuccess"
+        type="info"
+        :message="updateSuccessMessage"
+        :duration="6000"
+        fluid
+        class="user-settings__toast"
+      />
 
     <Card v-if="pending" class="user-settings__card">
       <p class="skeleton__caption">Loading your profile…</p>
@@ -141,14 +152,6 @@ async function confirmUpdateDetails() {
     </Card>
 
     <Card v-else-if="loggedIn" class="user-settings__card">
-      <Toast
-        v-model="updateSuccess"
-        type="info"
-        :message="updateSuccessMessage"
-        :duration="6000"
-        fluid
-        class="user-settings__toast"
-      />
       <div class="profile__identity">
         <!-- <UserIcon :name="user?.login" size="large" /> -->
         <div class="profile__meta">
