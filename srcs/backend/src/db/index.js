@@ -25,6 +25,7 @@ const modelDefiners = [
   require('./models/auth-session'),
   require('./models/one-time-challenge'),
   require('./models/document'),
+  require('./models/document-share'),
 ];
 
 for (const modelDefiner of modelDefiners) {

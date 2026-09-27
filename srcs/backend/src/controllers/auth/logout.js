@@ -1,4 +1,5 @@
 const { clearAuthCookie, getTokenFromCookie, removeSessionByToken } = require('./helpers');
+const { evictSession } = require('../../ws/documentSocket');
 
 const createLogoutHandler = () => {
   const logout = async (req, res) => {
@@ -6,6 +7,10 @@ const createLogoutHandler = () => {
     const token = getTokenFromCookie(req);
     if (token) {
       await removeSessionByToken(token);
+    }
+    
+    if (token) {
+      evictSession(token);
     }
     clearAuthCookie(res);
     return res.json({ loggedIn: false, loggedOut: true });
