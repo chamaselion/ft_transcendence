@@ -1,55 +1,49 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { httpClient, HttpError } from '../auth.api'
-import Card from '@/app/components/Card.vue'
-import Toast from '@/app/components/Toast.vue'
-// import UserIcon from '@/app/components/UserIcon.vue'
 import Button from '@/app/components/Button.vue'
+import Card from '@/app/components/Card.vue'
 import Input from '@/app/components/Input.vue'
-import { type Root, type User } from '../types/user'
-import { type OtpConfirmationResponse } from '../types/auth.types'
+import Toast from '@/app/components/Toast.vue'
+import type { Root, User } from '../types/user'
+import type { OtpConfirmationResponse } from '../types/auth.types'
 
 const router = useRouter()
 
 const res = ref<Root | null>(null)
 const user = ref<User | null>(null)
-const email = ref<string | undefined>(undefined) // Watchers for updating email and login
+const email = ref<string | undefined>(undefined)
 const login = ref<string | undefined>(undefined)
-
 
 const pending = ref(true)
 const failed = ref(false)
 const errorFlag = ref(false)
 const message = ref('')
+
 const otpCode = ref('')
-let cofirmationID: string | null = null
 const displayOTP = ref(false)
+let confirmationID: string | null = null
+
 const updateSuccess = ref(false)
 const updateSuccessMessage = ref('')
 
 const loggedIn = computed(() => res.value?.loggedIn === true)
-
 const status = computed(() => (loggedIn.value ? 'good' : 'warn'))
-
-const statusLabel = computed(() => (loggedIn.value ? 'You are logged in' : 'You are not logged in'))
+const statusLabel = computed(() =>
+  loggedIn.value ? 'You are logged in' : 'You are not logged in',
+)
 
 const roleLabel = computed(() => {
   const role = user.value?.role
-  if (!role) return ''
-  return role.charAt(0).toUpperCase() + role.slice(1)
+  return role ? role.charAt(0).toUpperCase() + role.slice(1) : ''
 })
 
-// const details = computed(() => [
-//   { label: 'E-mail', value: user.value?.email, editable: true},
-//   { label: 'Role', value: roleLabel.value, editable: false},
-//   { label: 'User ID', value: user.value?.id, editable: false},
-// ])
-
-const loadProfile = async () => {
+async function loadProfile() {
   pending.value = true
   failed.value = false
   errorFlag.value = false
+
   try {
     const response = await httpClient.get<Root>('me')
     res.value = response
@@ -70,45 +64,50 @@ const loadProfile = async () => {
 const goToLogin = () => router.push('/login')
 
 function isChanged(current: string | undefined, input: string | undefined): boolean {
-if (current === undefined && input === undefined) return false
-if (current === undefined || input === undefined) return true
-return current !== input
+  return current !== input
 }
 
-onMounted(loadProfile)
-
-async function updateUserDetails(email: string | undefined, login :string | undefined) {
+async function updateUserDetails(email: string | undefined, login: string | undefined) {
   try {
-    const res = await httpClient.patch<OtpConfirmationResponse>('me', { email, login })
-    cofirmationID = res.confirmationId
+    const response = await httpClient.patch<OtpConfirmationResponse>('me', { email, login })
+    confirmationID = response.confirmationId
     displayOTP.value = true
   } catch (error) {
     console.error('Error updating user details:', error)
     errorFlag.value = true
-    message.value = error instanceof Error ? error.message : 'Something went wrong while updating user details'
+    message.value =
+      error instanceof Error ? error.message : 'Something went wrong while updating user details'
   }
 }
 
 async function confirmUpdateDetails() {
-  if (!cofirmationID) {
+  if (!confirmationID) {
     console.error('No confirmation ID available for OTP confirmation.')
     return
   }
+
   try {
-    const res = await httpClient.post<OtpConfirmationResponse>('me/update/confirm',
-    { confirmationId: cofirmationID, email: email.value, code: otpCode.value })
-    console.log('OTP confirmed successfully:', res)
+    const response = await httpClient.post<OtpConfirmationResponse>('me/update/confirm', {
+      confirmationId: confirmationID,
+      email: email.value,
+      code: otpCode.value,
+    })
+
+    console.log('OTP confirmed successfully:', response)
     displayOTP.value = false
-    cofirmationID = null
+    confirmationID = null
     updateSuccessMessage.value = 'Your details have been updated successfully.'
     updateSuccess.value = true
     loadProfile()
   } catch (error) {
     console.error('Error confirming OTP:', error)
     errorFlag.value = true
-    message.value = error instanceof Error ? error.message : 'Something went wrong while confirming OTP'
+    message.value =
+      error instanceof Error ? error.message : 'Something went wrong while confirming OTP'
   }
 }
+
+onMounted(loadProfile)
 </script>
 
 <template>
@@ -118,7 +117,6 @@ async function confirmUpdateDetails() {
       <p class="user-settings__subtitle">Your account details and session status.</p>
     </header>
 
-    <!-- Error Display -->
     <Toast
       v-model="errorFlag"
       type="alert"
@@ -128,15 +126,14 @@ async function confirmUpdateDetails() {
       class="user-settings__toast"
     />
 
-    <!-- Success Toast -->
     <Toast
-        v-model="updateSuccess"
-        type="info"
-        :message="updateSuccessMessage"
-        :duration="6000"
-        fluid
-        class="user-settings__toast"
-      />
+      v-model="updateSuccess"
+      type="info"
+      :message="updateSuccessMessage"
+      :duration="6000"
+      fluid
+      class="user-settings__toast"
+    />
 
     <Card v-if="pending" class="user-settings__card">
       <p class="skeleton__caption">Loading your profile…</p>
@@ -153,57 +150,63 @@ async function confirmUpdateDetails() {
 
     <Card v-else-if="loggedIn" class="user-settings__card">
       <div class="profile__identity">
-        <!-- <UserIcon :name="user?.login" size="large" /> -->
         <div class="profile__meta">
           <span class="profile__login">{{ user?.login }}</span>
           <span v-if="roleLabel" class="profile__role">{{ roleLabel }}</span>
         </div>
       </div>
 
-      <dl class="profile__details" v-if="user">
-        <div class="provile__detail">
+      <dl v-if="user" class="profile__details">
+        <div class="profile__id-detail">
           <label for="userID" class="profile__detail-label">User ID</label>
-          <p class="profile__detail-value" id="userID">{{ user?.id }}</p>
+          <p id="userID" class="profile__detail-value">{{ user.id }}</p>
         </div>
+
         <div class="profile__detail">
-        <form @submit.prevent>
-          <label for="email" class="profile__detail-label">Email</label>
-          <Input type="text" id="email" v-model="email"/>
-          <Button variant="elevated"
-                  type="submit"
-                  v-if="isChanged(user.email, email) && !displayOTP"
-                  @click="updateUserDetails(email, login)"
-            >Update Email</Button>
-        </form>
+          <form @submit.prevent>
+            <label for="email" class="profile__detail-label">Email</label>
+            <Input id="email" v-model="email" type="text" />
+            <Button
+              v-if="isChanged(user.email, email) && !displayOTP"
+              variant="elevated"
+              type="submit"
+              @click="updateUserDetails(email, login)"
+            >
+              Update Email
+            </Button>
+          </form>
         </div>
+
         <div class="profile__detail">
           <form @submit.prevent>
             <label for="username" class="profile__detail-label">Username</label>
-            <Input type="text" id="email" v-model="login"/>
-            <Button variant="elevated"
-                      type="submit"
-                      v-if="isChanged(user.login, login) && !displayOTP"
-                      @click="updateUserDetails(email, login)">
+            <Input id="username" v-model="login" type="text" />
+            <Button
+              v-if="isChanged(user.login, login) && !displayOTP"
+              variant="elevated"
+              type="submit"
+              @click="updateUserDetails(email, login)"
+            >
               Update Username
             </Button>
           </form>
-          </div>
-          <div v-if="displayOTP">
-            <form @submit.prevent>
-              <label for="otp" class="profile__detail-label">OTP Code</label>
-              <Input type="text" id="otp" v-model="otpCode"/>
-              <Button variant="elevated"
-                        type="submit"
-                        v-if="cofirmationID"
-                        @click="confirmUpdateDetails">
-                Confirm OTP
-              </Button>
-            </form>
-          </div>
-        </dl>
+        </div>
 
-
-
+        <div v-if="displayOTP">
+          <form @submit.prevent>
+            <label for="otp" class="profile__detail-label">OTP Code</label>
+            <Input id="otp" v-model="otpCode" type="text" />
+            <Button
+              v-if="confirmationID"
+              variant="elevated"
+              type="submit"
+              @click="confirmUpdateDetails"
+            >
+              Confirm OTP
+            </Button>
+          </form>
+        </div>
+      </dl>
 
       <template #footer>
         <div class="status" :class="`status--${status}`" role="status">
@@ -225,25 +228,6 @@ async function confirmUpdateDetails() {
 </template>
 
 <style lang="css" scoped>
-.provile__detail {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 14px 2px;
-  background-color: var(--bg-subtle);
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-}
-
-.profile__detail-value{
-  margin: 0;
-  min-width: 0;
-  font-size: 14px;
-  color: var(--text-primary);
-  border: 1px solid var(--border-default);
-  border-radius: 6px;
-  padding: 4px 8px;
-}
 .user-settings {
   box-sizing: border-box;
   width: 100%;
@@ -280,8 +264,6 @@ async function confirmUpdateDetails() {
 .user-settings :deep(.btn) {
   margin-right: 0;
 }
-
-/* Profile */
 
 .profile__identity {
   display: flex;
@@ -322,6 +304,16 @@ async function confirmUpdateDetails() {
   flex-direction: column;
 }
 
+.profile__id-detail {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 2px;
+  background-color: var(--bg-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+}
+
 .profile__detail {
   align-items: baseline;
   margin-bottom: 8px;
@@ -337,13 +329,14 @@ async function confirmUpdateDetails() {
 .profile__detail-value {
   margin: 0;
   min-width: 0;
+  padding: 4px 8px;
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
   font-size: 14px;
   color: var(--text-primary);
   text-align: right;
   overflow-wrap: anywhere;
 }
-
-/* Status pill */
 
 .status {
   display: flex;
@@ -375,8 +368,6 @@ async function confirmUpdateDetails() {
 .status--warn .status__dot {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--status-color) 22%, transparent);
 }
-
-/* Empty / error states */
 
 .state {
   display: flex;
