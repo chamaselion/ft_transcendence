@@ -75,9 +75,6 @@ return current !== inputMail
 onMounted(loadProfile)
 
 async function updateUserDetails(email: string | null, login :string|null) {
-  // Implement the logic to update user details here
-  // For example, you can make an API call to update the user's email and login
-  console.log('Updating user details:', { email, login })
   try {
     const res = await httpClient.patch<OtpConfirmationResponse>('me', { email, login })
     cofirmationID = res.confirmationId
