@@ -311,6 +311,17 @@ check "B: scope=shared finds the shared one" 1 "$(json_number "$(body "$B_JAR" G
 check "B: scope=own finds none of them"     0 "$(json_number "$(body "$B_JAR" GET "/api/documents?q=$SEARCH_TAG&scope=own")" total)"
 check "A: scope=own finds all three"        3 "$(json_number "$(body "$A_JAR" GET "/api/documents?q=$SEARCH_TAG&scope=own")" total)"
 
+# An admin sees every document with scope=all, but scope=shared must still
+# return the ones actually shared with them - not an empty list.
+if [ "$ADMIN_ROLE" = "admin" ]; then
+  body "$A_JAR" POST "/api/documents/$S2/shares" "$(share_json "$ADMIN_EMAIL" viewer)" > /dev/null
+  check "admin: scope=shared finds the one shared with them" 1 "$(json_number "$(body "$ADMIN_JAR" GET "/api/documents?q=$SEARCH_TAG&scope=shared")" total)"
+  check "admin: scope=own finds none of them" 0 "$(json_number "$(body "$ADMIN_JAR" GET "/api/documents?q=$SEARCH_TAG&scope=own")" total)"
+  check "admin: scope=all finds all three"    3 "$(json_number "$(body "$ADMIN_JAR" GET "/api/documents?q=$SEARCH_TAG&scope=all")" total)"
+else
+  echo "  (admin scope checks skipped - no admin account available)"
+fi
+
 # Invalid input is rejected, not silently ignored. The sort cases matter most:
 # a sort field cannot be a bound parameter, so an unchecked value would end up
 # as text inside the ORDER BY clause.

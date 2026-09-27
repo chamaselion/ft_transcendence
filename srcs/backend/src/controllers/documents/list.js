@@ -30,12 +30,10 @@ const createListDocumentsHandler = ({ documentModel, shareModel, userModel } = {
         return res.status(400).json({ error: `scope must be one of: ${SCOPES.join(', ')}` });
       }
 
-      const shares = isAdmin(req.user)
-        ? []
-        : await models.shares().findAll({
-            where: { userId: req.user.id },
-            attributes: ['documentId', 'permission'],
-          });
+      const shares = await models.shares().findAll({
+        where: { userId: req.user.id },
+        attributes: ['documentId', 'permission'],
+      });
       const sharedPermissions = new Map(
         shares.map((share) => [String(share.documentId).toLowerCase(), share.permission]),
       );
