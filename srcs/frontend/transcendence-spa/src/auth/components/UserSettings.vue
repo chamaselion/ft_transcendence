@@ -425,76 +425,10 @@ async function confirmUpdateDetails() {
   color: var(--text-secondary);
 }
 
-/* Loading skeleton */
-
-.skeleton {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  animation: skeleton-pulse 1.4s ease-in-out infinite;
-}
-
-.skeleton__identity {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding-bottom: 16px;
-  margin-bottom: 4px;
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.skeleton__avatar {
-  flex-shrink: 0;
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  background-color: var(--bg-subtle);
-}
-
-.skeleton__lines {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  flex: 1;
-}
-
-.skeleton__line {
-  height: 12px;
-  border-radius: 6px;
-  background-color: var(--bg-subtle);
-}
-
-.skeleton__line--title {
-  width: 40%;
-  height: 16px;
-}
-
-.skeleton__line--sub {
-  width: 65%;
-}
-
 .skeleton__caption {
   margin: 16px 0 0;
   font-size: 13px;
   color: var(--text-muted);
   text-align: center;
-}
-
-@keyframes skeleton-pulse {
-  0%,
-  100% {
-    opacity: 0.5;
-  }
-
-  50% {
-    opacity: 0.9;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .skeleton {
-    animation: none;
-    opacity: 0.7;
-  }
 }
 </style>
