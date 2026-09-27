@@ -96,6 +96,9 @@ This comes from [srcs/backend/src/services/emailService.js](../srcs/backend/src/
 - [srcs/backend/src/db/index.js](../srcs/backend/src/db/index.js) — Sequelize connection and model registration
 - [srcs/backend/src/routes/auth.js](../srcs/backend/src/routes/auth.js) — auth + GDPR routes
 
+- [srcs/backend/src/controllers/documents/permissions.js](../srcs/backend/src/controllers/documents/permissions.js) — the single place document access is resolved (ownership, shares, admin role); both the REST controllers and the WebSocket go through it
+- [srcs/backend/src/ws/documentSocket.js](../srcs/backend/src/ws/documentSocket.js) — live collaboration rooms
+
 ## API surface
 
 - `GET /health`
@@ -113,8 +116,14 @@ This comes from [srcs/backend/src/services/emailService.js](../srcs/backend/src/
 - `GET /api/auth/me/data-export/csv`
 - `POST /api/auth/me/data-deletion/request`
 - `POST /api/auth/me/data-deletion/confirm`
+- `GET|PATCH|DELETE /api/users[/:id]` — admin only
+- `POST|GET /api/documents`
+- `GET|PATCH|DELETE /api/documents/:id`
+- `GET|POST /api/documents/:id/shares`
+- `PATCH|DELETE /api/documents/:id/shares/:userId`
+- `WS /api/ws` — live document collaboration
 
-Detailed endpoint docs live in [docs/API-s/auth-register.md](API-s/auth-register.md), [docs/API-s/auth-login.md](API-s/auth-login.md), [docs/API-s/auth-password-reset.md](API-s/auth-password-reset.md), [docs/API-s/auth-profile.md](API-s/auth-profile.md), [docs/API-s/auth-logout.md](API-s/auth-logout.md), and [docs/API-s/gdpr-api.md](API-s/gdpr-api.md).
+Detailed endpoint docs live in [docs/API-s/auth-register.md](API-s/auth-register.md), [docs/API-s/auth-login.md](API-s/auth-login.md), [docs/API-s/auth-password-reset.md](API-s/auth-password-reset.md), [docs/API-s/auth-profile.md](API-s/auth-profile.md), [docs/API-s/auth-logout.md](API-s/auth-logout.md), [docs/API-s/gdpr-api.md](API-s/gdpr-api.md), [docs/API-s/users-api.md](API-s/users-api.md), [docs/API-s/documents/](API-s/documents/README.md), and [docs/API-s/shares/](API-s/shares/README.md).
 
 ## Configuration sources
 

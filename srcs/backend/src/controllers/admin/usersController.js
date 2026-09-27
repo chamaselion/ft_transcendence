@@ -1,28 +1,18 @@
+const { Op } = require('sequelize');
 const sequelize = require('../../db');
 const { purgeSessionsForUser } = require('../auth/helpers');
 const { validateEmail, validateLogin, validateUuid } = require('../auth/validation');
 const { pick } = require('../../utils/pick');
+const { parseListQuery, likePattern, paginationOf } = require('../../utils/listQuery');
 
-// Admin-only CRUD on user accounts. Routes are gated by requireRole('admin')
-// (see routes/users.js), so this controller assumes the caller is already an
-// admin and only adds the two guards the role check itself can't express:
-// an admin may not change their own role (update) and may not delete their
-// own account (remove).
-//
-// Deliberate design decision: an admin *can* change another user's login or
-// email without the one-time-code confirmation that the self-service
-// PATCH /api/auth/me flow requires. Combined with the password reset flow
-// that amounts to account takeover - it is accepted as inherent to the admin
-// role, not an oversight. See docs/API-s/users-api.md.
+
 const ALLOWED_ROLES = ['admin', 'user'];
 const PUBLIC_ATTRS = ['id', 'login', 'email', 'role', 'createdAt', 'updatedAt'];
+const SORTABLE = ['login', 'email', 'createdAt'];
 
 const createUsersController = ({ userModel } = {}) => {
   const resolveUsers = () => userModel || sequelize.models.user;
 
-  // `:id` is a UUID. Validating it here keeps a malformed id from reaching
-  // Postgres, which rejects it as invalid uuid syntax and would turn a client
-  // mistake into a 500.
   const readId = (req, res) => {
     const result = validateUuid(req.params.id);
     if (!result.ok) {
@@ -32,20 +22,48 @@ const createUsersController = ({ userModel } = {}) => {
     return result.value;
   };
 
-  // Postgres compares uuid values case-insensitively, so a lowercase string
-  // comparison would let an uppercased copy of your own id slip past the
-  // self-guards below.
+
   const isSelf = (req, id) =>
     String(req.user.id).toLowerCase() === String(id).toLowerCase();
 
   // GET /api/users
+
   const list = async (req, res) => {
     try {
-      const users = await resolveUsers().findAll({
-        attributes: PUBLIC_ATTRS,
-        order: [['createdAt', 'ASC']],
+      const parsed = parseListQuery(req.query, {
+        sortable: SORTABLE,
+        defaultSort: 'createdAt',
+        defaultOrder: 'ASC',
       });
-      return res.json({ users });
+      if (!parsed.ok) return res.status(400).json({ error: parsed.error });
+      const { q, sort, order, limit, offset } = parsed.value;
+
+      const role = req.query.role === undefined ? null : String(req.query.role).trim();
+      if (role !== null && !ALLOWED_ROLES.includes(role)) {
+        return res.status(400).json({ error: `role must be one of: ${ALLOWED_ROLES.join(', ')}` });
+      }
+
+      const clauses = [];
+      if (role) clauses.push({ role });
+      if (q) {
+        clauses.push({
+          [Op.or]: [
+            { login: { [Op.iLike]: likePattern(q) } },
+            { email: { [Op.iLike]: likePattern(q) } },
+          ],
+        });
+      }
+
+
+      const { rows: users, count: total } = await resolveUsers().findAndCountAll({
+        where: clauses.length ? { [Op.and]: clauses } : undefined,
+        attributes: PUBLIC_ATTRS,
+        order: [[sort, order]],
+        limit,
+        offset,
+      });
+
+      return res.json({ users, pagination: paginationOf({ total, limit, offset }) });
     } catch (err) {
       console.error('[USERS] list failed:', err);
       return res.status(500).json({ error: 'Failed to list users' });
@@ -98,10 +116,6 @@ const createUsersController = ({ userModel } = {}) => {
           return res.status(400).json({ error: `role must be one of: ${ALLOWED_ROLES.join(', ')}` });
         }
 
-        // An admin never changes their own role, not even to the same value.
-        // Self-demotion can leave the system without a single admin, and the
-        // only way back is the ADMIN_EMAIL bootstrap plus a backend restart.
-        // Role changes always go through a *different* admin.
         if (isSelf(req, id)) {
           return res.status(400).json({ error: 'You cannot change your own role' });
         }
@@ -144,11 +158,6 @@ const createUsersController = ({ userModel } = {}) => {
       const user = await users.findByPk(id);
       if (!user) return res.status(404).json({ error: 'User not found' });
 
-      // Mirror the GDPR deletion flow in controllers/gdpr/dataDeletionConfirm.js.
-      // authSessions and documents are removed by the FK cascade declared in
-      // db/associations.js, but the two GDPR tables have no association and
-      // would be left behind as orphaned rows about a user who no longer
-      // exists - exactly what the GDPR module is supposed to prevent.
       const { gdprExportQuota, gdprAuditEvent } = sequelize.models;
 
       await sequelize.transaction(async (dbTransaction) => {
@@ -172,8 +181,7 @@ const createUsersController = ({ userModel } = {}) => {
         });
       });
 
-      // Also drop the deleted user's sessions from the in-memory session cache,
-      // so they aren't flushed back into the DB on shutdown.
+
       await purgeSessionsForUser(user.id);
 
       return res.status(204).send();
