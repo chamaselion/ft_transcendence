@@ -16,6 +16,36 @@ export interface BlockDecorator {
   language?: string
 }
 
+export interface EditorEditEvent {
+  blockId?: string
+  type?: BlockType
+  text?: string
+  decorator?: string
+  afterBlockId?: string | null
+  block?: Block
+  userId?: string | null
+}
+
+export interface EditorInitEvent {
+  blocks: Block[]
+  documentId?: string
+  title?: string
+  permission?: 'owner' | 'editor' | 'viewer'
+}
+
+export interface EditorDataProvider {
+  sendEdit: (e: EditorEditEvent) => Promise<boolean>
+  sendBlockCreate: (e: EditorEditEvent) => Promise<boolean>
+  sendBlockDelete: (e: EditorEditEvent) => Promise<boolean>
+  onInit: (e: EditorInitEvent) => void
+  onCreated: (e: { block: Block; afterBlockId?: string | null }) => void
+  onUpdated: (e: { blockId: string; text?: string; decorator?: string; userId?: string | null }) => void
+  onDeleted: (e: { blockId: string }) => void
+  onUnlocked: (e: { blockId: string }) => void
+  onError: (e: { error: string }) => void
+  destroy?: () => void
+}
+
 export const blockTypes: BlockType[] = ['p', 'li', 'h', 'cit', 'c']
 
 export const blockTypeLabels: Record<BlockType, string> = {
