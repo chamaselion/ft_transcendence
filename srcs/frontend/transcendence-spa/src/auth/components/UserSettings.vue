@@ -23,7 +23,7 @@ const message = ref('')
 
 const otpCode = ref('')
 const displayOTP = ref(false)
-let confirmationID: string | null = null
+const confirmationID = ref('')
 
 const updateSuccess = ref(false)
 const updateSuccessMessage = ref('')
@@ -70,7 +70,7 @@ function isChanged(current: string | undefined, input: string | undefined): bool
 async function updateUserDetails(email: string | undefined, login: string | undefined) {
   try {
     const response = await httpClient.patch<OtpConfirmationResponse>('me', { email, login })
-    confirmationID = response.confirmationId
+    confirmationID.value = response.confirmationId
     displayOTP.value = true
   } catch (error) {
     console.error('Error updating user details:', error)
@@ -81,21 +81,21 @@ async function updateUserDetails(email: string | undefined, login: string | unde
 }
 
 async function confirmUpdateDetails() {
-  if (!confirmationID) {
+  if (confirmationID.value == '') {
     console.error('No confirmation ID available for OTP confirmation.')
     return
   }
 
   try {
     const response = await httpClient.post<OtpConfirmationResponse>('me/update/confirm', {
-      confirmationId: confirmationID,
+      confirmationId: confirmationID.value,
       email: email.value,
       code: otpCode.value,
     })
 
     console.log('OTP confirmed successfully:', response)
     displayOTP.value = false
-    confirmationID = null
+    confirmationID.value = ''
     updateSuccessMessage.value = 'Your details have been updated successfully.'
     updateSuccess.value = true
     loadProfile()
@@ -104,6 +104,9 @@ async function confirmUpdateDetails() {
     errorFlag.value = true
     message.value =
       error instanceof Error ? error.message : 'Something went wrong while confirming OTP'
+  }
+  finally{
+    otpCode.value = '';
   }
 }
 
@@ -158,49 +161,31 @@ onMounted(loadProfile)
 
       <dl v-if="user" class="profile__details">
         <div class="profile__id-detail">
-          <label for="userID" class="profile__detail-label">User ID</label>
+          <span class="profile__detail-label">User ID</span>
           <p id="userID" class="profile__detail-value">{{ user.id }}</p>
         </div>
 
         <div class="profile__detail">
-          <form @submit.prevent>
-            <label for="email" class="profile__detail-label">Email</label>
-            <Input id="email" v-model="email" type="text" />
+          <form @submit.prevent="updateUserDetails(email, login)">
+            <Input label="Email" v-model="email" type="text" />
+            <Input label="Username" v-model="login" type="text" />
             <Button
-              v-if="isChanged(user.email, email) && !displayOTP"
+              v-if="(isChanged(user.email, email) || isChanged(user.login, login)) && !displayOTP"
               variant="elevated"
               type="submit"
-              @click="updateUserDetails(email, login)"
             >
-              Update Email
+              Update Settings
             </Button>
           </form>
         </div>
 
-        <div class="profile__detail">
-          <form @submit.prevent>
-            <label for="username" class="profile__detail-label">Username</label>
-            <Input id="username" v-model="login" type="text" />
-            <Button
-              v-if="isChanged(user.login, login) && !displayOTP"
-              variant="elevated"
-              type="submit"
-              @click="updateUserDetails(email, login)"
-            >
-              Update Username
-            </Button>
-          </form>
-        </div>
-
-        <div v-if="displayOTP">
-          <form @submit.prevent>
-            <label for="otp" class="profile__detail-label">OTP Code</label>
-            <Input id="otp" v-model="otpCode" type="text" />
+        <div v-if="displayOTP" class="profile__detail">
+          <form @submit.prevent="confirmUpdateDetails">
+            <Input label="OTP Code" v-model="otpCode" type="text" />
             <Button
               v-if="confirmationID"
               variant="elevated"
               type="submit"
-              @click="confirmUpdateDetails"
             >
               Confirm OTP
             </Button>

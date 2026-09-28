@@ -26,8 +26,8 @@ export interface LoginResponse {
   const password = ref()
   const errorFlag = ref(false)
   const message = ref('')
-  let callengeID: string
-  const loggeInSuccess = ref(false)
+  const challengeID = ref('')
+  // const loggeInSuccess = ref(false)
   const registerRedirectFlag = ref(Boolean(props.isRegisterRedirect))
   const otpConfirmationRequired = ref(false)
 
@@ -37,7 +37,7 @@ export interface LoginResponse {
         email: email.value,
         password: password.value
       })
-      callengeID = data.challengeId
+      challengeID.value = data.challengeId
       otpConfirmationRequired.value = true
     } catch (error) {
       errorFlag.value = true
@@ -69,7 +69,7 @@ export interface LoginResponse {
     v-model="registerRedirectFlag"
     type="info"
     message="Registered successfully!"
-    hint="Please login to receive an OTP validaiton code."
+    hint="Please login to receive an OTP validation code."
     :duration="8000"
     fluid
     class="auth-toast"
@@ -87,12 +87,10 @@ export interface LoginResponse {
     />
     <form @submit.prevent="handleLogin">
       <div class="form-group">
-        <label for="email">E-mail:</label>
-        <Input type="text" id="email" v-model="email" required />
+        <Input label="E-mail" type="text" v-model="email" required />
       </div>
       <div class="form-group">
-        <label for="password">Password:</label>
-        <Input type="password" id="password" v-model="password" required />
+        <Input label="Password" type="password" v-model="password" required />
       </div>
       <button type="submit">Login</button>
     </form>
@@ -102,7 +100,7 @@ export interface LoginResponse {
   <OtpValidation
     v-if="otpConfirmationRequired"
     :email="email"
-    :callengeID="callengeID"
+    :challengeID="challengeID"
   />
 </template>
 
