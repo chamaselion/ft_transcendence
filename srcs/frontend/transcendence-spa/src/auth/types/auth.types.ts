@@ -1,8 +1,8 @@
 import { type User } from './user'
 
 interface PendingUpdate {
-  login: string
-  email: string
+  login?: string
+  email?: string
 }
 
 export interface OtpConfirmationResponse {

@@ -2,6 +2,8 @@
   import { ref } from 'vue'
   import { httpClient,  HttpError } from '../auth.api'
   import Toast from '@/app/components/Toast.vue'
+  import Input from '@/app/components/Input.vue'
+  import Button from '@/app/components/Button.vue'
 
   const otp = ref('')
   const loggedInSuccess = ref(false)
@@ -10,7 +12,7 @@
 
   const props = defineProps<{
     email: string
-    callengeID: string
+    challengeID: string
   }>()
 
 // const emits = defineEmits<{
@@ -22,7 +24,7 @@
   const handleOtpConfirmation = async () => {
     try {
       await httpClient.post('login/confirm', {
-        challengeId: props.callengeID,
+        challengeId: props.challengeID,
         email: props.email,
         code: otp.value
       })
@@ -59,10 +61,9 @@
       />
       <form @submit.prevent="handleOtpConfirmation">
         <div class="form-group">
-          <label for="otp">Enter OTP:</label>
-          <input type="text" id="otp" v-model="otp" required />
+          <Input label="Enter OTP" type="text" v-model="otp" required />
         </div>
-        <button type="submit">Confirm OTP</button>
+        <Button type="submit">Confirm OTP</Button>
       </form>
     </div>
 
