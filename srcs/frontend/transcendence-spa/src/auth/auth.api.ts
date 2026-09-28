@@ -114,6 +114,21 @@ export class HttpClient {
   ): Promise<TResponse> {
     return this.request<TResponse>(path, { ...config, method: 'POST', body })
   }
+
+  patch<TResponse>(
+    path: string,
+    body: unknown,
+    config: RequestConfig = {}
+  ): Promise<TResponse> {
+    return this.request<TResponse>(path, { ...config, method: 'PATCH', body })
+  }
+
+  delete<TReponse>(
+    path: string,
+    config: RequestConfig = {}
+  ): Promise<TReponse> {
+    return this.request<TReponse>(path, { ...config, method: 'DELETE' })
+  }
 }
 
 
