@@ -1,11 +1,11 @@
 import { defineStore } from 'pinia'
 import { httpClient } from '@/auth/auth.api'
-import { type Root, type User } from '@/auth/types/user'
+import type { Root, User } from '@/auth/types/user'
 
 
 export const useAuthStore = defineStore('auth', {
   state: ()  => ({
-    user: {} as User,
+    user: undefined as User | undefined,
     isAuthenticated: false
   }),
 
@@ -36,7 +36,7 @@ export const useAuthStore = defineStore('auth', {
     },
     async logout() {
       try {
-        await httpClient.post('logout')
+        await httpClient.post('logout', {})
         this.invalidate()
       } catch (error) {
         console.error('Logout failed:', error)
