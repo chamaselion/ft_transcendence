@@ -39,8 +39,11 @@
 <style scoped>
   .login-parent {
     display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
-    height: 100vh;
+    box-sizing: border-box;
+    min-height: calc(100vh - 61px);
+    padding: 40px 24px;
   }
 </style>

@@ -105,20 +105,33 @@ onBeforeUnmount(() => clearTimeout(timer))
 }
 
 .toast__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  margin: 0;
   padding: 0;
-  width: 20px;
-  height: 20px;
   border: none;
-  background: transparent;
+  border-radius: 5px;
+  background-color: transparent;
   color: var(--text-muted);
+  font-family: inherit;
   font-size: 18px;
   line-height: 1;
   cursor: pointer;
-  flex-shrink: 0;
+  transition: background-color .2s ease, color .2s ease;
 }
 
 .toast__close:hover {
+  background-color: color-mix(in srgb, var(--text-primary) 10%, transparent);
   color: var(--text-primary);
+}
+
+.toast__close:focus-visible {
+  outline: 2px solid var(--toast-color);
+  outline-offset: 1px;
 }
 
 .toast-enter-active,
