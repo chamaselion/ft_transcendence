@@ -1,5 +1,10 @@
 function applyAssociations(sequelize) {
-  const { user, authSession, document, documentShare } = sequelize.models;
+  const { user, userOauthAccount, authSession, document, documentShare } = sequelize.models;
+
+  if (userOauthAccount) {
+    user.hasMany(userOauthAccount, { foreignKey: 'userId', onDelete: 'CASCADE' });
+    userOauthAccount.belongsTo(user, { foreignKey: 'userId' });
+  }
 
   if (authSession) {
     user.hasMany(authSession, { foreignKey: 'userId', onDelete: 'CASCADE' });

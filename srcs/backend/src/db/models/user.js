@@ -19,7 +19,7 @@ module.exports = (sequelize) => {
     },
     passwordHash: {
       type: DataTypes.STRING,
-      allowNull: false,
+      allowNull: true,
     },
     role: {
       type: DataTypes.ENUM('admin', 'user'),

@@ -32,6 +32,7 @@ const createLoginHandler = ({ userModel, hashLib = bcrypt, oneTimeCodeService = 
 
       const user = await resolvedUserModel.findOne({ where: { email } });
       if (!user) return res.status(401).json({ error: 'Invalid credentials' });
+      if (!user.passwordHash) return res.status(401).json({ error: 'Invalid credentials' });
 
       const match = await hashLib.compare(password, user.passwordHash);
       if (!match) return res.status(401).json({ error: 'Invalid credentials' });
