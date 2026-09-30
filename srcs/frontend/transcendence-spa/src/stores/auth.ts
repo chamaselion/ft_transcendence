@@ -33,6 +33,14 @@ export const useAuthStore = defineStore('auth', {
           this.invalidate()
         }
       }
+    },
+    async logout() {
+      try {
+        await httpClient.post('logout')
+        this.invalidate()
+      } catch (error) {
+        console.error('Logout failed:', error)
+      }
     }
   },
 });
