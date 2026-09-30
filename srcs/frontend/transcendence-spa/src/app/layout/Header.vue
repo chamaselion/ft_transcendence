@@ -2,8 +2,10 @@
 import router from '@/router';
 import { useTheme } from '@/app/layout/useTheme'
 // import UserIcon from '@/app/layout/UserIcon.vue'
+import { useAuthStore } from '@/stores/auth'
 
 const { currentTheme, toggleTheme } = useTheme();
+const authStore = useAuthStore();
 // const currentUser = {
 //   avatarUrl: 'https://thispersondoesnotexist.com/random-person.jpeg',
 //   name: 'John Doe'
@@ -14,8 +16,10 @@ const { currentTheme, toggleTheme } = useTheme();
   <header>
     <nav>
       <router-link to="/">Home</router-link>
-      <router-link to="/login">Login</router-link>
       <router-link to="/editor">Editor</router-link>
+      <router-link to="/login" v-if="!authStore.isAuthenticated">Login</router-link>
+      <router-link to="/register" v-if="!authStore.isAuthenticated">Register</router-link>
+      <button @click.prevent="authStore.logout" v-else>Logout</button>
     </nav>
     <span style="flex: 1"></span>
     <button class="theme-toggle" @click="toggleTheme">
