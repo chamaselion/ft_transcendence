@@ -8,6 +8,8 @@ jobs:
   type-check:
     runs-on: ubuntu-latest
     steps:
+      - run:
+          cd src/frontend/transcendence-spa
       - uses: actions/checkout@v3
       - name: Set up Node.js
         uses: actions/setup-node@v3
