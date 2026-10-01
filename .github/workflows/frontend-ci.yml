@@ -5,20 +5,18 @@ on:
     branches:
       - main
 jobs:
-  type-check:
+  frontend-type-check:
     runs-on: ubuntu-latest
+    container:
+      image: node:22
+    default:
+      run:
+        working-directory: ./srcs/frontend/transcendence-spa
     steps:
-      - run:
-          ls &&
-          cd ./src/frontend/transcendence-spa
       - uses: actions/checkout@v3
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '22'
       - name: Install dependencies
-        run: npm install
-      - name: Run TypeScript type check
+        run: npm ci
+      - name: Run type check & build
         run: npm run type-check
-      - name: Building Project
         run: npm run build
+
