@@ -1,128 +1,27 @@
-const { getOptionalEnv } = require('../../config');
+const jwt = require('jsonwebtoken');
+const { requireEnv } = require('../../config');
+const { ensureSession, setAuthCookie } = require('./helpers');
+const {
+  supportedProviders,
+  normalizeProvider,
+  getProviderConfig,
+  buildOAuthState,
+  decodeOAuthState,
+  buildAuthorizeUrl,
+  normalizeProviderProfile,
+} = require('./oauth2-config');
+const {
+  exchangeCodeForToken,
+  fetchProviderProfile,
+  fetchProviderEmailAddress,
+} = require('./oauth2-provider-client');
+const {
+  hashTokenValue,
+  resolveOrCreateUserForOAuthProfile,
+} = require('./oauth2-user-resolution');
 
-const supportedProviders = ['github', '42'];
-
-const normalizeProvider = (provider) => String(provider || '').trim().toLowerCase();
-
-const getProviderConfig = (provider) => {
-  const normalized = normalizeProvider(provider);
-  const envPrefix = `OAUTH_${normalized.toUpperCase()}`;
-
-  const config = {
-    provider: normalized,
-    enabled: Boolean(
-      getOptionalEnv(`${envPrefix}_CLIENT_ID`) &&
-      getOptionalEnv(`${envPrefix}_CLIENT_SECRET`) &&
-      getOptionalEnv(`${envPrefix}_REDIRECT_URI`)
-    ),
-    clientId: getOptionalEnv(`${envPrefix}_CLIENT_ID`),
-    clientSecret: getOptionalEnv(`${envPrefix}_CLIENT_SECRET`),
-    redirectUri: getOptionalEnv(`${envPrefix}_REDIRECT_URI`),
-    authorizeUrl: getOptionalEnv(`${envPrefix}_AUTHORIZE_URL`),
-    tokenUrl: getOptionalEnv(`${envPrefix}_TOKEN_URL`),
-    userInfoUrl: getOptionalEnv(`${envPrefix}_USERINFO_URL`),
-  };
-
-  return config;
-};
-
-const buildOAuthState = ({ provider, redirectUri = null, next = '/', nonce = null } = {}) => ({
-  provider: normalizeProvider(provider),
-  redirectUri,
-  next,
-  nonce,
-  issuedAt: new Date().toISOString(),
-  status: 'placeholder',
-});
-
-const buildAuthorizeUrl = ({ provider, config, state, next = '/' } = {}) => {
-  const normalizedProvider = normalizeProvider(provider);
-  const targetConfig = config || getProviderConfig(normalizedProvider);
-
-  if (!targetConfig || !targetConfig.clientId || !targetConfig.redirectUri || !targetConfig.authorizeUrl) {
-    throw new Error(`Missing OAuth configuration for provider: ${normalizedProvider}`);
-  }
-
-  const params = new URLSearchParams({
-    client_id: targetConfig.clientId,
-    redirect_uri: targetConfig.redirectUri,
-    state: state || `${normalizedProvider}:${Date.now()}`,
-    next,
-  });
-
-  if (normalizedProvider === 'github') {
-    params.set('scope', 'read:user');
-  }
-
-  if (normalizedProvider === '42') {
-    params.set('response_type', 'code');
-    params.set('scope', 'public');
-  }
-
-  return `${targetConfig.authorizeUrl}?${params.toString()}`;
-};
-
-const normalizeProviderProfile = (provider, profile) => {
-  const normalizedProvider = normalizeProvider(provider);
-
-  if (normalizedProvider === 'github') {
-    return {
-      providerUserId: String(profile.id),
-      email: profile.email || null,
-      emailVerified: true,
-      displayName: profile.name || profile.login || profile.email || 'GitHub user',
-      avatarUrl: profile.avatar_url || null,
-      login: profile.login || profile.email || `github-${profile.id}`,
-    };
-  }
-
-  if (normalizedProvider === '42') {
-    return {
-      providerUserId: String(profile.id),
-      email: profile.email || null,
-      emailVerified: Boolean(profile.email_verified),
-      displayName: profile.displayname || profile.login || profile.email || '42 user',
-      avatarUrl: profile.image?.link || profile.image_url || null,
-      login: profile.login || profile.email || `42-${profile.id}`,
-    };
-  }
-
-  throw new Error(`Unsupported provider: ${normalizedProvider}`);
-};
-
-const exchangeCodeForToken = async ({ provider, code, config } = {}) => {
-  const normalizedProvider = normalizeProvider(provider);
-  const targetConfig = config || getProviderConfig(normalizedProvider);
-
-  if (!targetConfig || !targetConfig.tokenUrl) {
-    throw new Error(`Missing token endpoint for provider: ${normalizedProvider}`);
-  }
-
-  return {
-    provider: normalizedProvider,
-    code,
-    tokenUrl: targetConfig.tokenUrl,
-    status: 'not_implemented',
-    note: 'token exchange is implemented in next oauth patch',
-  };
-};
-
-const fetchProviderProfile = async ({ provider, accessToken, config } = {}) => {
-  const normalizedProvider = normalizeProvider(provider);
-  const targetConfig = config || getProviderConfig(normalizedProvider);
-
-  if (!targetConfig || !targetConfig.userInfoUrl) {
-    throw new Error(`Missing user info endpoint for provider: ${normalizedProvider}`);
-  }
-
-  return {
-    provider: normalizedProvider,
-    accessToken,
-    userInfoUrl: targetConfig.userInfoUrl,
-    status: 'not_implemented',
-    note: 'provider profile fetch is implemented in next oauth patch',
-  };
-};
+const JWT_SECRET = requireEnv('JWT_SECRET');
+const JWT_EXPIRES_IN = requireEnv('JWT_EXPIRES_IN');
 
 const createOAuth2Handler = ({ logger = console } = {}) => {
   const startAuthorization = async (req, res) => {
@@ -201,16 +100,90 @@ const createOAuth2Handler = ({ logger = console } = {}) => {
         });
       }
 
-      logger.info(`[OAUTH2] callback received for ${provider}`, { hasCode: Boolean(code), hasState: Boolean(state) });
+      const parsedState = decodeOAuthState(state);
+      if (parsedState.provider && normalizeProvider(parsedState.provider) !== provider) {
+        return res.status(400).json({ error: 'OAuth2 state mismatch' });
+      }
 
-      return res.status(501).json({
-        error: 'OAuth2 callback handling is not implemented yet',
+      const tokenResponse = await exchangeCodeForToken({
         provider,
-        status: 'placeholder',
-        context: {
-          codeReceived: Boolean(code),
-          stateReceived: Boolean(state),
-        },
+        code,
+        config: providerConfig,
+      });
+
+      const providerProfilePayload = await fetchProviderProfile({
+        provider,
+        accessToken: tokenResponse.accessToken,
+        config: providerConfig,
+      });
+
+      let profilePayload = providerProfilePayload;
+      if (!profilePayload?.email) {
+        const fallbackEmail = await fetchProviderEmailAddress({
+          provider,
+          accessToken: tokenResponse.accessToken,
+          config: providerConfig,
+        });
+
+        if (fallbackEmail) {
+          profilePayload = {
+            ...profilePayload,
+            email: fallbackEmail,
+            email_verified: profilePayload?.email_verified ?? true,
+          };
+        }
+      }
+
+      const profile = normalizeProviderProfile(provider, profilePayload);
+      const { user, oauthAccount, reason } = await resolveOrCreateUserForOAuthProfile({ provider, profile });
+
+      if (!user) {
+        if (reason === 'missing_email') {
+          return res.status(401).json({
+            error: 'This OAuth provider did not return an email address',
+            provider,
+          });
+        }
+
+        return res.status(401).json({
+          error: 'Unable to resolve the user for this OAuth account',
+          provider,
+        });
+      }
+
+      if (oauthAccount) {
+        await oauthAccount.update({
+          email: profile.email || oauthAccount.email,
+          emailVerified: profile.emailVerified,
+          displayName: profile.displayName || oauthAccount.displayName,
+          avatarUrl: profile.avatarUrl || oauthAccount.avatarUrl,
+          accessTokenHash: hashTokenValue(tokenResponse.accessToken),
+          refreshTokenHash: hashTokenValue(tokenResponse.refreshToken),
+        });
+      }
+
+      const internalToken = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+      setAuthCookie(res, internalToken);
+      await ensureSession({ token: internalToken, user });
+
+      const redirectTarget = parsedState.next || parsedState.redirectUri || '/';
+      logger.info(`[OAUTH2] user authenticated via ${provider}`, {
+        userId: user.id,
+        provider,
+        redirectTarget,
+      });
+
+      if (req.accepts('html')) {
+        return res.redirect(redirectTarget);
+      }
+
+      return res.json({
+        id: user.id,
+        login: user.login,
+        email: user.email,
+        loggedIn: true,
+        provider,
+        oauthAccountId: oauthAccount?.id || null,
       });
     } catch (err) {
       logger.error('[OAUTH2] callback failed:', err);
@@ -228,7 +201,7 @@ const createOAuth2Handler = ({ logger = console } = {}) => {
     providerUser: providerUser || null,
     localUser: localUser || null,
     sessionToken: sessionToken || null,
-    status: 'placeholder',
+    status: 'complete',
   });
 
   return {
