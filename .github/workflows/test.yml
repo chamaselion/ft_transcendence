@@ -1,0 +1,21 @@
+name: Frontend Type check
+
+on:
+  pull_request:
+    branches:
+      - main
+jobs:
+  type-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: npm install
+      - name: Run TypeScript type check
+        run: npm run type-check
+      - name: Building Project
+        run: npm run build
