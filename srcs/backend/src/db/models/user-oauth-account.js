@@ -10,6 +10,7 @@ module.exports = (sequelize) => {
     userId: {
       type: DataTypes.UUID,
       allowNull: false,
+      field: 'user_id',
     },
     provider: {
       type: DataTypes.ENUM('github', '42'),
@@ -18,6 +19,7 @@ module.exports = (sequelize) => {
     providerUserId: {
       type: DataTypes.STRING,
       allowNull: false,
+      field: 'provider_user_id',
     },
     email: {
       type: DataTypes.STRING,
@@ -27,22 +29,27 @@ module.exports = (sequelize) => {
       type: DataTypes.BOOLEAN,
       allowNull: false,
       defaultValue: false,
+      field: 'email_verified',
     },
     displayName: {
       type: DataTypes.STRING,
       allowNull: true,
+      field: 'display_name',
     },
     avatarUrl: {
       type: DataTypes.TEXT,
       allowNull: true,
+      field: 'avatar_url',
     },
     accessTokenHash: {
       type: DataTypes.TEXT,
       allowNull: true,
+      field: 'access_token_hash',
     },
     refreshTokenHash: {
       type: DataTypes.TEXT,
       allowNull: true,
+      field: 'refresh_token_hash',
     },
   }, {
     tableName: 'user_oauth_accounts',
@@ -50,11 +57,11 @@ module.exports = (sequelize) => {
     indexes: [
       {
         unique: true,
-        fields: ['provider', 'providerUserId'],
+        fields: ['provider', 'provider_user_id'],
       },
       {
         unique: true,
-        fields: ['userId', 'provider'],
+        fields: ['user_id', 'provider'],
       },
     ],
   });
