@@ -5,11 +5,11 @@ on:
     branches:
       - main
 jobs:
-  frontend-type-check:
+  type-check:
     runs-on: ubuntu-latest
     container:
       image: node:22
-    default:
+    defaults:
       run:
         working-directory: ./srcs/frontend/transcendence-spa
     steps:
