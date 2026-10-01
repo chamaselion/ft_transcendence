@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run:
-          ls
+          ls &&
           cd ./src/frontend/transcendence-spa
       - uses: actions/checkout@v3
       - name: Set up Node.js
