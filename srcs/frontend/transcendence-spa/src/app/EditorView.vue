@@ -1,100 +1,136 @@
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from 'vue'
-import { useRoute } from 'vue-router'
+import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import Editor from '@/app/components/Editor.vue'
 import Button from '@/app/components/Button.vue'
-import {
-  WebSocketEditorDataProvider,
-  LocalEditorDataProvider,
-} from '@/app/editor/dataProvider'
+import { WebSocketEditorDataProvider } from '@/app/editor/dataProvider'
 import type { EditorDataProvider } from '@/app/editor/types'
 import { createBlock } from '@/app/editor/types'
 import { useUserStore } from '@/stores/user'
-import { httpClient } from '@/auth/auth.api'
+import { createDocument, getDocument } from '@/app/editor/document.api'
+import ShareModal from '@/app/components/ShareModal.vue'
 
 const route = useRoute()
+const router = useRouter()
 const userStore = useUserStore()
 
 const provider = ref<EditorDataProvider | null>(null)
 const documentTitle = ref<string>('Untitled Document')
 const documentId = ref<string | null>(null)
-const connectionStatus = ref<'connecting' | 'connected' | 'disconnected' | 'local'>('local')
+const userPermission = ref<'owner' | 'editor' | 'viewer'>('viewer')
+const showShareModal = ref(false)
+const connectionStatus = ref<'connecting' | 'connected' | 'disconnected'>('connecting')
 const errorMessage = ref<string | null>(null)
+const isLoading = ref<boolean>(true)
 
-const sampleBlocks = [
-  createBlock('h', 'Collaborative Block Editor'),
-  createBlock(
-    'p',
-    'Welcome! This editor uses a block-based architecture with fine-grained real-time sync.',
-  ),
-  createBlock('li', 'Focus any block to start typing\nUse the toolbar on top to add or delete blocks\nMultiuser presence locks are resolved automatically'),
-  createBlock('cit', 'Simplicity is prerequisite for reliability. — Edsger W. Dijkstra'),
-  createBlock('c', 'console.log("Real-time editing ready!");'),
-]
+function openRoom(docId: string, initialTitle?: string) {
+  if (initialTitle) documentTitle.value = initialTitle
+  documentId.value = docId
+  connectionStatus.value = 'connecting'
+  errorMessage.value = null
 
-async function initializeProvider() {
+  if (provider.value) {
+    provider.value.destroy?.()
+    provider.value = null
+  }
+
+  const wsProvider = new WebSocketEditorDataProvider({
+    documentId: docId,
+    onOpen: () => {
+      connectionStatus.value = 'connected'
+    },
+    onClose: () => {
+      if (connectionStatus.value === 'connected') {
+        connectionStatus.value = 'disconnected'
+      }
+    },
+  })
+
+  wsProvider.onInit = (e) => {
+    if (e.title) documentTitle.value = e.title
+    if (e.permission) userPermission.value = e.permission
+    connectionStatus.value = 'connected'
+  }
+
+  wsProvider.onError = (e) => {
+    errorMessage.value = e.error
+    if (e.error === 'Document not found' || e.error === 'Access to document was revoked') {
+      router.push('/')
+    }
+  }
+
+  provider.value = wsProvider
+}
+
+async function loadEditor(idParam?: string) {
+  isLoading.value = true
+  errorMessage.value = null
+
   await userStore.fetchCurrentUser()
 
-  const idFromQuery = (route.query.id as string) || (route.query.documentId as string)
+  const id = idParam || (route.params.id as string | undefined)
 
-  if (idFromQuery) {
-    documentId.value = idFromQuery
-    connectionStatus.value = 'connecting'
-
-    const wsProvider = new WebSocketEditorDataProvider({
-      documentId: idFromQuery,
-      onOpen: () => {
-        connectionStatus.value = 'connected'
-      },
-      onClose: () => {
-        if (connectionStatus.value === 'connected') {
-          connectionStatus.value = 'disconnected'
-        }
-      },
-    })
-
-    const prevInit = wsProvider.onInit
-    wsProvider.onInit = (e) => {
-      prevInit(e)
-      if (e.title) documentTitle.value = e.title
-      connectionStatus.value = 'connected'
+  if (!id) {
+    // Route /editor called -> create new document and open room automatically
+    try {
+      const defaultBlocks = [
+        createBlock('h', 'Untitled document'),
+        createBlock('p', ''),
+      ]
+      const newDoc = await createDocument('Untitled document', defaultBlocks)
+      if (newDoc && newDoc.id) {
+        if (newDoc.permission) userPermission.value = newDoc.permission
+        await router.replace(`/editor/${newDoc.id}`)
+        openRoom(newDoc.id, newDoc.title)
+      } else {
+        router.push('/')
+      }
+    } catch (err) {
+      console.error('Failed to create new document room:', err)
+      router.push('/')
+    } finally {
+      isLoading.value = false
     }
-
-    const prevError = wsProvider.onError
-    wsProvider.onError = (e) => {
-      prevError(e)
-      errorMessage.value = e.error
-    }
-
-    provider.value = wsProvider
   } else {
-    // Local / Offline fallback mode
-    connectionStatus.value = 'local'
-    documentTitle.value = 'Local Workspace'
-    provider.value = new LocalEditorDataProvider(sampleBlocks)
+    // Route /editor/:id called -> open document if known, else push to /
+    try {
+      const doc = await getDocument(id)
+      if (!doc || !doc.id) {
+        router.push('/')
+        return
+      }
+      if (doc.permission) userPermission.value = doc.permission
+      openRoom(doc.id, doc.title)
+    } catch (err) {
+      console.error('Unknown document id or access denied:', err)
+      router.push('/')
+      return
+    } finally {
+      isLoading.value = false
+    }
   }
 }
 
-async function createNewRemoteDocument() {
-  try {
-    const res = await httpClient.post<{ document: { id: string; title: string } }>('/api/documents', {
-      title: 'New Document',
-      content: JSON.stringify(sampleBlocks),
-    })
-    if (res?.document?.id) {
-      window.location.search = `?id=${res.document.id}`
-    }
-  } catch (err) {
-    errorMessage.value = err instanceof Error ? err.message : 'Failed to create document'
-  }
+function handleCreateNew() {
+  router.push('/editor')
 }
 
 onMounted(() => {
-  initializeProvider()
+  loadEditor()
 })
+
+watch(
+  () => route.params.id,
+  (newId) => {
+    if (newId !== documentId.value) {
+      loadEditor(newId as string | undefined)
+    }
+  },
+)
 
 onBeforeUnmount(() => {
   provider.value?.destroy?.()
+  provider.value = null
 })
 </script>
 
@@ -110,28 +146,36 @@ onBeforeUnmount(() => {
           >
             {{
               connectionStatus === 'connected'
-                ? 'Connected (Room Live)'
+                ? 'Multiuser Room Live'
                 : connectionStatus === 'connecting'
-                  ? 'Connecting...'
-                  : connectionStatus === 'local'
-                    ? 'Local Sandbox'
-                    : 'Disconnected'
+                  ? 'Connecting to Room...'
+                  : 'Disconnected'
             }}
           </span>
           <span v-if="documentId" class="doc-id-badge">
             Room: {{ documentId.slice(0, 8) }}...
+          </span>
+          <span v-if="userPermission" class="permission-badge">
+            Role: {{ userPermission }}
           </span>
         </div>
       </div>
 
       <div class="editor-view__actions">
         <Button
-          v-if="connectionStatus === 'local'"
-          variant="elevated"
+          v-if="documentId"
+          variant="outlined"
           size="small"
-          @click="createNewRemoteDocument"
+          @click="showShareModal = true"
         >
-          Create Multiuser Room
+          Share
+        </Button>
+        <Button
+          variant="outlined"
+          size="small"
+          @click="handleCreateNew"
+        >
+          + New Document
         </Button>
       </div>
     </div>
@@ -140,12 +184,24 @@ onBeforeUnmount(() => {
       {{ errorMessage }}
     </div>
 
+    <div v-if="isLoading" class="editor-view__loading">
+      Initializing document room...
+    </div>
+
     <Editor
-      v-if="provider"
+      v-else-if="provider"
       :provider="provider"
       :scrollable="false"
       nav-position="top"
       @error="errorMessage = $event"
+    />
+
+    <!-- Share Modal for inviting collaborators and managing access -->
+    <ShareModal
+      v-if="documentId"
+      v-model="showShareModal"
+      :document-id="documentId"
+      :is-owner="userPermission === 'owner'"
     />
   </div>
 </template>
@@ -207,11 +263,6 @@ onBeforeUnmount(() => {
   color: var(--color-warn, #eab308);
 }
 
-.status-badge--local {
-  background-color: var(--bg-subtle);
-  color: var(--text-muted);
-}
-
 .status-badge--disconnected {
   background-color: color-mix(in srgb, var(--color-alert, #ef4444) 15%, transparent);
   color: var(--color-alert, #ef4444);
@@ -223,6 +274,24 @@ onBeforeUnmount(() => {
   font-family: monospace;
 }
 
+.permission-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background-color: var(--bg-subtle);
+  color: var(--text-secondary);
+  text-transform: capitalize;
+}
+
+.editor-view__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .editor-view__error {
   padding: 10px 14px;
   border-radius: 8px;
@@ -230,5 +299,12 @@ onBeforeUnmount(() => {
   border: 1px solid var(--color-alert, #ef4444);
   color: var(--color-alert, #ef4444);
   font-size: 0.875rem;
+}
+
+.editor-view__loading {
+  padding: 48px 16px;
+  text-align: center;
+  color: var(--text-muted);
+  font-style: italic;
 }
 </style>

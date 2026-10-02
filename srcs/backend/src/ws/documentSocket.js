@@ -1,5 +1,6 @@
 const { WebSocketServer } = require('ws');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const { parse: parseUrl } = require('url');
 const { requireEnv } = require('../config');
 const sequelize = require('../db');
@@ -7,6 +8,28 @@ const { getTokenFromCookie, isSessionActive } = require('../controllers/auth/hel
 const { validateUuid } = require('../controllers/auth/validation');
 const { sanitizePlainText } = require('../controllers/documents/sanitize');
 const { resolvePermission, atLeast } = require('../controllers/documents/permissions');
+
+const parseDocBlocks = (content) => {
+  if (!content || typeof content !== 'string') {
+    return [];
+  }
+  try {
+    const parsed = JSON.parse(content);
+    if (Array.isArray(parsed)) {
+      return parsed;
+    }
+  } catch {
+    // Legacy plain text fallback
+  }
+  return [
+    {
+      id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+      text: content,
+      decorator: JSON.stringify({ type: 'p' }),
+      lockedBy: null,
+    },
+  ];
+};
 
 
 const WS_PATH = '/api/ws';
@@ -268,6 +291,139 @@ const attachDocumentSocket = (
           type: 'update',
           documentId: ws.documentId,
           content: sanitizedContent,
+          userId: ws.userId,
+        },
+        ws,
+      );
+    }
+
+    if (msg.type === 'block_edit') {
+      if (!ws.documentId) return sendError(ws, 'Join a document first');
+      if (!atLeast(ws.permission, 'editor')) return sendError(ws, 'Read-only access');
+      if (!msg.blockId || typeof msg.blockId !== 'string') {
+        return sendError(ws, 'blockId must be a string');
+      }
+
+      const doc = await resolveModel().findByPk(ws.documentId);
+      if (!doc) return sendError(ws, 'Document not found');
+
+      const blocks = parseDocBlocks(doc.content);
+      const target = blocks.find((b) => b && b.id === msg.blockId);
+      if (!target) return sendError(ws, 'Block not found');
+
+      const sanitizedText = msg.text !== undefined ? sanitizePlainText(String(msg.text)) : target.text;
+      target.text = sanitizedText;
+      if (msg.decorator !== undefined && typeof msg.decorator === 'string') {
+        target.decorator = msg.decorator;
+      }
+
+      doc.content = JSON.stringify(blocks);
+      await doc.save();
+
+      return broadcast(
+        ws.documentId,
+        {
+          type: 'block_updated',
+          documentId: ws.documentId,
+          blockId: msg.blockId,
+          text: sanitizedText,
+          decorator: target.decorator,
+          userId: ws.userId,
+        },
+        ws,
+      );
+    }
+
+    if (msg.type === 'block_create') {
+      if (!ws.documentId) return sendError(ws, 'Join a document first');
+      if (!atLeast(ws.permission, 'editor')) return sendError(ws, 'Read-only access');
+      if (!msg.block || typeof msg.block !== 'object') {
+        return sendError(ws, 'block must be an object');
+      }
+
+      const blockId = msg.block.id || (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()));
+      const sanitizedText = sanitizePlainText(msg.block.text || '');
+      const decorator = typeof msg.block.decorator === 'string' ? msg.block.decorator : JSON.stringify({ type: 'p' });
+      const newBlock = {
+        id: blockId,
+        text: sanitizedText,
+        decorator,
+        lockedBy: null,
+      };
+
+      const doc = await resolveModel().findByPk(ws.documentId);
+      if (!doc) return sendError(ws, 'Document not found');
+
+      const blocks = parseDocBlocks(doc.content);
+      if (msg.afterBlockId) {
+        const index = blocks.findIndex((b) => b && b.id === msg.afterBlockId);
+        if (index !== -1) {
+          blocks.splice(index + 1, 0, newBlock);
+        } else {
+          blocks.push(newBlock);
+        }
+      } else {
+        blocks.push(newBlock);
+      }
+
+      doc.content = JSON.stringify(blocks);
+      await doc.save();
+
+      return broadcast(
+        ws.documentId,
+        {
+          type: 'block_created',
+          documentId: ws.documentId,
+          block: newBlock,
+          afterBlockId: msg.afterBlockId || null,
+          userId: ws.userId,
+        },
+        ws,
+      );
+    }
+
+    if (msg.type === 'block_delete') {
+      if (!ws.documentId) return sendError(ws, 'Join a document first');
+      if (!atLeast(ws.permission, 'editor')) return sendError(ws, 'Read-only access');
+      if (!msg.blockId || typeof msg.blockId !== 'string') {
+        return sendError(ws, 'blockId must be a string');
+      }
+
+      const doc = await resolveModel().findByPk(ws.documentId);
+      if (!doc) return sendError(ws, 'Document not found');
+
+      const blocks = parseDocBlocks(doc.content);
+      const index = blocks.findIndex((b) => b && b.id === msg.blockId);
+      if (index !== -1) {
+        blocks.splice(index, 1);
+        doc.content = JSON.stringify(blocks);
+        await doc.save();
+      }
+
+      return broadcast(
+        ws.documentId,
+        {
+          type: 'block_deleted',
+          documentId: ws.documentId,
+          blockId: msg.blockId,
+          userId: ws.userId,
+        },
+        ws,
+      );
+    }
+
+    if (msg.type === 'block_unlock') {
+      if (!ws.documentId) return sendError(ws, 'Join a document first');
+      if (!msg.blockId || typeof msg.blockId !== 'string') {
+        return sendError(ws, 'blockId must be a string');
+      }
+
+      return broadcast(
+        ws.documentId,
+        {
+          type: 'block_unlocked',
+          documentId: ws.documentId,
+          blockId: msg.blockId,
           userId: ws.userId,
         },
         ws,
