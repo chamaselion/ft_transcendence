@@ -1,5 +1,7 @@
+const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { requireEnv } = require('../../config');
+const { requireEnv, requireNumberEnv } = require('../../config');
+const sequelize = require('../../db');
 const { ensureSession, setAuthCookie } = require('./helpers');
 const {
   supportedProviders,
@@ -19,9 +21,83 @@ const {
   hashTokenValue,
   resolveOrCreateUserForOAuthProfile,
 } = require('./oauth2-user-resolution');
+const { validatePassword } = require('./validation');
 
 const JWT_SECRET = requireEnv('JWT_SECRET');
 const JWT_EXPIRES_IN = requireEnv('JWT_EXPIRES_IN');
+const BCRYPT_SALT_ROUNDS = requireNumberEnv('BCRYPT_SALT_ROUNDS');
+
+const createOAuthAccountManager = ({
+  userModel = sequelize.models.user,
+  oauthAccountModel = sequelize.models.userOauthAccount,
+  hashLib = bcrypt,
+} = {}) => {
+  const setPassword = async (req, res) => {
+    try {
+      const user = req.user;
+      if (!user) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+
+      const passwordValidation = validatePassword(req.body?.password);
+      if (!passwordValidation.ok) {
+        return res.status(400).json({ error: passwordValidation.error });
+      }
+
+      if (user.passwordHash) {
+        return res.status(409).json({ error: 'Password already set' });
+      }
+
+      const passwordHash = await hashLib.hash(passwordValidation.value, BCRYPT_SALT_ROUNDS);
+      await userModel.update({ passwordHash }, { where: { id: user.id } });
+
+      return res.json({ passwordSet: true, userId: user.id });
+    } catch (err) {
+      return res.status(500).json({ error: 'Server error' });
+    }
+  };
+
+  const startLinkProvider = async (req, res) => {
+    try {
+      const user = req.user;
+      const provider = normalizeProvider(req.params?.provider);
+
+      if (!user) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+
+      if (!supportedProviders.includes(provider)) {
+        return res.status(400).json({ error: 'Authentication failed' });
+      }
+
+      const providerConfig = getProviderConfig(provider);
+      if (!providerConfig.enabled) {
+        return res.status(501).json({ error: 'Authentication failed' });
+      }
+
+      const state = JSON.stringify(buildOAuthState({
+        provider,
+        redirectUri: providerConfig.redirectUri,
+        next: req.query?.next || '/',
+        mode: 'link',
+        linkUserId: user.id,
+      }));
+
+      const authorizeUrl = buildAuthorizeUrl({
+        provider,
+        config: providerConfig,
+        state: Buffer.from(state).toString('base64url'),
+        next: req.query?.next || '/',
+      });
+
+      return res.redirect(authorizeUrl);
+    } catch (err) {
+      return res.status(500).json({ error: 'Server error' });
+    }
+  };
+
+  return { setPassword, startLinkProvider };
+};
 
 const createOAuth2Handler = ({ logger = console } = {}) => {
   const startAuthorization = async (req, res) => {
@@ -67,42 +143,33 @@ const createOAuth2Handler = ({ logger = console } = {}) => {
       const { code, state, error, error_description } = req.query || {};
 
       if (!provider) {
-        return res.status(400).json({ error: 'OAuth provider is required' });
+        return res.status(400).json({ error: 'Authentication failed' });
       }
 
       if (!supportedProviders.includes(provider)) {
-        return res.status(400).json({ error: 'Unsupported OAuth provider', provider });
+        return res.status(400).json({ error: 'Authentication failed' });
       }
 
       if (error) {
-        return res.status(400).json({
-          error: 'OAuth2 provider rejected the authorization request',
-          provider,
-          providerError: error,
-          providerErrorDescription: error_description || null,
-        });
+        return res.status(400).json({ error: 'Authentication failed' });
       }
 
       if (!code) {
-        return res.status(400).json({ error: 'OAuth2 authorization code is missing' });
+        return res.status(400).json({ error: 'Authentication failed' });
       }
 
       if (!state) {
-        return res.status(400).json({ error: 'OAuth2 state is missing' });
+        return res.status(400).json({ error: 'Authentication failed' });
       }
 
       const providerConfig = getProviderConfig(provider);
       if (!providerConfig.enabled) {
-        return res.status(501).json({
-          error: 'OAuth2 provider is not configured yet',
-          provider,
-          status: 'placeholder',
-        });
+        return res.status(501).json({ error: 'Authentication failed' });
       }
 
       const parsedState = decodeOAuthState(state);
       if (parsedState.provider && normalizeProvider(parsedState.provider) !== provider) {
-        return res.status(400).json({ error: 'OAuth2 state mismatch' });
+        return res.status(400).json({ error: 'Authentication failed' });
       }
 
       const tokenResponse = await exchangeCodeForToken({
@@ -135,20 +202,47 @@ const createOAuth2Handler = ({ logger = console } = {}) => {
       }
 
       const profile = normalizeProviderProfile(provider, profilePayload);
-      const { user, oauthAccount, reason } = await resolveOrCreateUserForOAuthProfile({ provider, profile });
+      const linkUserId = parsedState.linkUserId ? String(parsedState.linkUserId) : null;
 
-      if (!user) {
-        if (reason === 'missing_email') {
-          return res.status(401).json({
-            error: 'This OAuth provider did not return an email address',
-            provider,
-          });
+      let user;
+      let oauthAccount;
+
+      if (linkUserId) {
+        const targetUser = await sequelize.models.user.findByPk(linkUserId);
+        if (!targetUser) {
+          return res.status(401).json({ error: 'Unauthorized' });
         }
 
-        return res.status(401).json({
-          error: 'Unable to resolve the user for this OAuth account',
-          provider,
+        const existingOauthAccount = await sequelize.models.userOauthAccount.findOne({
+          where: {
+            provider,
+            providerUserId: profile.providerUserId,
+          },
         });
+
+        if (existingOauthAccount && String(existingOauthAccount.userId) !== linkUserId) {
+          return res.status(409).json({ error: 'Authentication failed' });
+        }
+
+        oauthAccount = existingOauthAccount || await sequelize.models.userOauthAccount.create({
+          userId: targetUser.id,
+          provider,
+          providerUserId: profile.providerUserId,
+          email: profile.email,
+          emailVerified: profile.emailVerified,
+          displayName: profile.displayName,
+          avatarUrl: profile.avatarUrl,
+        });
+
+        user = targetUser;
+      } else {
+        const resolutionResult = await resolveOrCreateUserForOAuthProfile({ provider, profile });
+        user = resolutionResult.user;
+        oauthAccount = resolutionResult.oauthAccount;
+
+        if (!user) {
+          return res.status(401).json({ error: 'Authentication failed' });
+        }
       }
 
       if (oauthAccount) {
@@ -177,6 +271,17 @@ const createOAuth2Handler = ({ logger = console } = {}) => {
         return res.redirect(redirectTarget);
       }
 
+      if (linkUserId) {
+        return res.json({
+          linked: true,
+          provider,
+          id: user.id,
+          login: user.login,
+          email: user.email,
+          oauthAccountId: oauthAccount?.id || null,
+        });
+      }
+
       return res.json({
         id: user.id,
         login: user.login,
@@ -191,7 +296,7 @@ const createOAuth2Handler = ({ logger = console } = {}) => {
     }
   };
 
-  const finalizeUserAuthentication = async ({
+  const finalizeAuth = async ({
     provider,
     providerUser,
     localUser,
@@ -213,12 +318,13 @@ const createOAuth2Handler = ({ logger = console } = {}) => {
     normalizeProviderProfile,
     exchangeCodeForToken,
     fetchProviderProfile,
-    finalizeUserAuthentication,
+    finalizeAuth,
   };
 };
 
 module.exports = {
   createOAuth2Handler,
+  createOAuthAccountManager,
   getProviderConfig,
   buildAuthorizeUrl,
   buildOAuthState,
