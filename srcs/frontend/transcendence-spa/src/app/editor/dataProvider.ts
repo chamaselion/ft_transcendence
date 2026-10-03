@@ -29,6 +29,7 @@ interface WsIncomingMessage {
   decorator?: string
   userId?: string | null
   clientId?: string
+  title?: string
   content?: string
   error?: string
 }
@@ -62,6 +63,7 @@ export class WebSocketEditorDataProvider implements EditorDataProvider {
     clientId?: string
   }) => void = () => {}
   public onUnlocked: (e: { blockId: string }) => void = () => {}
+  public onTitleUpdated: (e: { title: string; userId?: string | null }) => void = () => {}
   public onError: (e: { error: string }) => void = () => {}
 
   private onOpenCallback?: () => void
@@ -163,6 +165,12 @@ export class WebSocketEditorDataProvider implements EditorDataProvider {
           }
           break
 
+        case 'title_updated':
+          if (msg.title) {
+            this.onTitleUpdated({ title: msg.title, userId: msg.userId })
+          }
+          break
+
         case 'update':
           // Backwards compatibility with legacy full-content update
           if (typeof msg.content === 'string') {
@@ -258,6 +266,15 @@ export class WebSocketEditorDataProvider implements EditorDataProvider {
     return success
   }
 
+  public async sendTitleUpdate(title: string): Promise<boolean> {
+    const success = this.sendRaw({
+      type: 'title_update',
+      documentId: this.documentId,
+      title,
+    })
+    return success
+  }
+
   public destroy(): void {
     this.isDestroyed = true
     if (this.ws) {
@@ -289,6 +306,7 @@ export class LocalEditorDataProvider implements EditorDataProvider {
     clientId?: string
   }) => void = () => {}
   public onUnlocked: (e: { blockId: string }) => void = () => {}
+  public onTitleUpdated: (e: { title: string; userId?: string | null }) => void = () => {}
   public onError: (e: { error: string }) => void = () => {}
 
   constructor(initialBlocks: Block[] = []) {
@@ -345,6 +363,11 @@ export class LocalEditorDataProvider implements EditorDataProvider {
   }
 
   public async sendBlockUnlock(_blockId: string): Promise<boolean> {
+    return true
+  }
+
+  public async sendTitleUpdate(title: string): Promise<boolean> {
+    this.onTitleUpdated({ title })
     return true
   }
 
