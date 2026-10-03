@@ -12,6 +12,7 @@
       :is="component"
       v-bind="componentProps"
       @update:text="!locked && $emit('update:text', $event)"
+      @update:language="!locked && onUpdateLanguage($event)"
       @focus="!locked && $emit('focus')"
       @blur="$emit('blur')"
     />
@@ -28,7 +29,7 @@ import EditorHeading from '@/app/components/EditorHeading.vue'
 import EditorList from '@/app/components/EditorList.vue'
 import EditorCitation from '@/app/components/EditorCitation.vue'
 import EditorCode from '@/app/components/EditorCode.vue'
-import { parseDecorator, type Block, type BlockType } from '@/app/editor/types'
+import { parseDecorator, serializeDecorator, type Block, type BlockType } from '@/app/editor/types'
 
 const props = defineProps<{
   block: Block
@@ -36,8 +37,9 @@ const props = defineProps<{
   locked?: boolean
 }>()
 
-defineEmits<{
+const emit = defineEmits<{
   'update:text': [value: string]
+  'update:decorator': [value: string]
   focus: []
   blur: []
 }>()
@@ -52,6 +54,12 @@ const componentMap: Record<BlockType, Component> = {
 
 const decorator = computed(() => parseDecorator(props.block.decorator))
 const component = computed(() => componentMap[decorator.value.type])
+
+function onUpdateLanguage(language: string) {
+  if (props.locked) return
+  const updated = { ...decorator.value, language }
+  emit('update:decorator', serializeDecorator(updated))
+}
 
 const componentProps = computed(() => {
   const decoratorValue = decorator.value
@@ -73,7 +81,7 @@ const componentProps = computed(() => {
       return { ...base, code: props.block.text, language: decoratorValue.language }
     case 'p':
     default:
-      return { ...base, text: props.block.text }
+      return { ...base, text: props.block.text, align: decoratorValue.align || 'left' }
   }
 })
 </script>

@@ -4,10 +4,12 @@
     <EditorNav
       v-if="navPosition !== 'bottom'"
       :active-block-id="store.activeBlockId"
+      :active-block="store.activeBlock"
       :delete-disabled="isDeleteDisabled"
       :position="navPosition"
       @add="onAdd"
       @delete="onDelete"
+      @update:decorator="onUpdateDecorator(store.activeBlock, $event)"
     />
 
     <!-- Editor content: expands with the page by default, or scrollable if scrollable prop is true -->
@@ -24,6 +26,7 @@
         @focus="onFocus(block)"
         @blur="onBlur(block)"
         @update:text="onUpdateText(block, $event)"
+        @update:decorator="onUpdateDecorator(block, parseDecorator($event))"
       />
 
       <p v-if="store.blocks.length === 0" class="editor__empty">
@@ -35,10 +38,12 @@
     <EditorNav
       v-if="navPosition === 'bottom'"
       :active-block-id="store.activeBlockId"
+      :active-block="store.activeBlock"
       :delete-disabled="isDeleteDisabled"
       :position="navPosition"
       @add="onAdd"
       @delete="onDelete"
+      @update:decorator="onUpdateDecorator(store.activeBlock, $event)"
     />
   </div>
 </template>
@@ -51,7 +56,10 @@ import { useEditorStore } from '@/stores/editor'
 import { isStandardText } from '@/app/editor/useEditable'
 import {
   createBlock,
+  parseDecorator,
+  serializeDecorator,
   type Block,
+  type BlockDecorator,
   type BlockType,
   type EditorDataProvider,
 } from '@/app/editor/types'
@@ -280,6 +288,44 @@ const onUpdateText = async (block: Block, text: string) => {
   editDebounceTimer = setTimeout(() => {
     flushPendingEdit()
   }, EDIT_DEBOUNCE_MS)
+}
+
+const onUpdateDecorator = async (block: Block | null, newDecorator: BlockDecorator) => {
+  if (!block || store.isLockedByOther(block)) return
+
+  // Re-acquire lock if needed
+  if (block.lockedBy !== store.clientId) {
+    const lockSuccess = await props.provider.sendBlockLock?.(block.id)
+    if (lockSuccess === false) return
+    store.lock(block.id)
+  }
+
+  const serialized = serializeDecorator(newDecorator)
+  store.updateBlockDecorator(block.id, serialized)
+  resetLockTimeout(block.id)
+
+  // Flush any pending text edit along with the new decorator
+  if (pendingEditBlockId === block.id) {
+    if (editDebounceTimer) {
+      clearTimeout(editDebounceTimer)
+      editDebounceTimer = null
+    }
+    const textToSend = pendingEditText ?? block.text
+    pendingEditBlockId = null
+    pendingEditText = null
+    pendingEditDecorator = null
+    await props.provider.sendEdit({
+      blockId: block.id,
+      text: textToSend,
+      decorator: serialized,
+    })
+  } else {
+    await props.provider.sendEdit({
+      blockId: block.id,
+      text: block.text,
+      decorator: serialized,
+    })
+  }
 }
 
 const onFocus = async (block: Block) => {

@@ -1,6 +1,11 @@
 <script lang="ts">
 export const iconNames = [
   'H1',
+  'H2',
+  'H3',
+  'H4',
+  'H5',
+  'H6',
   'Sparkles',
   'Pencil',
   'PencilPlus',
@@ -10,8 +15,13 @@ export const iconNames = [
   'Eye',
   'Paragraph',
   'List',
+  'ListNumbers',
   'Quote',
   'Code',
+  'AlignLeft',
+  'AlignCenter',
+  'AlignRight',
+  'AlignJustified',
 ] as const
 
 export type IconName = (typeof iconNames)[number]
@@ -21,6 +31,11 @@ export type IconName = (typeof iconNames)[number]
 import { computed, type Component } from 'vue'
 import {
   IconH1,
+  IconH2,
+  IconH3,
+  IconH4,
+  IconH5,
+  IconH6,
   IconSparkles,
   IconPencil,
   IconPencilPlus,
@@ -29,13 +44,22 @@ import {
   IconAdjustmentsHorizontal,
   IconEye,
   IconAlignLeft,
+  IconAlignCenter,
+  IconAlignRight,
+  IconAlignJustified,
   IconList,
+  IconListNumbers,
   IconQuote,
   IconCode,
 } from '@tabler/icons-vue'
 
 const iconMap: Record<IconName, Component> = {
   H1: IconH1,
+  H2: IconH2,
+  H3: IconH3,
+  H4: IconH4,
+  H5: IconH5,
+  H6: IconH6,
   Sparkles: IconSparkles,
   Pencil: IconPencil,
   PencilPlus: IconPencilPlus,
@@ -45,8 +69,13 @@ const iconMap: Record<IconName, Component> = {
   Eye: IconEye,
   Paragraph: IconAlignLeft,
   List: IconList,
+  ListNumbers: IconListNumbers,
   Quote: IconQuote,
   Code: IconCode,
+  AlignLeft: IconAlignLeft,
+  AlignCenter: IconAlignCenter,
+  AlignRight: IconAlignRight,
+  AlignJustified: IconAlignJustified,
 }
 
 const props = withDefaults(defineProps<{
