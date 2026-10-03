@@ -32,7 +32,7 @@
         size="small"
         square
         title="Delete active block"
-        :disabled="!activeBlockId"
+        :disabled="!activeBlockId || deleteDisabled"
         @click="$emit('delete')"
       >
         <template #icon>
@@ -52,10 +52,12 @@ import { blockTypeLabels, blockTypes, type BlockType } from '@/app/editor/types'
 withDefaults(
   defineProps<{
     activeBlockId?: string | null
+    deleteDisabled?: boolean
     position?: 'top' | 'left' | 'bottom'
   }>(),
   {
     activeBlockId: null,
+    deleteDisabled: false,
     position: 'top',
   },
 )

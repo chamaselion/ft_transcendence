@@ -4,6 +4,7 @@
     <EditorNav
       v-if="navPosition !== 'bottom'"
       :active-block-id="store.activeBlockId"
+      :delete-disabled="isDeleteDisabled"
       :position="navPosition"
       @add="onAdd"
       @delete="onDelete"
@@ -18,7 +19,7 @@
         v-for="block in store.blocks"
         :key="block.id"
         :block="block"
-        :active="block.id === store.activeBlockId"
+        :active="block.id === store.activeBlockId && !store.isLockedByOther(block)"
         :locked="store.isLockedByOther(block)"
         @focus="onFocus(block)"
         @blur="onBlur(block)"
@@ -34,6 +35,7 @@
     <EditorNav
       v-if="navPosition === 'bottom'"
       :active-block-id="store.activeBlockId"
+      :delete-disabled="isDeleteDisabled"
       :position="navPosition"
       @add="onAdd"
       @delete="onDelete"
@@ -42,10 +44,11 @@
 </template>
 
 <script lang="ts" setup>
-import { onMounted, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, watch } from 'vue'
 import EditorBlock from '@/app/components/EditorBlock.vue'
 import EditorNav from '@/app/components/EditorNav.vue'
 import { useEditorStore } from '@/stores/editor'
+import { isStandardText } from '@/app/editor/useEditable'
 import {
   createBlock,
   type Block,
@@ -71,7 +74,74 @@ const emit = defineEmits<{
 
 const store = useEditorStore()
 
+const isDeleteDisabled = computed(() => {
+  if (!store.activeBlock) return true
+  return store.isLockedByOther(store.activeBlock)
+})
+
+const EDIT_DEBOUNCE_MS = 2000
+const LOCK_TIMEOUT_MS = 5000
+
+let editDebounceTimer: ReturnType<typeof setTimeout> | null = null
+let lockTimeoutTimer: ReturnType<typeof setTimeout> | null = null
+let pendingEditBlockId: string | null = null
+let pendingEditText: string | null = null
+let pendingEditDecorator: string | null = null
+
+function flushPendingEdit() {
+  if (editDebounceTimer) {
+    clearTimeout(editDebounceTimer)
+    editDebounceTimer = null
+  }
+  if (pendingEditBlockId && pendingEditText !== null) {
+    const blockId = pendingEditBlockId
+    const text = pendingEditText
+    const decorator = pendingEditDecorator ?? undefined
+    pendingEditBlockId = null
+    pendingEditText = null
+    pendingEditDecorator = null
+    props.provider.sendEdit({
+      blockId,
+      text,
+      decorator,
+    })
+  }
+}
+
+function resetLockTimeout(blockId: string) {
+  if (lockTimeoutTimer) {
+    clearTimeout(lockTimeoutTimer)
+    lockTimeoutTimer = null
+  }
+
+  lockTimeoutTimer = setTimeout(async () => {
+    // 5 seconds elapsed without any new edit -> lock timeout expires!
+    flushPendingEdit()
+    store.unlock(blockId)
+    await props.provider.sendBlockUnlock?.(blockId)
+    lockTimeoutTimer = null
+  }, LOCK_TIMEOUT_MS)
+}
+
+function clearLockTimers() {
+  if (editDebounceTimer) {
+    clearTimeout(editDebounceTimer)
+    editDebounceTimer = null
+  }
+  if (lockTimeoutTimer) {
+    clearTimeout(lockTimeoutTimer)
+    lockTimeoutTimer = null
+  }
+  pendingEditBlockId = null
+  pendingEditText = null
+  pendingEditDecorator = null
+}
+
 function wireProvider(provider: EditorDataProvider) {
+  if ('clientId' in provider && typeof (provider as { clientId?: unknown }).clientId === 'string') {
+    store.setClientId((provider as { clientId: string }).clientId)
+  }
+
   provider.onInit = (e) => {
     store.setBlocks(e.blocks)
   }
@@ -93,6 +163,16 @@ function wireProvider(provider: EditorDataProvider) {
     store.removeBlock(e.blockId)
   }
 
+  provider.onLocked = (e) => {
+    if (e.clientId && e.clientId !== store.clientId) {
+      if (store.activeBlockId === e.blockId) {
+        // Race condition: another client acquired the lock first! Drop uncommitted local edits
+        clearLockTimers()
+      }
+    }
+    store.lock(e.blockId, e.clientId || e.userId || 'remote')
+  }
+
   provider.onUnlocked = (e) => {
     store.unlockBlockById(e.blockId)
   }
@@ -106,6 +186,14 @@ onMounted(() => {
   wireProvider(props.provider)
 })
 
+onBeforeUnmount(() => {
+  flushPendingEdit()
+  clearLockTimers()
+  if (store.activeBlockId && !store.isLockedByOther({ id: store.activeBlockId } as Block)) {
+    props.provider.sendBlockUnlock?.(store.activeBlockId)
+  }
+})
+
 watch(
   () => props.provider,
   (newProvider) => {
@@ -114,10 +202,19 @@ watch(
 )
 
 const onAdd = async (type: BlockType) => {
+  const previousId = store.activeBlockId
+  if (previousId && !store.isLockedByOther({ id: previousId } as Block)) {
+    flushPendingEdit()
+    clearLockTimers()
+    store.unlock(previousId)
+    await props.provider.sendBlockUnlock?.(previousId)
+  }
+
   const block = createBlock(type)
-  const afterBlockId = store.activeBlockId
+  const afterBlockId = previousId
   store.insertBlock(block, afterBlockId)
   store.setActive(block.id)
+  store.lock(block.id)
 
   await props.provider.sendBlockCreate({
     block,
@@ -126,11 +223,21 @@ const onAdd = async (type: BlockType) => {
     text: block.text,
     decorator: block.decorator,
   })
+  await props.provider.sendBlockLock?.(block.id)
+  resetLockTimeout(block.id)
 }
 
 const onDelete = async () => {
   const blockId = store.activeBlockId
   if (!blockId) return
+  const currentBlock = store.blocks.find((b) => b.id === blockId)
+  if (currentBlock && store.isLockedByOther(currentBlock)) {
+    return
+  }
+
+  flushPendingEdit()
+  clearLockTimers()
+  await props.provider.sendBlockUnlock?.(blockId)
   store.removeBlock(blockId)
 
   await props.provider.sendBlockDelete({
@@ -139,24 +246,73 @@ const onDelete = async () => {
 }
 
 const onUpdateText = async (block: Block, text: string) => {
+  if (store.isLockedByOther(block)) return
+
+  const oldText = block.text
   store.updateBlockText(block.id, text)
 
-  await props.provider.sendEdit({
-    blockId: block.id,
-    text,
-    decorator: block.decorator,
-  })
-}
+  // 5s timeout refreshed with each new edit!
+  resetLockTimeout(block.id)
 
-const onFocus = (block: Block) => {
-  store.setActive(block.id)
-  if (!store.isLockedByOther(block)) {
-    store.lock(block.id)
+  // If standard/default text is deleted when entering new text, send immediately
+  const wasStandard = isStandardText(oldText)
+  if (wasStandard && !isStandardText(text)) {
+    flushPendingEdit()
+    await props.provider.sendEdit({
+      blockId: block.id,
+      text,
+      decorator: block.decorator,
+    })
+    return
   }
+
+  // Otherwise debounce updates to server for 2 seconds
+  pendingEditBlockId = block.id
+  pendingEditText = text
+  pendingEditDecorator = block.decorator
+
+  if (editDebounceTimer) {
+    clearTimeout(editDebounceTimer)
+  }
+
+  editDebounceTimer = setTimeout(() => {
+    flushPendingEdit()
+  }, EDIT_DEBOUNCE_MS)
 }
 
-const onBlur = (block: Block) => {
-  store.unlock(block.id)
+const onFocus = async (block: Block) => {
+  if (store.isLockedByOther(block)) {
+    return
+  }
+
+  const previousId = store.activeBlockId
+  if (previousId && previousId !== block.id && !store.isLockedByOther({ id: previousId } as Block)) {
+    flushPendingEdit()
+    clearLockTimers()
+    store.unlock(previousId)
+    await props.provider.sendBlockUnlock?.(previousId)
+  }
+
+  store.setActive(block.id)
+  store.lock(block.id)
+
+  const lockSuccess = await props.provider.sendBlockLock?.(block.id)
+  if (lockSuccess === false) {
+    // Another client acquired the lock first in a race
+    store.unlock(block.id)
+    return
+  }
+
+  resetLockTimeout(block.id)
+}
+
+const onBlur = async (block: Block) => {
+  if (!store.isLockedByOther(block)) {
+    flushPendingEdit()
+    clearLockTimers()
+    store.unlock(block.id)
+    await props.provider.sendBlockUnlock?.(block.id)
+  }
 }
 </script>
 

@@ -102,16 +102,30 @@ const open = (ws) => new Promise((res, rej) => { ws.once('open', res); ws.once('
     'client A received block_updated event live',
   );
 
-  // 7. block_unlock
+  // 7. block_lock and block_unlock
+  const aGetsLock = nextMessage(a);
+  b.send(JSON.stringify({
+    type: 'block_lock',
+    documentId: docId,
+    blockId: 'b2',
+    clientId: 'client-b-uuid',
+  }));
+  const lockMsg = await aGetsLock;
+  check(
+    lockMsg.type === 'block_locked' && lockMsg.blockId === 'b2' && lockMsg.clientId === 'client-b-uuid',
+    'client A received block_locked event live',
+  );
+
   const aGetsUnlock = nextMessage(a);
   b.send(JSON.stringify({
     type: 'block_unlock',
     documentId: docId,
     blockId: 'b2',
+    clientId: 'client-b-uuid',
   }));
   const unlockMsg = await aGetsUnlock;
   check(
-    unlockMsg.type === 'block_unlocked' && unlockMsg.blockId === 'b2',
+    unlockMsg.type === 'block_unlocked' && unlockMsg.blockId === 'b2' && unlockMsg.clientId === 'client-b-uuid',
     'client A received block_unlocked event live',
   );
 

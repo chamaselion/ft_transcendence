@@ -28,6 +28,7 @@ interface WsIncomingMessage {
   text?: string
   decorator?: string
   userId?: string | null
+  clientId?: string
   content?: string
   error?: string
 }
@@ -42,6 +43,7 @@ function resolveDefaultWsUrl(): string {
 export class WebSocketEditorDataProvider implements EditorDataProvider {
   public documentId: string
   public wsUrl: string
+  public readonly clientId: string = crypto.randomUUID()
   private ws: WebSocket | null = null
   private isDestroyed = false
 
@@ -54,6 +56,11 @@ export class WebSocketEditorDataProvider implements EditorDataProvider {
     userId?: string | null
   }) => void = () => {}
   public onDeleted: (e: { blockId: string }) => void = () => {}
+  public onLocked: (e: {
+    blockId: string
+    userId?: string | null
+    clientId?: string
+  }) => void = () => {}
   public onUnlocked: (e: { blockId: string }) => void = () => {}
   public onError: (e: { error: string }) => void = () => {}
 
@@ -140,6 +147,16 @@ export class WebSocketEditorDataProvider implements EditorDataProvider {
           }
           break
 
+        case 'block_locked':
+          if (msg.blockId) {
+            this.onLocked({
+              blockId: msg.blockId,
+              userId: msg.userId,
+              clientId: msg.clientId,
+            })
+          }
+          break
+
         case 'block_unlocked':
           if (msg.blockId) {
             this.onUnlocked({ blockId: msg.blockId })
@@ -221,6 +238,26 @@ export class WebSocketEditorDataProvider implements EditorDataProvider {
     return success
   }
 
+  public async sendBlockLock(blockId: string): Promise<boolean> {
+    const success = this.sendRaw({
+      type: 'block_lock',
+      documentId: this.documentId,
+      blockId,
+      clientId: this.clientId,
+    })
+    return success
+  }
+
+  public async sendBlockUnlock(blockId: string): Promise<boolean> {
+    const success = this.sendRaw({
+      type: 'block_unlock',
+      documentId: this.documentId,
+      blockId,
+      clientId: this.clientId,
+    })
+    return success
+  }
+
   public destroy(): void {
     this.isDestroyed = true
     if (this.ws) {
@@ -235,6 +272,7 @@ export class WebSocketEditorDataProvider implements EditorDataProvider {
 
 export class LocalEditorDataProvider implements EditorDataProvider {
   private blocks: Block[] = []
+  public readonly clientId: string = 'local'
 
   public onInit: (e: EditorInitEvent) => void = () => {}
   public onCreated: (e: { block: Block; afterBlockId?: string | null }) => void = () => {}
@@ -245,6 +283,11 @@ export class LocalEditorDataProvider implements EditorDataProvider {
     userId?: string | null
   }) => void = () => {}
   public onDeleted: (e: { blockId: string }) => void = () => {}
+  public onLocked: (e: {
+    blockId: string
+    userId?: string | null
+    clientId?: string
+  }) => void = () => {}
   public onUnlocked: (e: { blockId: string }) => void = () => {}
   public onError: (e: { error: string }) => void = () => {}
 
@@ -295,6 +338,14 @@ export class LocalEditorDataProvider implements EditorDataProvider {
       return true
     }
     return false
+  }
+
+  public async sendBlockLock(_blockId: string): Promise<boolean> {
+    return true
+  }
+
+  public async sendBlockUnlock(_blockId: string): Promise<boolean> {
+    return true
   }
 
   public destroy(): void {

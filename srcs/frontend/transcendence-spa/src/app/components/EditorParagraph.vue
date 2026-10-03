@@ -14,8 +14,9 @@
     @focus="onFocus"
     @blur="onBlur"
     @keydown="onKeydown"
+    @paste="onPaste"
   >
-    <slot v-if="!isEditable">{{ text }}</slot>
+    <slot v-if="!editable">{{ text }}</slot>
   </p>
 </template>
 
@@ -56,7 +57,7 @@ const element = ref<HTMLElement | null>(null)
 const isEditable = computed(() => props.editable && !props.locked)
 const isEmpty = computed(() => isEditable.value && props.text.length === 0)
 
-const { attributes, onInput, onFocus, onBlur, onKeydown } = useEditable(
+const { attributes, onInput, onFocus, onBlur, onKeydown, onPaste } = useEditable(
   element,
   () => props.text,
   () => isEditable.value,
