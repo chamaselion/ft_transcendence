@@ -320,6 +320,7 @@ const attachDocumentSocket = (
         isArray = false;
       }
       if (!isArray || blocks.length === 0) {
+        const isEmpty = !doc.content || (typeof doc.content === 'string' && doc.content.trim() === '');
         const legacyText =
           !isArray && typeof doc.content === 'string' && doc.content.trim() !== ''
             ? doc.content
@@ -332,8 +333,10 @@ const attachDocumentSocket = (
             lockedBy: null,
           },
         ];
-        doc.content = JSON.stringify(blocks);
-        await doc.save();
+        if (isEmpty) {
+          doc.content = JSON.stringify(blocks);
+          await doc.save();
+        }
       }
 
       send(ws, {

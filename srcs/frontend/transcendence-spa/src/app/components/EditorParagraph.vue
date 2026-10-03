@@ -23,10 +23,12 @@
 <script lang="ts" setup>
 import { computed, ref } from 'vue'
 import { useEditable } from '@/app/editor/useEditable'
+import type { ParagraphAlignment } from '@/app/editor/types'
 
 const props = withDefaults(
   defineProps<{
     text?: string
+    align?: ParagraphAlignment
     editable?: boolean
     locked?: boolean
     placeholder?: string
@@ -37,6 +39,7 @@ const props = withDefaults(
   }>(),
   {
     text: '',
+    align: 'left',
     editable: false,
     locked: false,
     placeholder: 'Write something…',
@@ -69,6 +72,7 @@ const style = computed(() => ({
   color: props.color,
   backgroundColor: props.bgColor,
   fontSize: props.size,
+  textAlign: props.align || 'left',
 }))
 </script>
 

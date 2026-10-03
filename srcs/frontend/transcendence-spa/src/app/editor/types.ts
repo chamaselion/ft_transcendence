@@ -7,6 +7,8 @@ export interface Block {
   lockedBy: string | null
 }
 
+export type ParagraphAlignment = 'left' | 'center' | 'right' | 'justify'
+
 export interface BlockDecorator {
   type: BlockType
   level?: 1 | 2 | 3 | 4 | 5 | 6
@@ -14,6 +16,7 @@ export interface BlockDecorator {
   marker?: string
   source?: string
   language?: string
+  align?: ParagraphAlignment
 }
 
 export interface EditorEditEvent {
@@ -73,7 +76,7 @@ export function defaultDecorator(type: BlockType): BlockDecorator {
       return { type, language: 'plaintext' }
     case 'p':
     default:
-      return { type }
+      return { type, align: 'left' }
   }
 }
 
