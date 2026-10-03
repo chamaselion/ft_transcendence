@@ -248,13 +248,16 @@ const onDelete = async () => {
 const onUpdateText = async (block: Block, text: string) => {
   if (store.isLockedByOther(block)) return
 
+  // If the lock timed out while we were still focused, re-acquire it before sending so the server-side lock check accepts the edit.
+  if (block.lockedBy !== store.clientId) {
+    const lockSuccess = await props.provider.sendBlockLock?.(block.id)
+    if (lockSuccess === false) return
+    store.lock(block.id)
+  }
+
   const oldText = block.text
   store.updateBlockText(block.id, text)
-
-  // 5s timeout refreshed with each new edit!
   resetLockTimeout(block.id)
-
-  // If standard/default text is deleted when entering new text, send immediately
   const wasStandard = isStandardText(oldText)
   if (wasStandard && !isStandardText(text)) {
     flushPendingEdit()
@@ -266,7 +269,6 @@ const onUpdateText = async (block: Block, text: string) => {
     return
   }
 
-  // Otherwise debounce updates to server for 2 seconds
   pendingEditBlockId = block.id
   pendingEditText = text
   pendingEditDecorator = block.decorator
