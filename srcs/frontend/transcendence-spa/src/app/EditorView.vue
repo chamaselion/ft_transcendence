@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Editor from '@/app/components/Editor.vue'
 import Button from '@/app/components/Button.vue'
@@ -7,7 +7,7 @@ import { WebSocketEditorDataProvider } from '@/app/editor/dataProvider'
 import type { EditorDataProvider } from '@/app/editor/types'
 import { createBlock } from '@/app/editor/types'
 import { useUserStore } from '@/stores/user'
-import { createDocument, getDocument } from '@/app/editor/document.api'
+import { createDocument, getDocument, updateDocumentTitle } from '@/app/editor/document.api'
 import ShareModal from '@/app/components/ShareModal.vue'
 
 const route = useRoute()
@@ -16,8 +16,10 @@ const userStore = useUserStore()
 
 const provider = ref<EditorDataProvider | null>(null)
 const documentTitle = ref<string>('Untitled Document')
+const titleEl = ref<HTMLElement | null>(null)
 const documentId = ref<string | null>(null)
 const userPermission = ref<'owner' | 'editor' | 'viewer'>('viewer')
+const isTitleEditable = computed(() => userPermission.value === 'owner' || userPermission.value === 'editor')
 const showShareModal = ref(false)
 const connectionStatus = ref<'connecting' | 'connected' | 'disconnected'>('connecting')
 const errorMessage = ref<string | null>(null)
@@ -47,9 +49,23 @@ function openRoom(docId: string, initialTitle?: string) {
   })
 
   wsProvider.onInit = (e) => {
-    if (e.title) documentTitle.value = e.title
+    if (e.title) {
+      documentTitle.value = e.title
+      if (titleEl.value && document.activeElement !== titleEl.value) {
+        titleEl.value.innerText = e.title
+      }
+    }
     if (e.permission) userPermission.value = e.permission
     connectionStatus.value = 'connected'
+  }
+
+  wsProvider.onTitleUpdated = (e) => {
+    if (e.title) {
+      documentTitle.value = e.title
+      if (titleEl.value && document.activeElement !== titleEl.value) {
+        titleEl.value.innerText = e.title
+      }
+    }
   }
 
   wsProvider.onError = (e) => {
@@ -60,6 +76,41 @@ function openRoom(docId: string, initialTitle?: string) {
   }
 
   provider.value = wsProvider
+}
+
+async function onTitleBlur() {
+  if (!isTitleEditable.value || !titleEl.value) return
+  let newTitle = (titleEl.value.innerText || '').trim()
+  if (!newTitle) {
+    newTitle = documentTitle.value || 'Untitled Document'
+    titleEl.value.innerText = newTitle
+  }
+  if (newTitle !== documentTitle.value) {
+    documentTitle.value = newTitle
+    if (provider.value?.sendTitleUpdate) {
+      await provider.value.sendTitleUpdate(newTitle)
+    }
+    if (documentId.value) {
+      try {
+        await updateDocumentTitle(documentId.value, newTitle)
+      } catch (err) {
+        console.error('Failed to update title via REST API:', err)
+      }
+    }
+  }
+}
+
+function onTitleKeydown(e: KeyboardEvent) {
+  if (e.key === 'Enter') {
+    e.preventDefault()
+    titleEl.value?.blur()
+  } else if (e.key === 'Escape') {
+    e.preventDefault()
+    if (titleEl.value) {
+      titleEl.value.innerText = documentTitle.value
+    }
+    titleEl.value?.blur()
+  }
 }
 
 async function loadEditor(idParam?: string) {
@@ -138,7 +189,16 @@ onBeforeUnmount(() => {
   <div class="page-container editor-view">
     <div class="editor-view__header">
       <div class="editor-view__meta">
-        <h1 class="editor-view__title">{{ documentTitle }}</h1>
+        <h1
+          ref="titleEl"
+          class="editor-view__title"
+          :class="{ 'editor-view__title--editable': isTitleEditable }"
+          :contenteditable="isTitleEditable"
+          spellcheck="false"
+          :title="isTitleEditable ? 'Click to rename document' : undefined"
+          @blur="onTitleBlur"
+          @keydown="onTitleKeydown"
+        >{{ documentTitle }}</h1>
         <div class="editor-view__badges">
           <span
             class="status-badge"
@@ -236,6 +296,24 @@ onBeforeUnmount(() => {
   font-size: 1.5rem;
   font-weight: 700;
   color: var(--text-base);
+}
+
+.editor-view__title--editable {
+  outline: none;
+  border-radius: 4px;
+  padding: 2px 6px;
+  margin-left: -6px;
+  transition: background-color 0.2s, box-shadow 0.2s;
+  cursor: text;
+}
+
+.editor-view__title--editable:hover {
+  background-color: var(--bg-subtle, rgba(0, 0, 0, 0.05));
+}
+
+.editor-view__title--editable:focus {
+  background-color: var(--bg-surface, #fff);
+  box-shadow: 0 0 0 2px var(--color-primary, #3b82f6);
 }
 
 .editor-view__badges {

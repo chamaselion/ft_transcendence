@@ -46,6 +46,13 @@ export async function getDocument(id: string): Promise<DocumentData> {
   return res.document
 }
 
+export async function updateDocumentTitle(documentId: string, title: string): Promise<DocumentData> {
+  const res = await httpClient.patch<DocumentResponse>(`/api/documents/${documentId}`, {
+    title,
+  })
+  return res.document
+}
+
 export async function listShares(documentId: string): Promise<ShareData[]> {
   const res = await httpClient.get<SharesListResponse>(`/api/documents/${documentId}/shares`)
   return res.shares || []

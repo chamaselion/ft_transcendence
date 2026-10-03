@@ -318,23 +318,6 @@ const attachDocumentSocket = (
       const sanitizedContent = sanitizePlainText(msg.content);
 
       // KNOWN LIMITATION: last write wins, and the loss is silent.
-      //
-      // An update carries the whole document, not the edit that produced it,
-      // so this overwrites whatever is stored. Two people typing at the same
-      // moment therefore lose one of the two versions - and not as a reported
-      // conflict: both messages are accepted, no error is sent, and the edit
-      // that arrived first is gone with no way to recover it. Taking turns
-      // works exactly as expected, because each write starts from what the
-      // previous one left; genuinely simultaneous editing does not.
-      //
-      // Fixing it means changing what an 'update' carries - an operation
-      // ("insert 'x' at position 5") instead of the full text - and merging
-      // those operations: either by transforming their positions against each
-      // other on the server (OT), or by giving every character a stable id so
-      // the merge no longer depends on order (a CRDT, in practice yjs). Both
-      // are a rewrite of this handler *and* of the client, not a patch, and
-      // sanitizePlainText would have to move with them - it sanitizes a whole
-      // document, which is the wrong unit once edits arrive per keystroke.
       doc.content = sanitizedContent;
       await doc.save();
 
@@ -540,6 +523,32 @@ const attachDocumentSocket = (
           documentId: ws.documentId,
           blockId: msg.blockId,
           clientId: msg.clientId,
+          userId: ws.userId,
+        },
+        ws,
+      );
+    }
+
+    if (msg.type === 'title_update') {
+      if (!ws.documentId) return sendError(ws, 'Join a document first');
+      if (!atLeast(ws.permission, 'editor')) return sendError(ws, 'Read-only access');
+      if (typeof msg.title !== 'string' || !msg.title.trim()) {
+        return sendError(ws, 'title must be a non-empty string');
+      }
+
+      const doc = await resolveModel().findByPk(ws.documentId);
+      if (!doc) return sendError(ws, 'Document not found');
+
+      const sanitizedTitle = sanitizePlainText(msg.title.trim());
+      doc.title = sanitizedTitle;
+      await doc.save();
+
+      return broadcast(
+        ws.documentId,
+        {
+          type: 'title_updated',
+          documentId: ws.documentId,
+          title: sanitizedTitle,
           userId: ws.userId,
         },
         ws,
