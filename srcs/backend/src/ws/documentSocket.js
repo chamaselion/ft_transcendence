@@ -6,7 +6,7 @@ const { requireEnv } = require('../config');
 const sequelize = require('../db');
 const { getTokenFromCookie, isSessionActive } = require('../controllers/auth/helpers');
 const { validateUuid } = require('../controllers/auth/validation');
-const { sanitizePlainText } = require('../controllers/documents/sanitize');
+const { stripTags } = require('../controllers/documents/sanitize');
 const { resolvePermission, atLeast } = require('../controllers/documents/permissions');
 
 const parseDocBlocks = (content) => {
@@ -23,7 +23,8 @@ const parseDocBlocks = (content) => {
   }
   return [
     {
-      id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+      // Deterministic id so repeated parses of the same legacy text agree.
+      id: crypto.createHash('sha1').update(content).digest('hex'),
       text: content,
       decorator: JSON.stringify({ type: 'p' }),
       lockedBy: null,
@@ -40,6 +41,28 @@ const SERVER_LOCK_TIMEOUT_MS = 5500;
 
 
 const rooms = new Map();
+
+// Serializes read-modify-write cycles on a document's content column. The
+// block handlers read the whole JSON blob, mutate one block and write it back;
+// without this, two concurrent handlers interleave and one edit is lost.
+// NOTE: this is an in-process lock and is correct for the current single
+// backend instance. If the backend is ever scaled to multiple processes,
+// replace this with `transaction.LOCK.UPDATE` on the document row.
+const writeQueues = new Map();
+const withDocumentWriteLock = (documentId, task) => {
+  const previous = writeQueues.get(documentId) ?? Promise.resolve();
+  const run = previous.catch(() => {}).then(task);
+  writeQueues.set(documentId, run);
+  run.then(
+    () => {
+      if (writeQueues.get(documentId) === run) writeQueues.delete(documentId);
+    },
+    () => {
+      if (writeQueues.get(documentId) === run) writeQueues.delete(documentId);
+    },
+  );
+  return run;
+};
 
 const send = (ws, data) => {
   if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(data));
@@ -102,6 +125,11 @@ const broadcast = (roomId, data, except) => {
     }
   }
 };
+
+const lockHolder = (documentId, blockId, except) =>
+  [...(rooms.get(documentId) || [])].find(
+    (client) => client !== except && client.lockedBlockId === blockId,
+  );
 
 
 let activeServer = null;
@@ -279,6 +307,35 @@ const attachDocumentSocket = (
       if (!rooms.has(doc.id)) rooms.set(doc.id, new Set());
       rooms.get(doc.id).add(ws);
 
+      // Normalize legacy/empty content once so the client and server agree on
+      // block ids. Persist the migration so every later message sees the same
+      // JSON shape.
+      let blocks = null;
+      let isArray = false;
+      try {
+        const parsed = JSON.parse(doc.content);
+        isArray = Array.isArray(parsed);
+        blocks = isArray ? parsed : null;
+      } catch {
+        isArray = false;
+      }
+      if (!isArray || blocks.length === 0) {
+        const legacyText =
+          !isArray && typeof doc.content === 'string' && doc.content.trim() !== ''
+            ? doc.content
+            : '';
+        blocks = [
+          {
+            id: crypto.randomUUID(),
+            text: legacyText,
+            decorator: JSON.stringify({ type: 'p' }),
+            lockedBy: null,
+          },
+        ];
+        doc.content = JSON.stringify(blocks);
+        await doc.save();
+      }
+
       send(ws, {
         type: 'init',
         permission,
@@ -312,25 +369,26 @@ const attachDocumentSocket = (
         return sendError(ws, 'content must be a string');
       }
 
-      const doc = await resolveModel().findByPk(ws.documentId);
-      if (!doc) return sendError(ws, 'Document not found');
+      return withDocumentWriteLock(ws.documentId, async () => {
+        const doc = await resolveModel().findByPk(ws.documentId);
+        if (!doc) return sendError(ws, 'Document not found');
 
-      const sanitizedContent = sanitizePlainText(msg.content);
+        const sanitizedContent = stripTags(msg.content);
 
-      // KNOWN LIMITATION: last write wins, and the loss is silent.
-      doc.content = sanitizedContent;
-      await doc.save();
+        doc.content = sanitizedContent;
+        await doc.save();
 
-      return broadcast(
-        ws.documentId,
-        {
-          type: 'update',
-          documentId: ws.documentId,
-          content: sanitizedContent,
-          userId: ws.userId,
-        },
-        ws,
-      );
+        return broadcast(
+          ws.documentId,
+          {
+            type: 'update',
+            documentId: ws.documentId,
+            content: sanitizedContent,
+            userId: ws.userId,
+          },
+          ws,
+        );
+      });
     }
 
     if (msg.type === 'block_edit') {
@@ -340,38 +398,44 @@ const attachDocumentSocket = (
         return sendError(ws, 'blockId must be a string');
       }
 
-      const doc = await resolveModel().findByPk(ws.documentId);
-      if (!doc) return sendError(ws, 'Document not found');
-
-      const blocks = parseDocBlocks(doc.content);
-      const target = blocks.find((b) => b && b.id === msg.blockId);
-      if (!target) return sendError(ws, 'Block not found');
-
-      const sanitizedText = msg.text !== undefined ? sanitizePlainText(String(msg.text)) : target.text;
-      target.text = sanitizedText;
-      if (msg.decorator !== undefined && typeof msg.decorator === 'string') {
-        target.decorator = msg.decorator;
+      if (lockHolder(ws.documentId, msg.blockId, ws)) {
+        return sendError(ws, 'Block is locked by another user');
       }
 
-      if (ws.lockedBlockId === msg.blockId) {
-        startServerLockTimer(ws);
-      }
+      return withDocumentWriteLock(ws.documentId, async () => {
+        const doc = await resolveModel().findByPk(ws.documentId);
+        if (!doc) return sendError(ws, 'Document not found');
 
-      doc.content = JSON.stringify(blocks);
-      await doc.save();
+        const blocks = parseDocBlocks(doc.content);
+        const target = blocks.find((b) => b && b.id === msg.blockId);
+        if (!target) return sendError(ws, 'Block not found');
 
-      return broadcast(
-        ws.documentId,
-        {
-          type: 'block_updated',
-          documentId: ws.documentId,
-          blockId: msg.blockId,
-          text: sanitizedText,
-          decorator: target.decorator,
-          userId: ws.userId,
-        },
-        ws,
-      );
+        const sanitizedText = msg.text !== undefined ? stripTags(String(msg.text)) : target.text;
+        target.text = sanitizedText;
+        if (msg.decorator !== undefined && typeof msg.decorator === 'string') {
+          target.decorator = msg.decorator;
+        }
+
+        if (ws.lockedBlockId === msg.blockId) {
+          startServerLockTimer(ws);
+        }
+
+        doc.content = JSON.stringify(blocks);
+        await doc.save();
+
+        return broadcast(
+          ws.documentId,
+          {
+            type: 'block_updated',
+            documentId: ws.documentId,
+            blockId: msg.blockId,
+            text: sanitizedText,
+            decorator: target.decorator,
+            userId: ws.userId,
+          },
+          ws,
+        );
+      });
     }
 
     if (msg.type === 'block_create') {
@@ -381,8 +445,11 @@ const attachDocumentSocket = (
         return sendError(ws, 'block must be an object');
       }
 
-      const blockId = msg.block.id || (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()));
-      const sanitizedText = sanitizePlainText(msg.block.text || '');
+      const blockId =
+        typeof msg.block.id === 'string' && msg.block.id
+          ? msg.block.id
+          : (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()));
+      const sanitizedText = stripTags(String(msg.block.text ?? ''));
       const decorator = typeof msg.block.decorator === 'string' ? msg.block.decorator : JSON.stringify({ type: 'p' });
       const newBlock = {
         id: blockId,
@@ -391,35 +458,40 @@ const attachDocumentSocket = (
         lockedBy: null,
       };
 
-      const doc = await resolveModel().findByPk(ws.documentId);
-      if (!doc) return sendError(ws, 'Document not found');
+      return withDocumentWriteLock(ws.documentId, async () => {
+        const doc = await resolveModel().findByPk(ws.documentId);
+        if (!doc) return sendError(ws, 'Document not found');
 
-      const blocks = parseDocBlocks(doc.content);
-      if (msg.afterBlockId) {
-        const index = blocks.findIndex((b) => b && b.id === msg.afterBlockId);
-        if (index !== -1) {
-          blocks.splice(index + 1, 0, newBlock);
+        const blocks = parseDocBlocks(doc.content);
+        if (blocks.some((b) => b && b.id === blockId)) {
+          return sendError(ws, 'Block id already exists');
+        }
+        if (msg.afterBlockId) {
+          const index = blocks.findIndex((b) => b && b.id === msg.afterBlockId);
+          if (index !== -1) {
+            blocks.splice(index + 1, 0, newBlock);
+          } else {
+            blocks.push(newBlock);
+          }
         } else {
           blocks.push(newBlock);
         }
-      } else {
-        blocks.push(newBlock);
-      }
 
-      doc.content = JSON.stringify(blocks);
-      await doc.save();
+        doc.content = JSON.stringify(blocks);
+        await doc.save();
 
-      return broadcast(
-        ws.documentId,
-        {
-          type: 'block_created',
-          documentId: ws.documentId,
-          block: newBlock,
-          afterBlockId: msg.afterBlockId || null,
-          userId: ws.userId,
-        },
-        ws,
-      );
+        return broadcast(
+          ws.documentId,
+          {
+            type: 'block_created',
+            documentId: ws.documentId,
+            block: newBlock,
+            afterBlockId: msg.afterBlockId || null,
+            userId: ws.userId,
+          },
+          ws,
+        );
+      });
     }
 
     if (msg.type === 'block_delete') {
@@ -429,34 +501,42 @@ const attachDocumentSocket = (
         return sendError(ws, 'blockId must be a string');
       }
 
-      const doc = await resolveModel().findByPk(ws.documentId);
-      if (!doc) return sendError(ws, 'Document not found');
-
-      const blocks = parseDocBlocks(doc.content);
-      const index = blocks.findIndex((b) => b && b.id === msg.blockId);
-      if (index !== -1) {
-        blocks.splice(index, 1);
-        doc.content = JSON.stringify(blocks);
-        await doc.save();
-      }
-      if (ws.lockedBlockId === msg.blockId) {
-        ws.lockedBlockId = null;
+      if (lockHolder(ws.documentId, msg.blockId, ws)) {
+        return sendError(ws, 'Block is locked by another user');
       }
 
-      return broadcast(
-        ws.documentId,
-        {
-          type: 'block_deleted',
-          documentId: ws.documentId,
-          blockId: msg.blockId,
-          userId: ws.userId,
-        },
-        ws,
-      );
+      return withDocumentWriteLock(ws.documentId, async () => {
+        const doc = await resolveModel().findByPk(ws.documentId);
+        if (!doc) return sendError(ws, 'Document not found');
+
+        const blocks = parseDocBlocks(doc.content);
+        const index = blocks.findIndex((b) => b && b.id === msg.blockId);
+        if (index !== -1) {
+          blocks.splice(index, 1);
+          doc.content = JSON.stringify(blocks);
+          await doc.save();
+        }
+        if (ws.lockedBlockId === msg.blockId) {
+          clearServerLockTimer(ws);
+          ws.lockedBlockId = null;
+        }
+
+        return broadcast(
+          ws.documentId,
+          {
+            type: 'block_deleted',
+            documentId: ws.documentId,
+            blockId: msg.blockId,
+            userId: ws.userId,
+          },
+          ws,
+        );
+      });
     }
 
     if (msg.type === 'block_lock') {
       if (!ws.documentId) return sendError(ws, 'Join a document first');
+      if (!atLeast(ws.permission, 'editor')) return sendError(ws, 'Read-only access');
       if (!msg.blockId || typeof msg.blockId !== 'string') {
         return sendError(ws, 'blockId must be a string');
       }
@@ -508,13 +588,15 @@ const attachDocumentSocket = (
 
     if (msg.type === 'block_unlock') {
       if (!ws.documentId) return sendError(ws, 'Join a document first');
+      if (!atLeast(ws.permission, 'editor')) return sendError(ws, 'Read-only access');
       if (!msg.blockId || typeof msg.blockId !== 'string') {
         return sendError(ws, 'blockId must be a string');
       }
-      clearServerLockTimer(ws);
-      if (ws.lockedBlockId === msg.blockId) {
-        ws.lockedBlockId = null;
+      if (ws.lockedBlockId !== msg.blockId) {
+        return;
       }
+      clearServerLockTimer(ws);
+      ws.lockedBlockId = null;
 
       return broadcast(
         ws.documentId,
@@ -536,23 +618,25 @@ const attachDocumentSocket = (
         return sendError(ws, 'title must be a non-empty string');
       }
 
-      const doc = await resolveModel().findByPk(ws.documentId);
-      if (!doc) return sendError(ws, 'Document not found');
+      return withDocumentWriteLock(ws.documentId, async () => {
+        const doc = await resolveModel().findByPk(ws.documentId);
+        if (!doc) return sendError(ws, 'Document not found');
 
-      const sanitizedTitle = sanitizePlainText(msg.title.trim());
-      doc.title = sanitizedTitle;
-      await doc.save();
+        const sanitizedTitle = stripTags(msg.title.trim());
+        doc.title = sanitizedTitle;
+        await doc.save();
 
-      return broadcast(
-        ws.documentId,
-        {
-          type: 'title_updated',
-          documentId: ws.documentId,
-          title: sanitizedTitle,
-          userId: ws.userId,
-        },
-        ws,
-      );
+        return broadcast(
+          ws.documentId,
+          {
+            type: 'title_updated',
+            documentId: ws.documentId,
+            title: sanitizedTitle,
+            userId: ws.userId,
+          },
+          ws,
+        );
+      });
     }
 
     return sendError(ws, 'Unknown message type');
