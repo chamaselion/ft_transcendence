@@ -36,6 +36,7 @@ const WS_PATH = '/api/ws';
 
 
 const HEARTBEAT_INTERVAL_MS = 30_000;
+const SERVER_LOCK_TIMEOUT_MS = 5500;
 
 
 const rooms = new Map();
@@ -45,9 +46,45 @@ const send = (ws, data) => {
 };
 const sendError = (ws, error) => send(ws, { type: 'error', error });
 
+const clearServerLockTimer = (ws) => {
+  if (ws.lockTimeoutTimer) {
+    clearTimeout(ws.lockTimeoutTimer);
+    ws.lockTimeoutTimer = null;
+  }
+};
+
+const startServerLockTimer = (ws) => {
+  clearServerLockTimer(ws);
+  ws.lockTimeoutTimer = setTimeout(() => {
+    if (ws.lockedBlockId && ws.documentId) {
+      const blockId = ws.lockedBlockId;
+      ws.lockedBlockId = null;
+      broadcast(ws.documentId, {
+        type: 'block_unlocked',
+        documentId: ws.documentId,
+        blockId,
+        clientId: ws.clientId,
+        userId: ws.userId,
+      });
+    }
+    ws.lockTimeoutTimer = null;
+  }, SERVER_LOCK_TIMEOUT_MS);
+};
+
 const leaveRoom = (ws) => {
+  clearServerLockTimer(ws);
   const roomId = ws.documentId;
   if (!roomId || !rooms.has(roomId)) return;
+  if (ws.lockedBlockId) {
+    broadcast(roomId, {
+      type: 'block_unlocked',
+      documentId: roomId,
+      blockId: ws.lockedBlockId,
+      clientId: ws.clientId,
+      userId: ws.userId,
+    });
+    ws.lockedBlockId = null;
+  }
   const room = rooms.get(roomId);
   room.delete(ws);
   if (room.size === 0) rooms.delete(roomId);
@@ -242,11 +279,27 @@ const attachDocumentSocket = (
       if (!rooms.has(doc.id)) rooms.set(doc.id, new Set());
       rooms.get(doc.id).add(ws);
 
-      return send(ws, {
+      send(ws, {
         type: 'init',
         permission,
         document: { id: doc.id, title: doc.title, content: doc.content },
       });
+
+      const currentRoom = rooms.get(doc.id);
+      if (currentRoom) {
+        for (const client of currentRoom) {
+          if (client !== ws && client.lockedBlockId) {
+            send(ws, {
+              type: 'block_locked',
+              documentId: doc.id,
+              blockId: client.lockedBlockId,
+              clientId: client.clientId,
+              userId: client.userId,
+            });
+          }
+        }
+      }
+      return;
     }
 
     if (msg.type === 'update') {
@@ -315,6 +368,10 @@ const attachDocumentSocket = (
       target.text = sanitizedText;
       if (msg.decorator !== undefined && typeof msg.decorator === 'string') {
         target.decorator = msg.decorator;
+      }
+
+      if (ws.lockedBlockId === msg.blockId) {
+        startServerLockTimer(ws);
       }
 
       doc.content = JSON.stringify(blocks);
@@ -399,6 +456,9 @@ const attachDocumentSocket = (
         doc.content = JSON.stringify(blocks);
         await doc.save();
       }
+      if (ws.lockedBlockId === msg.blockId) {
+        ws.lockedBlockId = null;
+      }
 
       return broadcast(
         ws.documentId,
@@ -412,10 +472,65 @@ const attachDocumentSocket = (
       );
     }
 
+    if (msg.type === 'block_lock') {
+      if (!ws.documentId) return sendError(ws, 'Join a document first');
+      if (!msg.blockId || typeof msg.blockId !== 'string') {
+        return sendError(ws, 'blockId must be a string');
+      }
+
+      // Race condition check: first wins
+      const room = rooms.get(ws.documentId);
+      if (room) {
+        for (const client of room) {
+          if (client !== ws && client.lockedBlockId === msg.blockId) {
+            send(ws, {
+              type: 'block_locked',
+              documentId: ws.documentId,
+              blockId: msg.blockId,
+              clientId: client.clientId,
+              userId: client.userId,
+            });
+            return sendError(ws, 'Block is locked by another user');
+          }
+        }
+      }
+
+      if (ws.lockedBlockId && ws.lockedBlockId !== msg.blockId) {
+        clearServerLockTimer(ws);
+        broadcast(ws.documentId, {
+          type: 'block_unlocked',
+          documentId: ws.documentId,
+          blockId: ws.lockedBlockId,
+          clientId: ws.clientId,
+          userId: ws.userId,
+        });
+      }
+      ws.lockedBlockId = msg.blockId;
+      if (msg.clientId) ws.clientId = msg.clientId;
+
+      startServerLockTimer(ws);
+
+      return broadcast(
+        ws.documentId,
+        {
+          type: 'block_locked',
+          documentId: ws.documentId,
+          blockId: msg.blockId,
+          clientId: msg.clientId,
+          userId: ws.userId,
+        },
+        ws,
+      );
+    }
+
     if (msg.type === 'block_unlock') {
       if (!ws.documentId) return sendError(ws, 'Join a document first');
       if (!msg.blockId || typeof msg.blockId !== 'string') {
         return sendError(ws, 'blockId must be a string');
+      }
+      clearServerLockTimer(ws);
+      if (ws.lockedBlockId === msg.blockId) {
+        ws.lockedBlockId = null;
       }
 
       return broadcast(
@@ -424,6 +539,7 @@ const attachDocumentSocket = (
           type: 'block_unlocked',
           documentId: ws.documentId,
           blockId: msg.blockId,
+          clientId: msg.clientId,
           userId: ws.userId,
         },
         ws,

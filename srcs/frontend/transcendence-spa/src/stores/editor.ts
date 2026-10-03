@@ -6,6 +6,7 @@ import { useUserStore } from '@/stores/user'
 export const useEditorStore = defineStore('editor', () => {
   const blocks = ref<Block[]>([])
   const activeBlockId = ref<string | null>(null)
+  const clientId = ref<string>('')
   const userStore = useUserStore()
 
   const activeBlock = computed(
@@ -16,10 +17,15 @@ export const useEditorStore = defineStore('editor', () => {
     blocks.value.findIndex((block) => block.id === activeBlockId.value),
   )
 
+  function setClientId(id: string) {
+    clientId.value = id
+  }
+
   function setBlocks(next: Block[]) {
     blocks.value = next
     if (!next.some((block) => block.id === activeBlockId.value)) {
-      activeBlockId.value = next[0]?.id ?? null
+      const firstAvailable = next.find((b) => !isLockedByOther(b)) ?? next[0]
+      activeBlockId.value = firstAvailable?.id ?? null
     }
   }
 
@@ -72,30 +78,44 @@ export const useEditorStore = defineStore('editor', () => {
   }
 
   function updateBlockText(id: string, text: string) {
-    const block = blocks.value.find((item) => item.id === id)
-    if (block) block.text = text
+    const index = blocks.value.findIndex((item) => item.id === id)
+    const current = blocks.value[index]
+    if (index !== -1 && current) {
+      blocks.value[index] = { ...current, text }
+    }
   }
 
   function updateBlockDecorator(id: string, decorator: string) {
-    const block = blocks.value.find((item) => item.id === id)
-    if (block) block.decorator = decorator
+    const index = blocks.value.findIndex((item) => item.id === id)
+    const current = blocks.value[index]
+    if (index !== -1 && current) {
+      blocks.value[index] = { ...current, decorator }
+    }
   }
 
-  function isLockedByOther(block: Block) {
-    return block.lockedBy !== null && block.lockedBy !== userStore.userId
+  function isLockedByOther(block: Block): boolean {
+    if (!block.lockedBy) return false
+    if (clientId.value) {
+      return block.lockedBy !== clientId.value
+    }
+    if (userStore.userId) {
+      return block.lockedBy !== userStore.userId
+    }
+    return true
   }
 
-  function lock(id: string) {
+  function lock(id: string, lockHolder?: string) {
     const block = blocks.value.find((item) => item.id === id)
     if (!block) return
-    if (block.lockedBy === null || block.lockedBy === userStore.userId) {
-      block.lockedBy = userStore.userId
-    }
+    const holder = lockHolder || clientId.value || userStore.userId || 'locked'
+    block.lockedBy = holder
   }
 
   function unlock(id: string) {
     const block = blocks.value.find((item) => item.id === id)
-    if (block && block.lockedBy === userStore.userId) {
+    if (!block) return
+    const myId = clientId.value || userStore.userId
+    if (!block.lockedBy || !myId || block.lockedBy === myId) {
       block.lockedBy = null
     }
   }
@@ -112,6 +132,8 @@ export const useEditorStore = defineStore('editor', () => {
     activeBlockId,
     activeBlock,
     activeIndex,
+    clientId,
+    setClientId,
     setBlocks,
     setActive,
     addBlock,
