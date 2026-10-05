@@ -9,18 +9,16 @@ Supported providers: `github`, `42`.
 - Method: `GET`
 - Path: `/oauth/:provider/authorize`
 
-This starts the provider login flow for the selected OAuth provider.
+This starts the OAuth login flow for the selected provider. The backend creates a one-time server-side state intent and redirects the browser to the provider authorization URL.
 
 Example:
 
 - `/api/auth/oauth/github/authorize`
 - `/api/auth/oauth/42/authorize`
 
-The backend redirects the browser to the provider authorization URL.
-
 Success response (`302`):
 
-- Redirect to the provider's authorization page.
+- Redirect to the provider authorization page.
 
 Common errors:
 
@@ -35,12 +33,12 @@ Common errors:
 
 This is the callback URL configured with the provider. The provider redirects the user here with `code` and `state` in the query string.
 
-The backend exchanges the authorization code for a provider access token, resolves or creates the user, and signs the app JWT cookie.
+The backend validates the single-use state, exchanges the authorization code for a provider token, resolves the user, and sets the auth cookie for a normal login flow.
 
 Success response (`200` or `302`):
 
-- Browser clients are redirected to the original `next` target or `/`.
-- API clients receive a JSON response like:
+- Browser clients are redirected to the valid `next` target or `/`.
+- API clients receive:
 
 ```json
 {
@@ -53,23 +51,22 @@ Success response (`200` or `302`):
 }
 ```
 
-On success the backend also sets the auth cookie.
-
 Common errors:
 
-- `400` missing code/state, invalid state, or unsupported provider
-- `401` unable to resolve the user for this OAuth account
+- `400` missing code/state, invalid or expired state, or unsupported provider
+- `401` unauthorized or unable to resolve the user
+- `409` an account with that email already exists and must be linked explicitly from account settings
 - `501` provider is not configured yet
 - `500` server error
 
 ## Link OAuth provider to an existing user
 
+All endpoints below require the auth cookie and an active session.
+
 - Method: `GET`
 - Path: `/oauth/:provider/link`
 
-All endpoints below require the auth cookie and an active session.
-
-This starts the provider login flow for linking a provider account to the currently authenticated local user.
+This starts the provider authorization flow for linking a provider account to the currently authenticated user.
 
 Example:
 
@@ -93,12 +90,12 @@ Common errors:
 - Method: `GET`
 - Path: `/oauth/:provider/callback`
 
-This is the same callback path as the login flow. When the request includes a linked user from the state payload, the backend attaches the provider account to the authenticated user instead of creating a new app user.
+This is the same callback path as the login flow. For link requests, the backend validates the server-side user id stored in the one-time state and attaches the provider account to the authenticated local user without creating a new session.
 
 Success response (`200` or `302`):
 
-- Browser clients are redirected to the original `next` target or `/`.
-- API clients receive a JSON response like:
+- Browser clients are redirected to the valid `next` target or `/`.
+- API clients receive:
 
 ```json
 {
@@ -114,18 +111,16 @@ Success response (`200` or `302`):
 Common errors:
 
 - `400` invalid state or unsupported provider
-- `401` unauthorized
+- `401` unauthorized or user not found
 - `409` provider account already belongs to another user
 - `500` server error
 
-## Set a password for an OAuth-only account
+## Set password for an OAuth-only account
 
 - Method: `POST`
 - Path: `/oauth/:provider/password`
 
-All endpoints below require the auth cookie and an active session.
-
-This allows a user who logged in via OAuth but does not yet have a local password to create one.
+This allows a user who authenticated with OAuth and does not yet have a local password to create one.
 
 Request body:
 
