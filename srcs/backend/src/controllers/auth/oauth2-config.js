@@ -4,6 +4,23 @@ const supportedProviders = ['github', '42'];
 
 const normalizeProvider = (provider) => String(provider || '').trim().toLowerCase();
 
+const normalizeOAuthRedirectTarget = (value) => {
+  if (typeof value !== 'string') {
+    return '/';
+  }
+
+  const normalizedValue = value.trim();
+  if (!normalizedValue.startsWith('/')) {
+    return '/';
+  }
+
+  if (normalizedValue.startsWith('//')) {
+    return '/';
+  }
+
+  return normalizedValue;
+};
+
 const getProviderConfig = (provider) => {
   const normalized = normalizeProvider(provider);
   const envPrefix = `OAUTH_${normalized.toUpperCase()}`;
@@ -74,6 +91,7 @@ const decodeOAuthState = (rawState) => {
 const buildAuthorizeUrl = ({ provider, config, state, next = '/' } = {}) => {
   const normalizedProvider = normalizeProvider(provider);
   const targetConfig = config || getProviderConfig(normalizedProvider);
+  const normalizedNext = normalizeOAuthRedirectTarget(next);
 
   if (!targetConfig || !targetConfig.clientId || !targetConfig.redirectUri || !targetConfig.authorizeUrl) {
     throw new Error(`Missing OAuth configuration for provider: ${normalizedProvider}`);
@@ -83,7 +101,7 @@ const buildAuthorizeUrl = ({ provider, config, state, next = '/' } = {}) => {
     client_id: targetConfig.clientId,
     redirect_uri: targetConfig.redirectUri,
     state: state || `${normalizedProvider}:${Date.now()}`,
-    next,
+    next: normalizedNext,
   });
 
   if (normalizedProvider === 'github') {
@@ -129,6 +147,7 @@ const normalizeProviderProfile = (provider, profile) => {
 module.exports = {
   supportedProviders,
   normalizeProvider,
+  normalizeOAuthRedirectTarget,
   getProviderConfig,
   buildOAuthState,
   decodeOAuthState,
