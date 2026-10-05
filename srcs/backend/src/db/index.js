@@ -21,6 +21,7 @@ const sequelize = new Sequelize(databaseUrl.pathname.slice(1), databaseUrl.usern
 const modelDefiners = [
   require('./models/user'),
   require('./models/user-oauth-account'),
+  require('./models/oauth-state-intent'),
   require('./models/gdpr-export-quota'),
   require('./models/gdpr-audit-event'),
   require('./models/auth-session'),

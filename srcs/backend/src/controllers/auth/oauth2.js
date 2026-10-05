@@ -7,8 +7,6 @@ const {
   supportedProviders,
   normalizeProvider,
   getProviderConfig,
-  buildOAuthState,
-  decodeOAuthState,
   buildAuthorizeUrl,
   normalizeProviderProfile,
 } = require('./oauth2-config');
@@ -21,6 +19,10 @@ const {
   hashTokenValue,
   resolveOrCreateUserForOAuthProfile,
 } = require('./oauth2-user-resolution');
+const {
+  createOAuthStateIntent,
+  consumeOAuthStateIntent,
+} = require('./oauth2-state');
 const { validatePassword } = require('./validation');
 
 const JWT_SECRET = requireEnv('JWT_SECRET');
@@ -75,18 +77,17 @@ const createOAuthAccountManager = ({
         return res.status(501).json({ error: 'Authentication failed' });
       }
 
-      const state = JSON.stringify(buildOAuthState({
+      const stateIntent = await createOAuthStateIntent({
         provider,
-        redirectUri: providerConfig.redirectUri,
-        next: req.query?.next || '/',
         mode: 'link',
-        linkUserId: user.id,
-      }));
+        userId: user.id,
+        next: req.query?.next || '/',
+      });
 
       const authorizeUrl = buildAuthorizeUrl({
         provider,
         config: providerConfig,
-        state: Buffer.from(state).toString('base64url'),
+        state: stateIntent.stateId,
         next: req.query?.next || '/',
       });
 
@@ -121,11 +122,15 @@ const createOAuth2Handler = ({ logger = console } = {}) => {
         });
       }
 
-      const state = JSON.stringify(buildOAuthState({ provider, redirectUri: providerConfig.redirectUri, next: req.query?.next || '/' }));
+      const stateIntent = await createOAuthStateIntent({
+        provider,
+        mode: 'login',
+        next: req.query?.next || '/',
+      });
       const authorizeUrl = buildAuthorizeUrl({
         provider,
         config: providerConfig,
-        state: Buffer.from(state).toString('base64url'),
+        state: stateIntent.stateId,
         next: req.query?.next || '/',
       });
 
@@ -167,10 +172,14 @@ const createOAuth2Handler = ({ logger = console } = {}) => {
         return res.status(501).json({ error: 'Authentication failed' });
       }
 
-      const parsedState = decodeOAuthState(state);
-      if (parsedState.provider && normalizeProvider(parsedState.provider) !== provider) {
-        return res.status(400).json({ error: 'Authentication failed' });
+      const stateIntent = await consumeOAuthStateIntent({
+        stateId: String(state),
+        provider,
+      });
+      if (!stateIntent.ok) {
+        return res.status(stateIntent.statusCode).json({ error: stateIntent.error });
       }
+      const parsedState = stateIntent.payload;
 
       const tokenResponse = await exchangeCodeForToken({
         provider,
@@ -202,7 +211,7 @@ const createOAuth2Handler = ({ logger = console } = {}) => {
       }
 
       const profile = normalizeProviderProfile(provider, profilePayload);
-      const linkUserId = parsedState.linkUserId ? String(parsedState.linkUserId) : null;
+      const linkUserId = parsedState.userId ? String(parsedState.userId) : null;
 
       let user;
       let oauthAccount;
@@ -260,7 +269,7 @@ const createOAuth2Handler = ({ logger = console } = {}) => {
       setAuthCookie(res, internalToken);
       await ensureSession({ token: internalToken, user });
 
-      const redirectTarget = parsedState.next || parsedState.redirectUri || '/';
+      const redirectTarget = parsedState.next || '/';
       logger.info(`[OAUTH2] user authenticated via ${provider}`, {
         userId: user.id,
         provider,
@@ -314,7 +323,6 @@ const createOAuth2Handler = ({ logger = console } = {}) => {
     callback,
     getProviderConfig,
     buildAuthorizeUrl,
-    buildOAuthState,
     normalizeProviderProfile,
     exchangeCodeForToken,
     fetchProviderProfile,
@@ -327,7 +335,6 @@ module.exports = {
   createOAuthAccountManager,
   getProviderConfig,
   buildAuthorizeUrl,
-  buildOAuthState,
   normalizeProvider,
   normalizeProviderProfile,
   exchangeCodeForToken,
