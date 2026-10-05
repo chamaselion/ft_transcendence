@@ -11,8 +11,7 @@ const app = createApp(App)
 app.use(createPinia())
 
 const authStore = useAuthStore()
-await authStore.checkForAuthentication()
-
+authStore.checkForAuthentication()
 
 app.use(router)
 
