@@ -211,12 +211,13 @@ const createOAuth2Handler = ({ logger = console } = {}) => {
       }
 
       const profile = normalizeProviderProfile(provider, profilePayload);
-      const linkUserId = parsedState.userId ? String(parsedState.userId) : null;
+      const isLinkIntent = parsedState.mode === 'link';
+      const linkUserId = isLinkIntent && parsedState.userId ? String(parsedState.userId) : null;
 
       let user;
       let oauthAccount;
 
-      if (linkUserId) {
+      if (isLinkIntent) {
         const targetUser = await sequelize.models.user.findByPk(linkUserId);
         if (!targetUser) {
           return res.status(401).json({ error: 'Unauthorized' });
@@ -280,7 +281,7 @@ const createOAuth2Handler = ({ logger = console } = {}) => {
         return res.redirect(redirectTarget);
       }
 
-      if (linkUserId) {
+      if (isLinkIntent) {
         return res.json({
           linked: true,
           provider,

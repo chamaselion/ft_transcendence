@@ -2,6 +2,7 @@ const { randomUUID } = require('crypto');
 const sequelize = require('../../db');
 
 const DEFAULT_TTL_MS = Number(process.env.OAUTH_STATE_TTL_MS) || 10 * 60 * 1000;
+const SUPPORTED_INTENT_MODES = new Set(['login', 'link']);
 
 const getIntentModel = () => sequelize.models.oauthStateIntent;
 
@@ -9,6 +10,18 @@ const createOAuthStateIntent = async ({ provider, mode = 'login', userId = null,
   const oauthStateIntentModel = getIntentModel();
   if (!oauthStateIntentModel) {
     throw new Error('OAuth state intent storage is not available');
+  }
+
+  if (!SUPPORTED_INTENT_MODES.has(mode)) {
+    throw new Error(`Unsupported OAuth state intent mode: ${mode}`);
+  }
+
+  if (mode === 'link' && !userId) {
+    throw new Error('OAuth link intents require a user id');
+  }
+
+  if (mode === 'login' && userId) {
+    throw new Error('OAuth login intents must not carry a user id');
   }
 
   const stateId = randomUUID();
@@ -56,6 +69,16 @@ const consumeOAuthStateIntent = async ({ stateId, provider } = {}) => {
     }
 
     if (new Date(intent.expiresAt).getTime() <= Date.now()) {
+      await intent.destroy({ transaction: dbTransaction });
+      return { ok: false, statusCode: 400, error: 'Authentication failed' };
+    }
+
+    if (!SUPPORTED_INTENT_MODES.has(intent.mode)) {
+      await intent.destroy({ transaction: dbTransaction });
+      return { ok: false, statusCode: 400, error: 'Authentication failed' };
+    }
+
+    if ((intent.mode === 'link' && !intent.userId) || (intent.mode === 'login' && intent.userId)) {
       await intent.destroy({ transaction: dbTransaction });
       return { ok: false, statusCode: 400, error: 'Authentication failed' };
     }
