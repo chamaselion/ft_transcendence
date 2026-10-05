@@ -6,6 +6,7 @@ const { ensureSession, setAuthCookie } = require('./helpers');
 const {
   supportedProviders,
   normalizeProvider,
+  normalizeOAuthRedirectTarget,
   getProviderConfig,
   buildAuthorizeUrl,
   normalizeProviderProfile,
@@ -77,18 +78,20 @@ const createOAuthAccountManager = ({
         return res.status(501).json({ error: 'Authentication failed' });
       }
 
+      const redirectTarget = normalizeOAuthRedirectTarget(req.query?.next);
+
       const stateIntent = await createOAuthStateIntent({
         provider,
         mode: 'link',
         userId: user.id,
-        next: req.query?.next || '/',
+        next: redirectTarget,
       });
 
       const authorizeUrl = buildAuthorizeUrl({
         provider,
         config: providerConfig,
         state: stateIntent.stateId,
-        next: req.query?.next || '/',
+        next: redirectTarget,
       });
 
       return res.redirect(authorizeUrl);
@@ -122,16 +125,18 @@ const createOAuth2Handler = ({ logger = console } = {}) => {
         });
       }
 
+      const redirectTarget = normalizeOAuthRedirectTarget(req.query?.next);
+
       const stateIntent = await createOAuthStateIntent({
         provider,
         mode: 'login',
-        next: req.query?.next || '/',
+        next: redirectTarget,
       });
       const authorizeUrl = buildAuthorizeUrl({
         provider,
         config: providerConfig,
         state: stateIntent.stateId,
-        next: req.query?.next || '/',
+        next: redirectTarget,
       });
 
       logger.info(`[OAUTH2] Redirecting ${provider} to authorization endpoint`);
@@ -247,6 +252,13 @@ const createOAuth2Handler = ({ logger = console } = {}) => {
         user = targetUser;
       } else {
         const resolutionResult = await resolveOrCreateUserForOAuthProfile({ provider, profile });
+
+        if (resolutionResult.reason === 'link_required') {
+          return res.status(409).json({
+            error: 'An account with that email already exists. Sign in and link this provider from account settings.',
+          });
+        }
+
         user = resolutionResult.user;
         oauthAccount = resolutionResult.oauthAccount;
 
@@ -266,16 +278,19 @@ const createOAuth2Handler = ({ logger = console } = {}) => {
         });
       }
 
-      const internalToken = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
-      setAuthCookie(res, internalToken);
-      await ensureSession({ token: internalToken, user });
-
-      const redirectTarget = parsedState.next || '/';
+      const redirectTarget = normalizeOAuthRedirectTarget(parsedState.next);
       logger.info(`[OAUTH2] user authenticated via ${provider}`, {
         userId: user.id,
         provider,
         redirectTarget,
+        linked: isLinkIntent,
       });
+
+      if (!isLinkIntent) {
+        const internalToken = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+        setAuthCookie(res, internalToken);
+        await ensureSession({ token: internalToken, user });
+      }
 
       if (req.accepts('html')) {
         return res.redirect(redirectTarget);

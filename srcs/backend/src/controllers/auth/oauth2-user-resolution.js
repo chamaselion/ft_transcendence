@@ -57,17 +57,13 @@ const resolveOrCreateUserForOAuthProfile = async ({ provider, profile }) => {
       });
 
       if (!existingLink) {
-        const oauthAccount = await userOauthAccountModel.create({
-          userId: existingUser.id,
-          provider,
-          providerUserId: profile.providerUserId,
-          email: profile.email,
-          emailVerified: profile.emailVerified,
-          displayName: profile.displayName,
-          avatarUrl: profile.avatarUrl,
-        });
-
-        return { user: existingUser, oauthAccount, created: false };
+        return {
+          user: null,
+          oauthAccount: null,
+          created: false,
+          reason: 'link_required',
+          existingUserId: existingUser.id,
+        };
       }
 
       return { user: existingUser, oauthAccount: existingLink, created: false };

@@ -1,5 +1,6 @@
 const { randomUUID } = require('crypto');
 const sequelize = require('../../db');
+const { normalizeOAuthRedirectTarget } = require('./oauth2-config');
 
 const DEFAULT_TTL_MS = Number(process.env.OAUTH_STATE_TTL_MS) || 10 * 60 * 1000;
 const SUPPORTED_INTENT_MODES = new Set(['login', 'link']);
@@ -32,7 +33,7 @@ const createOAuthStateIntent = async ({ provider, mode = 'login', userId = null,
     provider,
     mode,
     userId,
-    next: typeof next === 'string' && next.trim() ? next : '/',
+    next: normalizeOAuthRedirectTarget(next),
     expiresAt,
   });
 
