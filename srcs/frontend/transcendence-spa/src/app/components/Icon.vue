@@ -16,6 +16,9 @@ export const iconNames = [
   'Logout',
   'Sun',
   'Moon',
+  'Github',
+  'FortyTwo',
+  'ExclamationMark',
 ] as const
 
 export type IconName = (typeof iconNames)[number]
@@ -40,6 +43,9 @@ import {
   IconLogout,
   IconSun,
   IconMoon,
+  IconBrandGithub,
+  IconNumber42Small,
+  IconExclamationMark,
 } from '@tabler/icons-vue'
 
 const iconMap: Record<IconName, Component> = {
@@ -59,19 +65,25 @@ const iconMap: Record<IconName, Component> = {
   Logout: IconLogout,
   Sun: IconSun,
   Moon: IconMoon,
+  Github: IconBrandGithub,
+  FortyTwo: IconNumber42Small,
+  ExclamationMark: IconExclamationMark,
 }
 
-const props = withDefaults(defineProps<{
-  name?: IconName
-  size?: number | string
-  color?: string
-  stroke?: number | string
-}>(), {
-  name: 'Sparkles',
-  size: 24,
-  color: 'currentColor',
-  stroke: 2,
-})
+const props = withDefaults(
+  defineProps<{
+    name?: IconName
+    size?: number | string
+    color?: string
+    stroke?: number | string
+  }>(),
+  {
+    name: 'Sparkles',
+    size: 24,
+    color: 'currentColor',
+    stroke: 2,
+  },
+)
 
 const currentIcon = computed(() => iconMap[props.name] ?? IconSparkles)
 </script>
