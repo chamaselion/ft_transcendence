@@ -319,12 +319,9 @@ const attachDocumentSocket = (
       } catch {
         isArray = false;
       }
-      if (!isArray || blocks.length === 0) {
-        const isEmpty = !doc.content || (typeof doc.content === 'string' && doc.content.trim() === '');
-        const legacyText =
-          !isArray && typeof doc.content === 'string' && doc.content.trim() !== ''
-            ? doc.content
-            : '';
+      // Only migrate legacy non-JSON content to JSON format
+      if (!isArray) {
+        const legacyText = typeof doc.content === 'string' ? doc.content.trim() : '';
         blocks = [
           {
             id: crypto.randomUUID(),
@@ -333,10 +330,8 @@ const attachDocumentSocket = (
             lockedBy: null,
           },
         ];
-        if (isEmpty) {
-          doc.content = JSON.stringify(blocks);
-          await doc.save();
-        }
+        doc.content = JSON.stringify(blocks);
+        await doc.save();
       }
 
       send(ws, {

@@ -107,15 +107,10 @@ export class WebSocketEditorDataProvider implements EditorDataProvider {
               const parsed = JSON.parse(msg.document.content)
               if (Array.isArray(parsed)) {
                 blocks = parsed
-              } else {
-                blocks = [createBlock('p', String(msg.document.content))]
               }
             } catch {
-              blocks = [createBlock('p', String(msg.document.content))]
+              // If unparsed legacy string, backend handles migration on join
             }
-          }
-          if (blocks.length === 0) {
-            blocks = [createBlock('p', '')]
           }
           this.onInit({
             blocks,
