@@ -27,7 +27,7 @@ function showExplainer(event: MouseEvent) {
 function hideExplainer() {
   const explainers = document.querySelectorAll('.provider-explainer')
   explainers.forEach((explainer) => {
-    explainer.style.display = 'none'
+    explainer.setAttribute('style', 'display: none;')
   })
 }
 </script>
@@ -122,14 +122,6 @@ function hideExplainer() {
 @media (max-width: 480px) {
   .oauth-provider {
     position: static;
-  }
-
-  #gh-provider-explainer::after {
-    left: calc(25% - 5px);
-  }
-
-  #42-provider-explainer::after {
-    left: calc(75% - 5px);
   }
 }
 
