@@ -12,6 +12,10 @@ export const iconNames = [
   'List',
   'Quote',
   'Code',
+  'Login',
+  'Logout',
+  'Sun',
+  'Moon',
 ] as const
 
 export type IconName = (typeof iconNames)[number]
@@ -32,6 +36,10 @@ import {
   IconList,
   IconQuote,
   IconCode,
+  IconLogin,
+  IconLogout,
+  IconSun,
+  IconMoon,
 } from '@tabler/icons-vue'
 
 const iconMap: Record<IconName, Component> = {
@@ -47,6 +55,10 @@ const iconMap: Record<IconName, Component> = {
   List: IconList,
   Quote: IconQuote,
   Code: IconCode,
+  Login: IconLogin,
+  Logout: IconLogout,
+  Sun: IconSun,
+  Moon: IconMoon,
 }
 
 const props = withDefaults(defineProps<{

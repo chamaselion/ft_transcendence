@@ -3,6 +3,7 @@
   import { httpClient, HttpError } from '../auth.api'
   import Toast from '@/app/components/Toast.vue'
   import Input from '@/app/components/Input.vue'
+  import Button from '@/app/components/Button.vue'
 
   const username = ref('')
   const email = ref('')
@@ -37,51 +38,98 @@
 </script>
 
 <template>
-  <div class="register-container">
-    <h1>Register</h1>
-    <Toast
-      v-model="errorFlag"
-      type="alert"
-      :message="msg"
-      :duration="6000"
-      fluid
-      class="auth-toast"
-    />
-    <form @submit.prevent="handleRegister">
-      <div class="form-group">
-        <label for="username">Username:</label>
-        <Input type="text" id="username" v-model="username" required />
-      </div>
-      <div class="form-group">
-        <label for="email">Email:</label>
-        <Input type="email" id="email" v-model="email" required />
-      </div>
-      <div class="form-group">
-        <label for="password">Password:</label>
-        <Input type="password" v-model="password" required />
-      </div>
-      <button type="submit">Register</button>
-    </form>
-    <p>Already have an account? <router-link to="/login">Login here</router-link></p>
+  <div class="register-card">
+    <header class="register-card__header">
+      <h1 class="register-card__title">Register</h1>
+      <p class="register-card__subtitle">Create an account to get started.</p>
+    </header>
+    <div class="register-card__body">
+      <Toast
+        v-model="errorFlag"
+        type="alert"
+        :message="msg"
+        :duration="6000"
+        fluid
+      />
+      <form @submit.prevent="handleRegister">
+        <div class="form-group">
+          <label for="username">Username:</label>
+          <Input type="text" id="username" v-model="username" required />
+        </div>
+        <div class="form-group">
+          <label for="email">Email:</label>
+          <Input type="email" id="email" v-model="email" required />
+        </div>
+        <div class="form-group">
+          <label for="password">Password:</label>
+          <Input type="password" v-model="password" required />
+        </div>
+        <Button type="submit" size="large" class="register-card__submit">Register</Button>
+      </form>
+    </div>
+    <p class="register-card__footer">
+      Already have an account? <router-link to="/login">Login here</router-link>
+    </p>
   </div>
 </template>
 
 <style scoped>
-  .register-container {
+  .register-card {
+    box-sizing: border-box;
+    width: 100%;
     max-width: 400px;
-    margin: 80px auto;
-    padding: 20px;
-    border: 1px solid var(--border-default);
-    border-radius: 5px;
-    background-color: var(--bg-subtle);
+    padding: 32px;
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    background-color: var(--bg-surface);
+    box-shadow: var(--shadow-md);
   }
 
-  .register-container h1 {
-    text-align: center;
+  .register-card__header {
     margin-bottom: 24px;
+    text-align: center;
   }
 
-  .auth-toast {
-    margin-bottom: 16px;
+  .register-card__title {
+    margin: 0 0 6px;
+    font-size: 26px;
+    font-weight: 600;
+    line-height: 1.2;
+    color: var(--text-primary);
+  }
+
+  .register-card__subtitle {
+    margin: 0;
+    font-size: 14px;
+    color: var(--text-secondary);
+  }
+
+  .register-card__body {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  .register-card__submit {
+    width: 100%;
+    margin: 0;
+  }
+
+  .register-card__footer {
+    margin: 20px 0 0;
+    font-size: 14px;
+    text-align: center;
+    color: var(--text-secondary);
+  }
+
+  .register-card__footer :deep(a) {
+    color: var(--color-primary);
+    font-weight: 500;
+    text-decoration: none;
+  }
+
+  .register-card__footer :deep(a):hover {
+    color: var(--color-primary-hover);
+    text-decoration: underline;
   }
 </style>
