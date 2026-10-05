@@ -3,11 +3,11 @@ import Button from '@/app/components/Button.vue'
 import Icon from '@/app/components/Icon.vue'
 
 function githubOauth() {
-  window.location.assign('https://localhost/auth/api/oauth/gihub/authorize')
+  window.location.assign('https://localhost:8443/api/auth/oauth/gihub/authorize')
 }
 
 function fortyTwoOauth() {
-  window.location.assign('https://localhost/auth/api/oauth/42/authorize')
+  window.location.assign('https://localhost:8443/api/auth/oauth/42/authorize')
 }
 
 function showExplainer(event: MouseEvent) {
