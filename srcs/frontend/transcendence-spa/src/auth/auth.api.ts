@@ -97,6 +97,10 @@ export class HttpClient {
       throw new HttpError(message, response.status)
     }
 
+    if (response.status === 204) {
+      return undefined as TResponse
+    }
+
     return (await response.json()) as TResponse
   }
 

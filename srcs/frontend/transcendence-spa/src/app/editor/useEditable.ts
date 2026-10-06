@@ -1,4 +1,4 @@
-import { computed, onMounted, type Ref } from 'vue'
+import { computed, onMounted, watch, type Ref } from 'vue'
 
 export interface EditableEmit {
   (event: 'update:text', value: string): void
@@ -17,12 +17,28 @@ interface EditableOptions {
   read?: (el: HTMLElement) => string
 }
 
+export const STANDARD_TEXTS = new Set([
+  'untitled document',
+  'untitled',
+  'write something…',
+  'write something...',
+  'heading',
+  'list item',
+  'quote',
+  '// code',
+])
+
+export function isStandardText(value?: string | null): boolean {
+  if (!value) return false
+  return STANDARD_TEXTS.has(value.trim().toLowerCase())
+}
+
 /**
  * Wires an element up for uncontrolled `contenteditable` editing.
  *
- * The initial content is written once on mount and never re-bound to reactive
- * state, so Vue re-renders can not move the caret while the user types. Every
- * keystroke is read back from the DOM and emitted as `update:text`.
+ * The initial content is written once on mount and when the element is bound.
+ * When reactive text changes arrive (e.g. from remote WebSocket edits), the DOM
+ * is synced as long as the local user is not actively typing in that element.
  */
 export function useEditable(
   element: Ref<HTMLElement | null>,
@@ -36,18 +52,45 @@ export function useEditable(
     spellcheck: editable(),
   }))
 
-  const write = () => {
+  const write = (value = text()) => {
     const el = element.value
-    if (el && editable()) {
-      if (options.write) options.write(el, text())
-      else if (options.raw) el.textContent = text()
-      else el.innerText = text()
-    }
+    if (!el) return
+    if (options.write) options.write(el, value)
+    else if (options.raw) el.textContent = value
+    else el.innerText = value
   }
 
-  onMounted(write)
+  onMounted(() => {
+    write(text())
+  })
+
+  watch(
+    () => element.value,
+    (el) => {
+      if (el) write(text())
+    },
+  )
+
+  watch(text, (nextText) => {
+    const el = element.value
+    if (!el) return
+
+    // If local user is currently focused and typing in this element, avoid caret jump
+    if (document.activeElement === el) return
+
+    const currentText = options.read
+      ? options.read(el)
+      : options.raw
+        ? (el.textContent ?? '')
+        : el.innerText
+
+    if (currentText !== nextText) {
+      write(nextText)
+    }
+  })
 
   const onInput = () => {
+    if (!editable()) return
     const el = element.value
     if (!el) return
     if (options.read) emit('update:text', options.read(el))
@@ -63,10 +106,45 @@ export function useEditable(
   }
 
   const onKeydown = (event: KeyboardEvent) => {
+    if (!editable()) {
+      event.preventDefault()
+      return
+    }
+
+    // If block currently holds standard/placeholder text and user starts typing new text, clear it
+    if (
+      event.key.length === 1 &&
+      !event.ctrlKey &&
+      !event.metaKey &&
+      !event.altKey
+    ) {
+      const el = element.value
+      const current = options.read ? options.read(el!) : el?.innerText ?? ''
+      if (isStandardText(current)) {
+        if (el) {
+          el.innerText = ''
+          emit('update:text', '')
+        }
+      }
+    }
+
     if (!options.multiline && event.key === 'Enter') {
       event.preventDefault()
     }
   }
 
-  return { attributes, onInput, onFocus, onBlur, onKeydown }
+  const onPaste = (event: ClipboardEvent) => {
+    if (!editable()) {
+      event.preventDefault()
+      return
+    }
+    const el = element.value
+    const current = options.read ? options.read(el!) : el?.innerText ?? ''
+    if (isStandardText(current) && el) {
+      el.innerText = ''
+      emit('update:text', '')
+    }
+  }
+
+  return { attributes, onInput, onFocus, onBlur, onKeydown, onPaste }
 }

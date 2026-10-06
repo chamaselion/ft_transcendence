@@ -1,30 +1,113 @@
 const { WebSocketServer } = require('ws');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const { parse: parseUrl } = require('url');
 const { requireEnv } = require('../config');
 const sequelize = require('../db');
 const { getTokenFromCookie, isSessionActive } = require('../controllers/auth/helpers');
 const { validateUuid } = require('../controllers/auth/validation');
-const { sanitizePlainText } = require('../controllers/documents/sanitize');
+const { stripTags } = require('../controllers/documents/sanitize');
 const { resolvePermission, atLeast } = require('../controllers/documents/permissions');
+
+const parseDocBlocks = (content) => {
+  if (!content || typeof content !== 'string') {
+    return [];
+  }
+  try {
+    const parsed = JSON.parse(content);
+    if (Array.isArray(parsed)) {
+      return parsed;
+    }
+  } catch {
+    // Legacy plain text fallback
+  }
+  return [
+    {
+      // Deterministic id so repeated parses of the same legacy text agree.
+      id: crypto.createHash('sha1').update(content).digest('hex'),
+      text: content,
+      decorator: JSON.stringify({ type: 'p' }),
+      lockedBy: null,
+    },
+  ];
+};
 
 
 const WS_PATH = '/api/ws';
 
 
 const HEARTBEAT_INTERVAL_MS = 30_000;
+const SERVER_LOCK_TIMEOUT_MS = 5500;
 
 
 const rooms = new Map();
+
+// Serializes read-modify-write cycles on a document's content column. The
+// block handlers read the whole JSON blob, mutate one block and write it back;
+// without this, two concurrent handlers interleave and one edit is lost.
+// NOTE: this is an in-process lock and is correct for the current single
+// backend instance. If the backend is ever scaled to multiple processes,
+// replace this with `transaction.LOCK.UPDATE` on the document row.
+const writeQueues = new Map();
+const withDocumentWriteLock = (documentId, task) => {
+  const previous = writeQueues.get(documentId) ?? Promise.resolve();
+  const run = previous.catch(() => {}).then(task);
+  writeQueues.set(documentId, run);
+  run.then(
+    () => {
+      if (writeQueues.get(documentId) === run) writeQueues.delete(documentId);
+    },
+    () => {
+      if (writeQueues.get(documentId) === run) writeQueues.delete(documentId);
+    },
+  );
+  return run;
+};
 
 const send = (ws, data) => {
   if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(data));
 };
 const sendError = (ws, error) => send(ws, { type: 'error', error });
 
+const clearServerLockTimer = (ws) => {
+  if (ws.lockTimeoutTimer) {
+    clearTimeout(ws.lockTimeoutTimer);
+    ws.lockTimeoutTimer = null;
+  }
+};
+
+const startServerLockTimer = (ws) => {
+  clearServerLockTimer(ws);
+  ws.lockTimeoutTimer = setTimeout(() => {
+    if (ws.lockedBlockId && ws.documentId) {
+      const blockId = ws.lockedBlockId;
+      ws.lockedBlockId = null;
+      broadcast(ws.documentId, {
+        type: 'block_unlocked',
+        documentId: ws.documentId,
+        blockId,
+        clientId: ws.clientId,
+        userId: ws.userId,
+      });
+    }
+    ws.lockTimeoutTimer = null;
+  }, SERVER_LOCK_TIMEOUT_MS);
+};
+
 const leaveRoom = (ws) => {
+  clearServerLockTimer(ws);
   const roomId = ws.documentId;
   if (!roomId || !rooms.has(roomId)) return;
+  if (ws.lockedBlockId) {
+    broadcast(roomId, {
+      type: 'block_unlocked',
+      documentId: roomId,
+      blockId: ws.lockedBlockId,
+      clientId: ws.clientId,
+      userId: ws.userId,
+    });
+    ws.lockedBlockId = null;
+  }
   const room = rooms.get(roomId);
   room.delete(ws);
   if (room.size === 0) rooms.delete(roomId);
@@ -42,6 +125,11 @@ const broadcast = (roomId, data, except) => {
     }
   }
 };
+
+const lockHolder = (documentId, blockId, except) =>
+  [...(rooms.get(documentId) || [])].find(
+    (client) => client !== except && client.lockedBlockId === blockId,
+  );
 
 
 let activeServer = null;
@@ -219,11 +307,54 @@ const attachDocumentSocket = (
       if (!rooms.has(doc.id)) rooms.set(doc.id, new Set());
       rooms.get(doc.id).add(ws);
 
-      return send(ws, {
+      // Normalize legacy/empty content once so the client and server agree on
+      // block ids. Persist the migration so every later message sees the same
+      // JSON shape.
+      let blocks = null;
+      let isArray = false;
+      try {
+        const parsed = JSON.parse(doc.content);
+        isArray = Array.isArray(parsed);
+        blocks = isArray ? parsed : null;
+      } catch {
+        isArray = false;
+      }
+      // Only migrate legacy non-JSON content to JSON format
+      if (!isArray) {
+        const legacyText = typeof doc.content === 'string' ? doc.content.trim() : '';
+        blocks = [
+          {
+            id: crypto.randomUUID(),
+            text: legacyText,
+            decorator: JSON.stringify({ type: 'p' }),
+            lockedBy: null,
+          },
+        ];
+        doc.content = JSON.stringify(blocks);
+        await doc.save();
+      }
+
+      send(ws, {
         type: 'init',
         permission,
         document: { id: doc.id, title: doc.title, content: doc.content },
       });
+
+      const currentRoom = rooms.get(doc.id);
+      if (currentRoom) {
+        for (const client of currentRoom) {
+          if (client !== ws && client.lockedBlockId) {
+            send(ws, {
+              type: 'block_locked',
+              documentId: doc.id,
+              blockId: client.lockedBlockId,
+              clientId: client.clientId,
+              userId: client.userId,
+            });
+          }
+        }
+      }
+      return;
     }
 
     if (msg.type === 'update') {
@@ -236,42 +367,274 @@ const attachDocumentSocket = (
         return sendError(ws, 'content must be a string');
       }
 
-      const doc = await resolveModel().findByPk(ws.documentId);
-      if (!doc) return sendError(ws, 'Document not found');
+      return withDocumentWriteLock(ws.documentId, async () => {
+        const doc = await resolveModel().findByPk(ws.documentId);
+        if (!doc) return sendError(ws, 'Document not found');
 
-      const sanitizedContent = sanitizePlainText(msg.content);
+        const sanitizedContent = stripTags(msg.content);
 
-      // KNOWN LIMITATION: last write wins, and the loss is silent.
-      //
-      // An update carries the whole document, not the edit that produced it,
-      // so this overwrites whatever is stored. Two people typing at the same
-      // moment therefore lose one of the two versions - and not as a reported
-      // conflict: both messages are accepted, no error is sent, and the edit
-      // that arrived first is gone with no way to recover it. Taking turns
-      // works exactly as expected, because each write starts from what the
-      // previous one left; genuinely simultaneous editing does not.
-      //
-      // Fixing it means changing what an 'update' carries - an operation
-      // ("insert 'x' at position 5") instead of the full text - and merging
-      // those operations: either by transforming their positions against each
-      // other on the server (OT), or by giving every character a stable id so
-      // the merge no longer depends on order (a CRDT, in practice yjs). Both
-      // are a rewrite of this handler *and* of the client, not a patch, and
-      // sanitizePlainText would have to move with them - it sanitizes a whole
-      // document, which is the wrong unit once edits arrive per keystroke.
-      doc.content = sanitizedContent;
-      await doc.save();
+        doc.content = sanitizedContent;
+        await doc.save();
+
+        return broadcast(
+          ws.documentId,
+          {
+            type: 'update',
+            documentId: ws.documentId,
+            content: sanitizedContent,
+            userId: ws.userId,
+          },
+          ws,
+        );
+      });
+    }
+
+    if (msg.type === 'block_edit') {
+      if (!ws.documentId) return sendError(ws, 'Join a document first');
+      if (!atLeast(ws.permission, 'editor')) return sendError(ws, 'Read-only access');
+      if (!msg.blockId || typeof msg.blockId !== 'string') {
+        return sendError(ws, 'blockId must be a string');
+      }
+
+      if (lockHolder(ws.documentId, msg.blockId, ws)) {
+        return sendError(ws, 'Block is locked by another user');
+      }
+
+      return withDocumentWriteLock(ws.documentId, async () => {
+        const doc = await resolveModel().findByPk(ws.documentId);
+        if (!doc) return sendError(ws, 'Document not found');
+
+        const blocks = parseDocBlocks(doc.content);
+        const target = blocks.find((b) => b && b.id === msg.blockId);
+        if (!target) return sendError(ws, 'Block not found');
+
+        const sanitizedText = msg.text !== undefined ? stripTags(String(msg.text)) : target.text;
+        target.text = sanitizedText;
+        if (msg.decorator !== undefined && typeof msg.decorator === 'string') {
+          target.decorator = msg.decorator;
+        }
+
+        if (ws.lockedBlockId === msg.blockId) {
+          startServerLockTimer(ws);
+        }
+
+        doc.content = JSON.stringify(blocks);
+        await doc.save();
+
+        return broadcast(
+          ws.documentId,
+          {
+            type: 'block_updated',
+            documentId: ws.documentId,
+            blockId: msg.blockId,
+            text: sanitizedText,
+            decorator: target.decorator,
+            userId: ws.userId,
+          },
+          ws,
+        );
+      });
+    }
+
+    if (msg.type === 'block_create') {
+      if (!ws.documentId) return sendError(ws, 'Join a document first');
+      if (!atLeast(ws.permission, 'editor')) return sendError(ws, 'Read-only access');
+      if (!msg.block || typeof msg.block !== 'object') {
+        return sendError(ws, 'block must be an object');
+      }
+
+      const blockId =
+        typeof msg.block.id === 'string' && msg.block.id
+          ? msg.block.id
+          : (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()));
+      const sanitizedText = stripTags(String(msg.block.text ?? ''));
+      const decorator = typeof msg.block.decorator === 'string' ? msg.block.decorator : JSON.stringify({ type: 'p' });
+      const newBlock = {
+        id: blockId,
+        text: sanitizedText,
+        decorator,
+        lockedBy: null,
+      };
+
+      return withDocumentWriteLock(ws.documentId, async () => {
+        const doc = await resolveModel().findByPk(ws.documentId);
+        if (!doc) return sendError(ws, 'Document not found');
+
+        const blocks = parseDocBlocks(doc.content);
+        if (blocks.some((b) => b && b.id === blockId)) {
+          return sendError(ws, 'Block id already exists');
+        }
+        if (msg.afterBlockId) {
+          const index = blocks.findIndex((b) => b && b.id === msg.afterBlockId);
+          if (index !== -1) {
+            blocks.splice(index + 1, 0, newBlock);
+          } else {
+            blocks.push(newBlock);
+          }
+        } else {
+          blocks.push(newBlock);
+        }
+
+        doc.content = JSON.stringify(blocks);
+        await doc.save();
+
+        return broadcast(
+          ws.documentId,
+          {
+            type: 'block_created',
+            documentId: ws.documentId,
+            block: newBlock,
+            afterBlockId: msg.afterBlockId || null,
+            userId: ws.userId,
+          },
+          ws,
+        );
+      });
+    }
+
+    if (msg.type === 'block_delete') {
+      if (!ws.documentId) return sendError(ws, 'Join a document first');
+      if (!atLeast(ws.permission, 'editor')) return sendError(ws, 'Read-only access');
+      if (!msg.blockId || typeof msg.blockId !== 'string') {
+        return sendError(ws, 'blockId must be a string');
+      }
+
+      if (lockHolder(ws.documentId, msg.blockId, ws)) {
+        return sendError(ws, 'Block is locked by another user');
+      }
+
+      return withDocumentWriteLock(ws.documentId, async () => {
+        const doc = await resolveModel().findByPk(ws.documentId);
+        if (!doc) return sendError(ws, 'Document not found');
+
+        const blocks = parseDocBlocks(doc.content);
+        const index = blocks.findIndex((b) => b && b.id === msg.blockId);
+        if (index !== -1) {
+          blocks.splice(index, 1);
+          doc.content = JSON.stringify(blocks);
+          await doc.save();
+        }
+        if (ws.lockedBlockId === msg.blockId) {
+          clearServerLockTimer(ws);
+          ws.lockedBlockId = null;
+        }
+
+        return broadcast(
+          ws.documentId,
+          {
+            type: 'block_deleted',
+            documentId: ws.documentId,
+            blockId: msg.blockId,
+            userId: ws.userId,
+          },
+          ws,
+        );
+      });
+    }
+
+    if (msg.type === 'block_lock') {
+      if (!ws.documentId) return sendError(ws, 'Join a document first');
+      if (!atLeast(ws.permission, 'editor')) return sendError(ws, 'Read-only access');
+      if (!msg.blockId || typeof msg.blockId !== 'string') {
+        return sendError(ws, 'blockId must be a string');
+      }
+
+      // Race condition check: first wins
+      const room = rooms.get(ws.documentId);
+      if (room) {
+        for (const client of room) {
+          if (client !== ws && client.lockedBlockId === msg.blockId) {
+            send(ws, {
+              type: 'block_locked',
+              documentId: ws.documentId,
+              blockId: msg.blockId,
+              clientId: client.clientId,
+              userId: client.userId,
+            });
+            return sendError(ws, 'Block is locked by another user');
+          }
+        }
+      }
+
+      if (ws.lockedBlockId && ws.lockedBlockId !== msg.blockId) {
+        clearServerLockTimer(ws);
+        broadcast(ws.documentId, {
+          type: 'block_unlocked',
+          documentId: ws.documentId,
+          blockId: ws.lockedBlockId,
+          clientId: ws.clientId,
+          userId: ws.userId,
+        });
+      }
+      ws.lockedBlockId = msg.blockId;
+      if (msg.clientId) ws.clientId = msg.clientId;
+
+      startServerLockTimer(ws);
 
       return broadcast(
         ws.documentId,
         {
-          type: 'update',
+          type: 'block_locked',
           documentId: ws.documentId,
-          content: sanitizedContent,
+          blockId: msg.blockId,
+          clientId: msg.clientId,
           userId: ws.userId,
         },
         ws,
       );
+    }
+
+    if (msg.type === 'block_unlock') {
+      if (!ws.documentId) return sendError(ws, 'Join a document first');
+      if (!atLeast(ws.permission, 'editor')) return sendError(ws, 'Read-only access');
+      if (!msg.blockId || typeof msg.blockId !== 'string') {
+        return sendError(ws, 'blockId must be a string');
+      }
+      if (ws.lockedBlockId !== msg.blockId) {
+        return;
+      }
+      clearServerLockTimer(ws);
+      ws.lockedBlockId = null;
+
+      return broadcast(
+        ws.documentId,
+        {
+          type: 'block_unlocked',
+          documentId: ws.documentId,
+          blockId: msg.blockId,
+          clientId: msg.clientId,
+          userId: ws.userId,
+        },
+        ws,
+      );
+    }
+
+    if (msg.type === 'title_update') {
+      if (!ws.documentId) return sendError(ws, 'Join a document first');
+      if (!atLeast(ws.permission, 'editor')) return sendError(ws, 'Read-only access');
+      if (typeof msg.title !== 'string' || !msg.title.trim()) {
+        return sendError(ws, 'title must be a non-empty string');
+      }
+
+      return withDocumentWriteLock(ws.documentId, async () => {
+        const doc = await resolveModel().findByPk(ws.documentId);
+        if (!doc) return sendError(ws, 'Document not found');
+
+        const sanitizedTitle = stripTags(msg.title.trim());
+        doc.title = sanitizedTitle;
+        await doc.save();
+
+        return broadcast(
+          ws.documentId,
+          {
+            type: 'title_updated',
+            documentId: ws.documentId,
+            title: sanitizedTitle,
+            userId: ws.userId,
+          },
+          ws,
+        );
+      });
     }
 
     return sendError(ws, 'Unknown message type');

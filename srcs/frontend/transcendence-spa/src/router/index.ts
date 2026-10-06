@@ -14,7 +14,7 @@ const router = createRouter({
       component: () => import("@/app/HomeView.vue"),
     },
     {
-      path: '/editor',
+      path: '/editor/:id?',
       name: 'editor',
       component: () => import("@/app/EditorView.vue"),
     },

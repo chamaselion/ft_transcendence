@@ -11,8 +11,9 @@
     @focus="onFocus"
     @blur="onBlur"
     @keydown="onKeydown"
+    @paste="onPaste"
   >
-    <template v-if="!isEditable">
+    <template v-if="!editable">
       <li v-for="(item, index) in items" :key="index" class="list__item">
         <slot name="item" :item="item" :index="index">{{ item }}</slot>
       </li>
@@ -69,7 +70,7 @@ const isEditable = computed(() => props.editable && !props.locked)
 const lines = computed(() => (props.text ? props.text.split('\n') : props.items))
 const isEmpty = computed(() => isEditable.value && lines.value.join('').trim() === '')
 
-const { attributes, onInput, onFocus, onBlur, onKeydown } = useEditable(
+const { attributes, onInput, onFocus, onBlur, onKeydown, onPaste } = useEditable(
   element,
   () => lines.value.join('\n'),
   () => isEditable.value,

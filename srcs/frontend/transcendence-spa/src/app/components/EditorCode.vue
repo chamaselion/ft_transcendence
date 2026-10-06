@@ -1,7 +1,17 @@
 <template>
   <figure class="code" :style="style">
     <figcaption class="code__header">
-      <span class="code__language">{{ language }}</span>
+      <select
+        v-if="isEditable"
+        class="code__language-select"
+        :value="language"
+        @change="onLanguageChange"
+      >
+        <option v-for="lang in supportedLanguages" :key="lang" :value="lang">
+          {{ lang }}
+        </option>
+      </select>
+      <span v-else class="code__language">{{ language }}</span>
       <slot name="header" />
     </figcaption>
     <pre class="code__pre"><code
@@ -18,9 +28,30 @@
       @focus="onFocus"
       @blur="onBlur"
       @keydown="onKeydown"
-    ><slot v-if="!isEditable">{{ code }}</slot></code></pre>
+      @paste="onPaste"
+    ><slot v-if="!editable">{{ code }}</slot></code></pre>
   </figure>
 </template>
+
+<script lang="ts">
+export const supportedLanguages = [
+  'plaintext',
+  'javascript',
+  'typescript',
+  'python',
+  'html',
+  'css',
+  'c',
+  'cpp',
+  'java',
+  'sql',
+  'json',
+  'bash',
+  'markdown',
+  'go',
+  'rust',
+] as const
+</script>
 
 <script lang="ts" setup>
 import { computed, ref } from 'vue'
@@ -53,15 +84,21 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   'update:text': [value: string]
+  'update:language': [value: string]
   focus: []
   blur: []
 }>()
+
+function onLanguageChange(e: Event) {
+  const target = e.target as HTMLSelectElement
+  emit('update:language', target.value)
+}
 
 const element = ref<HTMLElement | null>(null)
 const isEditable = computed(() => props.editable && !props.locked)
 const isEmpty = computed(() => isEditable.value && props.code.length === 0)
 
-const { attributes, onInput, onFocus, onBlur, onKeydown } = useEditable(
+const { attributes, onInput, onFocus, onBlur, onKeydown, onPaste } = useEditable(
   element,
   () => props.code,
   () => isEditable.value,
@@ -94,6 +131,30 @@ const style = computed(() => ({
   letter-spacing: 0.04em;
   text-transform: uppercase;
   opacity: 0.75;
+}
+
+.code__language-select {
+  background: rgba(255, 255, 255, 0.08);
+  color: #e2e8f0;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 0.75rem;
+  font-family: inherit;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.code__language-select:focus {
+  border-color: var(--color-primary, #3b82f6);
+}
+
+.code__language-select option {
+  background-color: #0b0f19;
+  color: #e2e8f0;
 }
 
 .code__pre {
