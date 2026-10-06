@@ -3,7 +3,7 @@ import Button from '@/app/components/Button.vue'
 import Icon from '@/app/components/Icon.vue'
 
 function githubOauth() {
-  window.location.assign('https://localhost:8443/api/auth/oauth/gihub/authorize')
+  window.location.assign('https://localhost:8443/api/auth/oauth/github/authorize')
 }
 
 function fortyTwoOauth() {
