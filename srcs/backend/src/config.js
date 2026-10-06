@@ -29,6 +29,15 @@ const requireEnv = (name) => {
   return value;
 };
 
+const getOptionalEnv = (name, fallback = undefined) => {
+  const value = process.env[name];
+  if (value === undefined || value === '') {
+    return fallback;
+  }
+
+  return value;
+};
+
 const requireNumberEnv = (name) => {
   const value = requireEnv(name);
   const parsedValue = Number(value);
@@ -42,5 +51,6 @@ const requireNumberEnv = (name) => {
 
 module.exports = {
   requireEnv,
+  getOptionalEnv,
   requireNumberEnv,
 };
