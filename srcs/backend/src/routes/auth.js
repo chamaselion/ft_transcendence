@@ -9,6 +9,7 @@ const { createUpdateMeHandler } = require('../controllers/auth/updateMe');
 const { createUpdateMeConfirmHandler } = require('../controllers/auth/updateMeConfirm');
 const { createLogoutHandler } = require('../controllers/auth/logout');
 const { createListSessionsHandler } = require('../controllers/auth/listSessions');
+const { createOAuth2Handler, createOAuthAccountManager } = require('../controllers/auth/oauth2');
 const { createDataRequestHandler } = require('../controllers/gdpr/dataRequest');
 const { createDataExportHandler } = require('../controllers/gdpr/dataExport');
 const { createDataExportCsvHandler } = require('../controllers/gdpr/dataExportCsv');
@@ -16,6 +17,7 @@ const { createDataDeletionRequestHandler } = require('../controllers/gdpr/dataDe
 const { createDataDeletionConfirmHandler } = require('../controllers/gdpr/dataDeletionConfirm');
 // const { createDevFillDataHandler } = require('../controllers/auth/devFillData');
 const { createRateLimiter, getClientIp, normalizeIdentity } = require('../middleware/rateLimit');
+const { createRequireAuth } = require('../middleware/requireAuth');
 
 const { login } = createLoginHandler();
 const { register } = createRegisterHandler();
@@ -27,12 +29,15 @@ const { updateMe } = createUpdateMeHandler();
 const { updateMeConfirm } = createUpdateMeConfirmHandler();
 const { logout } = createLogoutHandler();
 const { listSessions } = createListSessionsHandler();
+const { startAuthorization, callback: oauthCallback } = createOAuth2Handler();
+const { setPassword, startLinkProvider } = createOAuthAccountManager();
 const { dataRequest } = createDataRequestHandler();
 const { dataExport } = createDataExportHandler();
 const { dataExportCsv } = createDataExportCsvHandler();
 const { dataDeletionRequest } = createDataDeletionRequestHandler();
 const { dataDeletionConfirm } = createDataDeletionConfirmHandler();
 // const { fillData } = createDevFillDataHandler();
+const { requireAuth } = createRequireAuth();
 
 const router = express.Router();
 
@@ -66,6 +71,10 @@ router.post('/password-reset/request', authRequestLimiter, otpIssueLimiter, pass
 router.post('/password-reset/confirm', authRequestLimiter, otpVerifyLimiter, passwordResetConfirm);
 router.post('/login', authRequestLimiter, otpIssueLimiter, login);
 router.post('/login/confirm', authRequestLimiter, otpVerifyLimiter, loginConfirm);
+router.get('/oauth/:provider/authorize', authRequestLimiter, startAuthorization);
+router.get('/oauth/:provider/callback', authRequestLimiter, oauthCallback);
+router.get('/oauth/:provider/link', authRequestLimiter, requireAuth, startLinkProvider);
+router.post('/oauth/:provider/password', authRequestLimiter, requireAuth, setPassword);
 router.post('/logout', logout);
 router.get('/me', me);
 router.patch('/me', authRequestLimiter, otpIssueLimiter, updateMe);
