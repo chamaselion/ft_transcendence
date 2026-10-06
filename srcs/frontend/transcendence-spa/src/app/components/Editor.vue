@@ -50,6 +50,7 @@
 
 <script lang="ts" setup>
 import { computed, onBeforeUnmount, onMounted, watch } from 'vue'
+import { onBeforeRouteLeave } from 'vue-router'
 import EditorBlock from '@/app/components/EditorBlock.vue'
 import EditorNav from '@/app/components/EditorNav.vue'
 import { useEditorStore } from '@/stores/editor'
@@ -96,7 +97,11 @@ let pendingEditBlockId: string | null = null
 let pendingEditText: string | null = null
 let pendingEditDecorator: string | null = null
 
-function flushPendingEdit() {
+function hasPendingData(): boolean {
+  return Boolean(editDebounceTimer || (pendingEditBlockId !== null && pendingEditText !== null))
+}
+
+async function flushPendingEdit(): Promise<boolean> {
   if (editDebounceTimer) {
     clearTimeout(editDebounceTimer)
     editDebounceTimer = null
@@ -108,11 +113,20 @@ function flushPendingEdit() {
     pendingEditBlockId = null
     pendingEditText = null
     pendingEditDecorator = null
-    props.provider.sendEdit({
+    return await props.provider.sendEdit({
       blockId,
       text,
       decorator,
     })
+  }
+  return true
+}
+
+function handleBeforeUnload(event: BeforeUnloadEvent) {
+  if (hasPendingData()) {
+    flushPendingEdit()
+    event.preventDefault()
+    event.returnValue = ''
   }
 }
 
@@ -192,13 +206,36 @@ function wireProvider(provider: EditorDataProvider) {
 
 onMounted(() => {
   wireProvider(props.provider)
+  window.addEventListener('beforeunload', handleBeforeUnload)
 })
 
 onBeforeUnmount(() => {
+  window.removeEventListener('beforeunload', handleBeforeUnload)
   flushPendingEdit()
   clearLockTimers()
   if (store.activeBlockId && !store.isLockedByOther({ id: store.activeBlockId } as Block)) {
     props.provider.sendBlockUnlock?.(store.activeBlockId)
+  }
+})
+
+onBeforeRouteLeave(async () => {
+  if (hasPendingData()) {
+    const success = await flushPendingEdit()
+    if (!success) {
+      const confirmLeave = window.confirm(
+        'Pending changes could not be saved to the server. Are you sure you want to leave?',
+      )
+      if (!confirmLeave) {
+        return false
+      }
+    }
+  }
+  if (store.activeBlockId && !store.isLockedByOther({ id: store.activeBlockId } as Block)) {
+    const activeId = store.activeBlockId
+    clearLockTimers()
+    store.unlock(activeId)
+    store.setActive('')
+    await props.provider.sendBlockUnlock?.(activeId)
   }
 })
 
