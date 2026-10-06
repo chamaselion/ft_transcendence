@@ -2,8 +2,12 @@
   import { computed } from 'vue'
   import Login from '@/auth/components/Login.vue'
   import { useRoute } from 'vue-router'
+  import { useAuthStore } from '@/stores/auth'
+  import Toast from '@/app/components/Toast.vue'
 
   const route = useRoute()
+
+  const authStore = useAuthStore()
 
   const email = computed(() => {
     const value = route.query.email
@@ -22,7 +26,24 @@
 
 <template>
 
-  <Login  :email="email"
-          :isRegisterRedirect="isRegisterRedirect"/>
+  <div class="login-parent">
+    <Login  :email="email" v-if="authStore.isAuthenticated === false"
+            :isRegisterRedirect="isRegisterRedirect"/>
+    <Toast :modelValue="authStore.isAuthenticated === true"
+           type="good"
+           message="You are already logged in." />
+  </div>
 
 </template>
+
+<style scoped>
+  .login-parent {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    box-sizing: border-box;
+    min-height: calc(100vh - 61px);
+    padding: 40px 24px;
+  }
+</style>

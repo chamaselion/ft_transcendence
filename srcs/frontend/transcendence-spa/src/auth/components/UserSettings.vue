@@ -8,8 +8,10 @@ import Input from '@/app/components/Input.vue'
 import Toast from '@/app/components/Toast.vue'
 import type { Root, User } from '../types/user'
 import type { OtpConfirmationResponse } from '../types/auth.types'
+import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
+const authStore = useAuthStore()
 
 const res = ref<Root | null>(null)
 const user = ref<User | null>(null)
@@ -50,6 +52,7 @@ async function loadProfile() {
     user.value = response.user ?? null
     email.value = user.value?.email ?? undefined
     login.value = user.value?.login ?? undefined
+    authStore.setStoreToApiResponse(response)
   } catch (error) {
     if (!(error instanceof HttpError) || error.status !== 401) {
       failed.value = true
