@@ -66,6 +66,16 @@ const resolveOrCreateUserForOAuthProfile = async ({ provider, profile }) => {
         };
       }
 
+      if (String(existingLink.providerUserId) !== String(profile.providerUserId)) {
+        return {
+          user: null,
+          oauthAccount: null,
+          created: false,
+          reason: 'provider_identity_mismatch',
+          existingUserId: existingUser.id,
+        };
+      }
+
       return { user: existingUser, oauthAccount: existingLink, created: false };
     }
   }
