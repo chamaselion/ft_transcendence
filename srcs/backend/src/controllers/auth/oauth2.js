@@ -259,6 +259,12 @@ const createOAuth2Handler = ({ logger = console } = {}) => {
           });
         }
 
+        if (resolutionResult.reason === 'provider_identity_mismatch') {
+          return res.status(409).json({
+            error: 'Authentication failed',
+          });
+        }
+
         user = resolutionResult.user;
         oauthAccount = resolutionResult.oauthAccount;
 
