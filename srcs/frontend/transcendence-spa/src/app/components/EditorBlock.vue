@@ -2,17 +2,18 @@
   <div
     class="editor-block"
     :class="{
-      'editor-block--active': active,
+      'editor-block--active': active && !locked,
       'editor-block--locked': locked,
     }"
     :data-block-id="block.id"
-    @click="$emit('focus')"
+    @click="!locked && $emit('focus')"
   >
     <component
       :is="component"
       v-bind="componentProps"
-      @update:text="$emit('update:text', $event)"
-      @focus="$emit('focus')"
+      @update:text="!locked && $emit('update:text', $event)"
+      @update:language="!locked && onUpdateLanguage($event)"
+      @focus="!locked && $emit('focus')"
       @blur="$emit('blur')"
     />
     <span v-if="locked" class="editor-block__lock" title="This block is locked by another user">
@@ -28,7 +29,7 @@ import EditorHeading from '@/app/components/EditorHeading.vue'
 import EditorList from '@/app/components/EditorList.vue'
 import EditorCitation from '@/app/components/EditorCitation.vue'
 import EditorCode from '@/app/components/EditorCode.vue'
-import { parseDecorator, type Block, type BlockType } from '@/app/editor/types'
+import { parseDecorator, serializeDecorator, type Block, type BlockType } from '@/app/editor/types'
 
 const props = defineProps<{
   block: Block
@@ -36,8 +37,9 @@ const props = defineProps<{
   locked?: boolean
 }>()
 
-defineEmits<{
+const emit = defineEmits<{
   'update:text': [value: string]
+  'update:decorator': [value: string]
   focus: []
   blur: []
 }>()
@@ -52,6 +54,12 @@ const componentMap: Record<BlockType, Component> = {
 
 const decorator = computed(() => parseDecorator(props.block.decorator))
 const component = computed(() => componentMap[decorator.value.type])
+
+function onUpdateLanguage(language: string) {
+  if (props.locked) return
+  const updated = { ...decorator.value, language }
+  emit('update:decorator', serializeDecorator(updated))
+}
 
 const componentProps = computed(() => {
   const decoratorValue = decorator.value
@@ -73,7 +81,7 @@ const componentProps = computed(() => {
       return { ...base, code: props.block.text, language: decoratorValue.language }
     case 'p':
     default:
-      return { ...base, text: props.block.text }
+      return { ...base, text: props.block.text, align: decoratorValue.align || 'left' }
   }
 })
 </script>
@@ -95,20 +103,31 @@ const componentProps = computed(() => {
 }
 
 .editor-block--locked {
-  background-color: color-mix(in srgb, var(--color-warn) 12%, transparent);
+  border: 2px solid var(--color-alert, #dc2626);
+  border-radius: 6px;
+  background-color: color-mix(in srgb, var(--color-alert, #dc2626) 8%, transparent);
+  user-select: none;
+  cursor: not-allowed;
+}
+
+.editor-block--locked :deep(*) {
+  pointer-events: none;
+  user-select: none;
 }
 
 .editor-block__lock {
   position: absolute;
   top: 4px;
   right: 8px;
-  padding: 1px 6px;
+  padding: 2px 8px;
   border-radius: 4px;
-  background-color: var(--color-warn);
-  color: var(--color-warn-contrast);
+  background-color: var(--color-alert, #dc2626);
+  color: var(--color-alert-contrast, #ffffff);
   font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
+  font-weight: 700;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
+  pointer-events: auto;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 </style>

@@ -14,18 +14,21 @@
     @focus="onFocus"
     @blur="onBlur"
     @keydown="onKeydown"
+    @paste="onPaste"
   >
-    <slot v-if="!isEditable">{{ text }}</slot>
+    <slot v-if="!editable">{{ text }}</slot>
   </p>
 </template>
 
 <script lang="ts" setup>
 import { computed, ref } from 'vue'
 import { useEditable } from '@/app/editor/useEditable'
+import type { ParagraphAlignment } from '@/app/editor/types'
 
 const props = withDefaults(
   defineProps<{
     text?: string
+    align?: ParagraphAlignment
     editable?: boolean
     locked?: boolean
     placeholder?: string
@@ -36,6 +39,7 @@ const props = withDefaults(
   }>(),
   {
     text: '',
+    align: 'left',
     editable: false,
     locked: false,
     placeholder: 'Write something…',
@@ -56,7 +60,7 @@ const element = ref<HTMLElement | null>(null)
 const isEditable = computed(() => props.editable && !props.locked)
 const isEmpty = computed(() => isEditable.value && props.text.length === 0)
 
-const { attributes, onInput, onFocus, onBlur, onKeydown } = useEditable(
+const { attributes, onInput, onFocus, onBlur, onKeydown, onPaste } = useEditable(
   element,
   () => props.text,
   () => isEditable.value,
@@ -68,6 +72,7 @@ const style = computed(() => ({
   color: props.color,
   backgroundColor: props.bgColor,
   fontSize: props.size,
+  textAlign: props.align || 'left',
 }))
 </script>
 
