@@ -35,6 +35,10 @@ export const iconNames = [
   'Folder',
   'Search',
   'Refresh',
+  'ChevronLeft',
+  'ChevronRight',
+  'ChevronsLeft',
+  'ChevronsRight',
 ] as const
 
 export type IconName = (typeof iconNames)[number]
@@ -77,6 +81,10 @@ import {
   IconFolder,
   IconSearch,
   IconRefresh,
+  IconChevronLeft,
+  IconChevronRight,
+  IconChevronsLeft,
+  IconChevronsRight,
 } from '@tabler/icons-vue'
 
 const iconMap: Record<IconName, Component> = {
@@ -115,6 +123,10 @@ const iconMap: Record<IconName, Component> = {
   Folder: IconFolder,
   Search: IconSearch,
   Refresh: IconRefresh,
+  ChevronLeft: IconChevronLeft,
+  ChevronRight: IconChevronRight,
+  ChevronsLeft: IconChevronsLeft,
+  ChevronsRight: IconChevronsRight,
 }
 
 const props = withDefaults(

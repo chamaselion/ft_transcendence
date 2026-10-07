@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import Button from '@/app/components/Button.vue'
 import Icon from '@/app/components/Icon.vue'
@@ -10,14 +10,24 @@ import { listDocuments, deleteDocument, type DocumentData } from '@/app/editor/d
 
 const router = useRouter()
 
-// Document list state
+// Document list & pagination state
 const documents = ref<DocumentData[]>([])
 const loading = ref(false)
 const errorMessage = ref<string | null>(null)
 const searchQuery = ref('')
 const selectedScope = ref<'all' | 'own' | 'shared'>('all')
 
-// Share modal state
+const pageSize = ref<number>(10)
+const currentPage = ref<number>(1)
+const totalDocuments = ref<number>(0)
+const totalPages = computed(() => Math.max(1, Math.ceil(totalDocuments.value / pageSize.value)))
+
+// Range of documents currently shown
+const fromItem = computed(() =>
+  totalDocuments.value === 0 ? 0 : (currentPage.value - 1) * pageSize.value + 1,
+)
+const toItem = computed(() => Math.min(currentPage.value * pageSize.value, totalDocuments.value))
+
 const showShareModal = ref(false)
 const selectedShareDoc = ref<DocumentData | null>(null)
 
@@ -31,17 +41,24 @@ const showToast = ref(false)
 const toastMessage = ref('')
 const toastType = ref<'good' | 'alert' | 'info' | 'warn'>('good')
 
+// Debounced search timer
+let debounceTimer: ReturnType<typeof setTimeout> | undefined
+
 async function fetchDocuments() {
   loading.value = true
   errorMessage.value = null
   try {
+    const offset = (currentPage.value - 1) * pageSize.value
     const res = await listDocuments({
       scope: selectedScope.value,
       sort: 'updatedAt',
       order: 'DESC',
-      limit: 50,
+      limit: pageSize.value,
+      offset,
+      q: searchQuery.value.trim() || undefined,
     })
     documents.value = res.documents
+    totalDocuments.value = res.pagination?.total ?? res.documents.length
   } catch (err) {
     console.error('Failed to load documents:', err)
     errorMessage.value = err instanceof Error ? err.message : 'Failed to fetch documents'
@@ -50,26 +67,70 @@ async function fetchDocuments() {
   }
 }
 
-// Client-side filtering by search query for fast typing feedback
-const filteredDocuments = computed(() => {
-  const query = searchQuery.value.trim().toLowerCase()
-  if (!query) return documents.value
+function onSearchInput() {
+  clearTimeout(debounceTimer)
+  debounceTimer = setTimeout(() => {
+    currentPage.value = 1
+    fetchDocuments()
+  }, 300)
+}
 
-  return documents.value.filter((doc) => {
-    const titleMatch = doc.title?.toLowerCase().includes(query)
-    const ownerMatch = doc.owner?.login?.toLowerCase().includes(query)
-    return titleMatch || ownerMatch
-  })
-})
-
-const ownedCount = computed(() => documents.value.filter((d) => d.permission === 'owner').length)
-const sharedCount = computed(() => documents.value.filter((d) => d.permission !== 'owner').length)
+function clearSearch() {
+  searchQuery.value = ''
+  currentPage.value = 1
+  fetchDocuments()
+}
 
 function setScope(scope: 'all' | 'own' | 'shared') {
   if (selectedScope.value === scope) return
   selectedScope.value = scope
+  currentPage.value = 1
   fetchDocuments()
 }
+
+function handlePageSizeChange(newSize: number) {
+  if (pageSize.value === newSize) return
+  pageSize.value = newSize
+  currentPage.value = 1
+  fetchDocuments()
+}
+
+function goToPage(page: number) {
+  if (page < 1 || page > totalPages.value || page === currentPage.value) return
+  currentPage.value = page
+  fetchDocuments()
+}
+
+const visiblePages = computed(() => {
+  const current = currentPage.value
+  const total = totalPages.value
+  const pages: (number | string)[] = []
+
+  if (total <= 7) {
+    for (let i = 1; i <= total; i++) pages.push(i)
+    return pages
+  }
+
+  pages.push(1)
+
+  if (current > 3) {
+    pages.push('...')
+  }
+
+  const start = Math.max(2, current - 1)
+  const end = Math.min(total - 1, current + 1)
+
+  for (let i = start; i <= end; i++) {
+    pages.push(i)
+  }
+
+  if (current < total - 2) {
+    pages.push('...')
+  }
+
+  pages.push(total)
+  return pages
+})
 
 function handleOpenDocument(docId: string) {
   router.push(`/editor/${docId}`)
@@ -97,14 +158,18 @@ async function confirmDelete() {
   isDeleting.value = true
   try {
     await deleteDocument(docId)
-    // Remove locally from list
-    documents.value = documents.value.filter((d) => d.id !== docId)
     showDeleteModal.value = false
     selectedDeleteDoc.value = null
 
     toastType.value = 'good'
     toastMessage.value = `"${docTitle}" has been deleted.`
     showToast.value = true
+
+    // If deleting last document on page > 1, step back one page
+    if (documents.value.length === 1 && currentPage.value > 1) {
+      currentPage.value--
+    }
+    await fetchDocuments()
   } catch (err) {
     console.error('Failed to delete document:', err)
     toastType.value = 'alert'
@@ -160,6 +225,10 @@ function formatFullDate(dateString: string): string {
 onMounted(() => {
   fetchDocuments()
 })
+
+onBeforeUnmount(() => {
+  clearTimeout(debounceTimer)
+})
 </script>
 
 <template>
@@ -168,7 +237,7 @@ onMounted(() => {
     <div class="directory__header">
       <div class="directory__title-group">
         <h2 class="directory__title">Documents</h2>
-        <span class="directory__count">{{ filteredDocuments.length }}</span>
+        <span class="directory__count">{{ totalDocuments }}</span>
       </div>
 
       <div class="directory__header-actions">
@@ -189,14 +258,15 @@ onMounted(() => {
           v-model="searchQuery"
           type="text"
           class="directory__search-input"
-          placeholder="Search documents by title or owner..."
+          placeholder="Search documents by title..."
+          @input="onSearchInput"
         />
         <button
           v-if="searchQuery"
           type="button"
           class="directory__search-clear"
           title="Clear search"
-          @click="searchQuery = ''"
+          @click="clearSearch"
         >
           ×
         </button>
@@ -218,7 +288,6 @@ onMounted(() => {
           @click="setScope('own')"
         >
           Owned
-          <span v-if="ownedCount > 0" class="directory__filter-badge">{{ ownedCount }}</span>
         </button>
         <button
           type="button"
@@ -227,7 +296,6 @@ onMounted(() => {
           @click="setScope('shared')"
         >
           Shared
-          <span v-if="sharedCount > 0" class="directory__filter-badge">{{ sharedCount }}</span>
         </button>
 
         <button
@@ -255,7 +323,7 @@ onMounted(() => {
     </div>
 
     <!-- Empty states -->
-    <div v-else-if="filteredDocuments.length === 0" class="directory__empty">
+    <div v-else-if="!loading && documents.length === 0" class="directory__empty">
       <div class="directory__empty-icon">
         <Icon name="FileText" :size="48" />
       </div>
@@ -283,7 +351,7 @@ onMounted(() => {
       </Button>
     </div>
 
-    <!-- Documents List Table -->
+    <!-- Documents List Table and Pagination Container -->
     <div v-else class="directory__table-wrapper">
       <table class="directory__table">
         <thead>
@@ -296,7 +364,7 @@ onMounted(() => {
         </thead>
         <tbody>
           <tr
-            v-for="doc in filteredDocuments"
+            v-for="doc in documents"
             :key="doc.id"
             class="directory__row"
             @click="handleOpenDocument(doc.id)"
@@ -388,6 +456,98 @@ onMounted(() => {
           </tr>
         </tbody>
       </table>
+
+      <!-- Pagination and Page Size Footer Bar -->
+      <div class="directory__pagination">
+        <!-- Range Information -->
+        <div class="directory__pagination-info">
+          Showing
+          <strong class="directory__pagination-strong">{{ fromItem }}</strong>
+          –
+          <strong class="directory__pagination-strong">{{ toItem }}</strong>
+          of
+          <strong class="directory__pagination-strong">{{ totalDocuments }}</strong>
+        </div>
+
+        <!-- Page Navigation Buttons -->
+        <div class="directory__pagination-nav">
+          <button
+            type="button"
+            class="directory__page-btn directory__page-btn--arrow"
+            title="First page"
+            aria-label="First page"
+            :disabled="currentPage === 1 || loading"
+            @click="goToPage(1)"
+          >
+            <Icon name="ChevronsLeft" :size="16" />
+          </button>
+          <button
+            type="button"
+            class="directory__page-btn directory__page-btn--arrow"
+            title="Previous page"
+            aria-label="Previous page"
+            :disabled="currentPage === 1 || loading"
+            @click="goToPage(currentPage - 1)"
+          >
+            <Icon name="ChevronLeft" :size="16" />
+          </button>
+
+          <!-- Page numbers -->
+          <div class="directory__page-numbers">
+            <template v-for="(p, idx) in visiblePages" :key="idx">
+              <span v-if="p === '...'" class="directory__page-ellipsis">…</span>
+              <button
+                v-else
+                type="button"
+                class="directory__page-btn directory__page-btn--number"
+                :class="{ 'directory__page-btn--active': p === currentPage }"
+                :aria-current="p === currentPage ? 'page' : undefined"
+                :disabled="loading"
+                @click="goToPage(Number(p))"
+              >
+                {{ p }}
+              </button>
+            </template>
+          </div>
+
+          <button
+            type="button"
+            class="directory__page-btn directory__page-btn--arrow"
+            title="Next page"
+            aria-label="Next page"
+            :disabled="currentPage >= totalPages || loading"
+            @click="goToPage(currentPage + 1)"
+          >
+            <Icon name="ChevronRight" :size="16" />
+          </button>
+          <button
+            type="button"
+            class="directory__page-btn directory__page-btn--arrow"
+            title="Last page"
+            aria-label="Last page"
+            :disabled="currentPage >= totalPages || loading"
+            @click="goToPage(totalPages)"
+          >
+            <Icon name="ChevronsRight" :size="16" />
+          </button>
+        </div>
+
+        <!-- Rows per page selector: 5, 10, 20 (default 10) -->
+        <div class="directory__page-size">
+          <label for="page-size-select" class="directory__page-size-label">Rows:</label>
+          <select
+            id="page-size-select"
+            :value="pageSize"
+            class="directory__page-size-select"
+            :disabled="loading"
+            @change="handlePageSizeChange(Number(($event.target as HTMLSelectElement).value))"
+          >
+            <option :value="5">5</option>
+            <option :value="10">10</option>
+            <option :value="20">20</option>
+          </select>
+        </div>
+      </div>
     </div>
 
     <!-- Share Modal -->
@@ -588,17 +748,6 @@ onMounted(() => {
   color: var(--text-primary);
   box-shadow: var(--shadow-sm);
   font-weight: 600;
-}
-
-.directory__filter-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1px 6px;
-  border-radius: 9999px;
-  font-size: 0.75rem;
-  background-color: color-mix(in srgb, var(--color-primary) 15%, transparent);
-  color: var(--color-primary);
 }
 
 .directory__refresh-btn {
@@ -892,6 +1041,127 @@ onMounted(() => {
   text-transform: capitalize;
 }
 
+/* Pagination Bar */
+.directory__pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border-subtle);
+  background-color: var(--bg-subtle);
+  flex-wrap: wrap;
+}
+
+.directory__pagination-info {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.directory__pagination-strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.directory__pagination-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.directory__page-numbers {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.directory__page-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  height: 30px;
+  padding: 0 6px;
+  margin: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background-color: transparent;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background-color 0.15s,
+    color 0.15s,
+    border-color 0.15s;
+}
+
+.directory__page-btn:hover:not(:disabled) {
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+  border-color: var(--border-subtle);
+}
+
+.directory__page-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.directory__page-btn--active {
+  background-color: var(--color-primary);
+  color: var(--color-primary-contrast);
+  font-weight: 600;
+  border-color: var(--color-primary);
+}
+
+.directory__page-btn--active:hover:not(:disabled) {
+  background-color: var(--color-primary-hover);
+  color: var(--color-primary-contrast);
+}
+
+.directory__page-btn--arrow {
+  padding: 0 4px;
+}
+
+.directory__page-ellipsis {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 30px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+/* Page size selector */
+.directory__page-size {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.directory__page-size-label {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.directory__page-size-select {
+  padding: 4px 8px;
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.directory__page-size-select:focus {
+  border-color: var(--color-primary);
+}
+
 /* Delete Modal Content */
 .directory__delete-modal-content {
   display: flex;
@@ -933,6 +1203,12 @@ onMounted(() => {
 
   .directory__th--actions {
     width: 20%;
+  }
+
+  .directory__pagination {
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
   }
 }
 </style>
