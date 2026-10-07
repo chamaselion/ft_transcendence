@@ -16,17 +16,17 @@ const router = useRouter()
       <DocumentDirectory />
     </template>
 
-
     <!-- Logged out: Welcome hero -->
     <template v-else>
       <section class="home-hero">
         <div class="home-hero__badge">
-          <Icon name="sparkles" size="16" />
+          <Icon name="Sparkles" :size="16" />
           <span>New</span>
         </div>
         <h1 class="home-hero__title">Welcome to Trans Edit</h1>
         <p class="home-hero__subtitle">
-          A collaborative document editor built for teams. Create, edit, and share documents in real-time with your team members.
+          A collaborative document editor built for teams. Create, edit, and share documents in
+          real-time with your team members.
         </p>
         <div class="home-hero__actions">
           <Button @click="router.push('/register')">Get Started</Button>
