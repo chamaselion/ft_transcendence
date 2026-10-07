@@ -2,28 +2,30 @@ import { defineStore } from 'pinia'
 import { httpClient } from '@/auth/auth.api'
 import type { Root, User } from '@/auth/types/user'
 
-
 export const useAuthStore = defineStore('auth', {
-  state: ()  => ({
+  state: () => ({
     user: undefined as User | undefined,
-    isAuthenticated: false
+    isAuthenticated: false,
+    authChecked: false,
   }),
 
-  getters: {
-  },
+  getters: {},
 
   actions: {
     invalidate() {
-      this.user = {} as User;
-      this.isAuthenticated = false;
+      this.user = {} as User
+      this.isAuthenticated = false
+      this.authChecked = true
     },
     setStoreToApiResponse(response: Root) {
-      this.user = response.user;
-      this.isAuthenticated = true;
+      this.user = response.user
+      this.isAuthenticated = true
+      this.authChecked = true
     },
     async checkForAuthentication() {
       if (this.user && this.user.id) {
-        this.isAuthenticated = true;
+        this.isAuthenticated = true
+        this.authChecked = true
       } else {
         try {
           const res = await httpClient.get<Root>('me')
@@ -31,6 +33,8 @@ export const useAuthStore = defineStore('auth', {
           this.setStoreToApiResponse(res)
         } catch {
           this.invalidate()
+        } finally {
+          this.authChecked = true
         }
       }
     },
@@ -41,8 +45,6 @@ export const useAuthStore = defineStore('auth', {
       } catch (error) {
         console.error('Logout failed:', error)
       }
-    }
+    },
   },
-});
-
-
+})

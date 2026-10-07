@@ -1,0 +1,938 @@
+<script setup lang="ts">
+import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import Button from '@/app/components/Button.vue'
+import Icon from '@/app/components/Icon.vue'
+import Modal from '@/app/components/Modal.vue'
+import Toast from '@/app/components/Toast.vue'
+import ShareModal from '@/app/components/ShareModal.vue'
+import { listDocuments, deleteDocument, type DocumentData } from '@/app/editor/document.api'
+
+const router = useRouter()
+
+// Document list state
+const documents = ref<DocumentData[]>([])
+const loading = ref(false)
+const errorMessage = ref<string | null>(null)
+const searchQuery = ref('')
+const selectedScope = ref<'all' | 'own' | 'shared'>('all')
+
+// Share modal state
+const showShareModal = ref(false)
+const selectedShareDoc = ref<DocumentData | null>(null)
+
+// Delete modal state
+const showDeleteModal = ref(false)
+const selectedDeleteDoc = ref<DocumentData | null>(null)
+const isDeleting = ref(false)
+
+// Toast feedback state
+const showToast = ref(false)
+const toastMessage = ref('')
+const toastType = ref<'good' | 'alert' | 'info' | 'warn'>('good')
+
+async function fetchDocuments() {
+  loading.value = true
+  errorMessage.value = null
+  try {
+    const res = await listDocuments({
+      scope: selectedScope.value,
+      sort: 'updatedAt',
+      order: 'DESC',
+      limit: 50,
+    })
+    documents.value = res.documents
+  } catch (err) {
+    console.error('Failed to load documents:', err)
+    errorMessage.value = err instanceof Error ? err.message : 'Failed to fetch documents'
+  } finally {
+    loading.value = false
+  }
+}
+
+// Client-side filtering by search query for fast typing feedback
+const filteredDocuments = computed(() => {
+  const query = searchQuery.value.trim().toLowerCase()
+  if (!query) return documents.value
+
+  return documents.value.filter((doc) => {
+    const titleMatch = doc.title?.toLowerCase().includes(query)
+    const ownerMatch = doc.owner?.login?.toLowerCase().includes(query)
+    return titleMatch || ownerMatch
+  })
+})
+
+const ownedCount = computed(() => documents.value.filter((d) => d.permission === 'owner').length)
+const sharedCount = computed(() => documents.value.filter((d) => d.permission !== 'owner').length)
+
+function setScope(scope: 'all' | 'own' | 'shared') {
+  if (selectedScope.value === scope) return
+  selectedScope.value = scope
+  fetchDocuments()
+}
+
+function handleOpenDocument(docId: string) {
+  router.push(`/editor/${docId}`)
+}
+
+function handleCreateNew() {
+  router.push('/editor')
+}
+
+function openShareDialog(doc: DocumentData) {
+  selectedShareDoc.value = doc
+  showShareModal.value = true
+}
+
+function openDeleteDialog(doc: DocumentData) {
+  selectedDeleteDoc.value = doc
+  showDeleteModal.value = true
+}
+
+async function confirmDelete() {
+  if (!selectedDeleteDoc.value) return
+  const docId = selectedDeleteDoc.value.id
+  const docTitle = selectedDeleteDoc.value.title || 'Untitled Document'
+
+  isDeleting.value = true
+  try {
+    await deleteDocument(docId)
+    // Remove locally from list
+    documents.value = documents.value.filter((d) => d.id !== docId)
+    showDeleteModal.value = false
+    selectedDeleteDoc.value = null
+
+    toastType.value = 'good'
+    toastMessage.value = `"${docTitle}" has been deleted.`
+    showToast.value = true
+  } catch (err) {
+    console.error('Failed to delete document:', err)
+    toastType.value = 'alert'
+    toastMessage.value = err instanceof Error ? err.message : 'Failed to delete document.'
+    showToast.value = true
+  } finally {
+    isDeleting.value = false
+  }
+}
+
+function formatRelativeTime(dateString: string): string {
+  if (!dateString) return 'Unknown'
+  const date = new Date(dateString)
+  if (isNaN(date.getTime())) return dateString
+
+  const now = new Date()
+  const diffSec = Math.floor((now.getTime() - date.getTime()) / 1000)
+
+  if (diffSec < 45) return 'Just now'
+  if (diffSec < 90) return '1 minute ago'
+  if (diffSec < 3600) {
+    const mins = Math.floor(diffSec / 60)
+    return `${mins} minutes ago`
+  }
+  if (diffSec < 7200) return '1 hour ago'
+  if (diffSec < 86400) {
+    const hours = Math.floor(diffSec / 3600)
+    return `${hours} hours ago`
+  }
+  if (diffSec < 172800) return 'Yesterday'
+  if (diffSec < 604800) {
+    const days = Math.floor(diffSec / 86400)
+    return `${days} days ago`
+  }
+
+  return date.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  })
+}
+
+function formatFullDate(dateString: string): string {
+  if (!dateString) return ''
+  const date = new Date(dateString)
+  if (isNaN(date.getTime())) return dateString
+  return date.toLocaleString(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  })
+}
+
+onMounted(() => {
+  fetchDocuments()
+})
+</script>
+
+<template>
+  <div class="directory">
+    <!-- Top toolbar / header -->
+    <div class="directory__header">
+      <div class="directory__title-group">
+        <h2 class="directory__title">Documents</h2>
+        <span class="directory__count">{{ filteredDocuments.length }}</span>
+      </div>
+
+      <div class="directory__header-actions">
+        <Button variant="elevated" color="primary" size="small" @click="handleCreateNew">
+          <template #prepend>
+            <Icon name="Plus" :size="16" />
+          </template>
+          New Document
+        </Button>
+      </div>
+    </div>
+
+    <!-- Filters and Search Bar -->
+    <div class="directory__toolbar">
+      <div class="directory__search-wrapper">
+        <Icon name="Search" :size="16" class="directory__search-icon" />
+        <input
+          v-model="searchQuery"
+          type="text"
+          class="directory__search-input"
+          placeholder="Search documents by title or owner..."
+        />
+        <button
+          v-if="searchQuery"
+          type="button"
+          class="directory__search-clear"
+          title="Clear search"
+          @click="searchQuery = ''"
+        >
+          ×
+        </button>
+      </div>
+
+      <div class="directory__filters">
+        <button
+          type="button"
+          class="directory__filter-tab"
+          :class="{ 'directory__filter-tab--active': selectedScope === 'all' }"
+          @click="setScope('all')"
+        >
+          All
+        </button>
+        <button
+          type="button"
+          class="directory__filter-tab"
+          :class="{ 'directory__filter-tab--active': selectedScope === 'own' }"
+          @click="setScope('own')"
+        >
+          Owned
+          <span v-if="ownedCount > 0" class="directory__filter-badge">{{ ownedCount }}</span>
+        </button>
+        <button
+          type="button"
+          class="directory__filter-tab"
+          :class="{ 'directory__filter-tab--active': selectedScope === 'shared' }"
+          @click="setScope('shared')"
+        >
+          Shared
+          <span v-if="sharedCount > 0" class="directory__filter-badge">{{ sharedCount }}</span>
+        </button>
+
+        <button
+          type="button"
+          class="directory__refresh-btn"
+          title="Refresh documents"
+          :disabled="loading"
+          @click="fetchDocuments"
+        >
+          <Icon name="Refresh" :size="16" :class="{ 'directory__refresh-spinner': loading }" />
+        </button>
+      </div>
+    </div>
+
+    <!-- Error message banner -->
+    <div v-if="errorMessage" class="directory__error">
+      <span>{{ errorMessage }}</span>
+      <Button variant="outlined" size="x-small" @click="fetchDocuments">Retry</Button>
+    </div>
+
+    <!-- Loading skeleton / state -->
+    <div v-if="loading && documents.length === 0" class="directory__loading">
+      <div class="directory__loader-spinner" />
+      <span>Loading available documents...</span>
+    </div>
+
+    <!-- Empty states -->
+    <div v-else-if="filteredDocuments.length === 0" class="directory__empty">
+      <div class="directory__empty-icon">
+        <Icon name="FileText" :size="48" />
+      </div>
+      <h3 class="directory__empty-title">
+        {{ searchQuery ? 'No matching documents' : 'No documents yet' }}
+      </h3>
+      <p class="directory__empty-desc">
+        {{
+          searchQuery
+            ? 'Try adjusting your search terms or filter scope.'
+            : 'Get started by creating your first document to edit and collaborate in real-time.'
+        }}
+      </p>
+      <Button
+        v-if="!searchQuery"
+        variant="elevated"
+        color="primary"
+        size="small"
+        @click="handleCreateNew"
+      >
+        <template #prepend>
+          <Icon name="Plus" :size="16" />
+        </template>
+        Create Document
+      </Button>
+    </div>
+
+    <!-- Documents List Table -->
+    <div v-else class="directory__table-wrapper">
+      <table class="directory__table">
+        <thead>
+          <tr>
+            <th class="directory__th directory__th--name">Document Name</th>
+            <th class="directory__th directory__th--status">Ownership</th>
+            <th class="directory__th directory__th--changed">Last Changed</th>
+            <th class="directory__th directory__th--actions">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr
+            v-for="doc in filteredDocuments"
+            :key="doc.id"
+            class="directory__row"
+            @click="handleOpenDocument(doc.id)"
+          >
+            <!-- Document Name -->
+            <td class="directory__td directory__td--name">
+              <div class="directory__doc-info">
+                <div class="directory__doc-icon">
+                  <Icon name="FileText" :size="20" />
+                </div>
+                <div class="directory__doc-text">
+                  <span class="directory__doc-title" :title="doc.title || 'Untitled Document'">
+                    {{ doc.title || 'Untitled Document' }}
+                  </span>
+                  <span class="directory__doc-id">ID: {{ doc.id.slice(0, 8) }}...</span>
+                </div>
+              </div>
+            </td>
+
+            <!-- Owned / Shared -->
+            <td class="directory__td directory__td--status">
+              <div class="directory__ownership">
+                <span
+                  v-if="doc.permission === 'owner'"
+                  class="directory__badge directory__badge--owned"
+                >
+                  Owned
+                </span>
+                <span
+                  v-else
+                  class="directory__badge directory__badge--shared"
+                  :title="doc.owner ? `Shared by ${doc.owner.login}` : 'Shared document'"
+                >
+                  Shared
+                </span>
+
+                <span
+                  v-if="doc.permission !== 'owner' && doc.owner"
+                  class="directory__owner-note"
+                  :title="`Document created by ${doc.owner.login}`"
+                >
+                  by {{ doc.owner.login }}
+                </span>
+              </div>
+            </td>
+
+            <!-- Last Changed -->
+            <td class="directory__td directory__td--changed">
+              <span class="directory__time" :title="formatFullDate(doc.updatedAt)">
+                {{ formatRelativeTime(doc.updatedAt) }}
+              </span>
+            </td>
+
+            <!-- Actions: if owner, icon buttons to share or delete -->
+            <td class="directory__td directory__td--actions" @click.stop>
+              <div v-if="doc.permission === 'owner'" class="directory__action-buttons">
+                <Button
+                  variant="outlined"
+                  size="small"
+                  square
+                  title="Share document"
+                  aria-label="Share document"
+                  @click.stop="openShareDialog(doc)"
+                >
+                  <template #icon>
+                    <Icon name="Share" :size="16" />
+                  </template>
+                </Button>
+                <Button
+                  variant="outlined"
+                  color="alert"
+                  size="small"
+                  square
+                  title="Delete document"
+                  aria-label="Delete document"
+                  @click.stop="openDeleteDialog(doc)"
+                >
+                  <template #icon>
+                    <Icon name="Trash" :size="16" />
+                  </template>
+                </Button>
+              </div>
+              <div v-else class="directory__non-owner-placeholder">
+                <span class="directory__role-pill" :title="`Your role: ${doc.permission}`">
+                  {{ doc.permission }}
+                </span>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Share Modal -->
+    <ShareModal
+      v-if="selectedShareDoc"
+      v-model="showShareModal"
+      :document-id="selectedShareDoc.id"
+      :is-owner="true"
+    />
+
+    <!-- Delete Confirmation Modal -->
+    <Modal v-model="showDeleteModal" title="Delete Document" size="small">
+      <div class="directory__delete-modal-content">
+        <p>
+          Are you sure you want to delete
+          <strong>"{{ selectedDeleteDoc?.title || 'Untitled Document' }}"</strong>?
+        </p>
+        <p class="directory__delete-warning">
+          This document and all its contents will be permanently deleted. This action cannot be
+          undone.
+        </p>
+      </div>
+      <template #footer>
+        <Button
+          variant="outlined"
+          size="small"
+          :disabled="isDeleting"
+          @click="showDeleteModal = false"
+        >
+          Cancel
+        </Button>
+        <Button color="alert" size="small" :loading="isDeleting" @click="confirmDelete">
+          Delete Document
+        </Button>
+      </template>
+    </Modal>
+
+    <!-- Notification Toast -->
+    <div class="directory__toast-anchor">
+      <Toast v-model="showToast" :type="toastType" :message="toastMessage" :duration="4000" />
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.directory {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  max-width: 1080px;
+  margin: 0 auto;
+}
+
+/* Header */
+.directory__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.directory__title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.directory__title {
+  margin: 0;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.directory__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 9999px;
+  background-color: var(--bg-subtle);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.directory__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Toolbar */
+.directory__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.directory__search-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 260px;
+}
+
+.directory__search-icon {
+  position: absolute;
+  left: 12px;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.directory__search-input {
+  width: 100%;
+  padding: 8px 34px 8px 36px;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+}
+
+.directory__search-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 20%, transparent);
+}
+
+.directory__search-clear {
+  position: absolute;
+  right: 8px;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 18px;
+  line-height: 1;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.directory__search-clear:hover {
+  background-color: var(--bg-subtle);
+  color: var(--text-primary);
+}
+
+.directory__filters {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background-color: var(--bg-subtle);
+  padding: 4px;
+  border-radius: 8px;
+}
+
+.directory__filter-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  margin: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background-color 0.15s,
+    color 0.15s;
+}
+
+.directory__filter-tab:hover {
+  color: var(--text-primary);
+  background-color: color-mix(in srgb, var(--text-primary) 6%, transparent);
+}
+
+.directory__filter-tab--active {
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+  font-weight: 600;
+}
+
+.directory__filter-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 6px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  background-color: color-mix(in srgb, var(--color-primary) 15%, transparent);
+  color: var(--color-primary);
+}
+
+.directory__refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin: 0 0 0 4px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    background-color 0.15s,
+    color 0.15s;
+}
+
+.directory__refresh-btn:hover:not(:disabled) {
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+}
+
+.directory__refresh-spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Error State */
+.directory__error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-radius: 8px;
+  background-color: color-mix(in srgb, var(--color-alert) 12%, transparent);
+  border: 1px solid var(--color-alert);
+  color: var(--color-alert);
+  font-size: 0.9rem;
+}
+
+/* Loading State */
+.directory__loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 64px 16px;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+.directory__loader-spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid var(--border-default);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+/* Empty State */
+.directory__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 64px 24px;
+  border: 1px dashed var(--border-default);
+  border-radius: 12px;
+  background-color: color-mix(in srgb, var(--bg-surface) 60%, transparent);
+}
+
+.directory__empty-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background-color: var(--bg-subtle);
+  color: var(--text-muted);
+  margin-bottom: 16px;
+}
+
+.directory__empty-title {
+  margin: 0 0 8px;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.directory__empty-desc {
+  margin: 0 0 20px;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  max-width: 420px;
+}
+
+/* Table Wrapper */
+.directory__table-wrapper {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.directory__table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.directory__th {
+  padding: 12px 16px;
+  background-color: var(--bg-subtle);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.directory__th--name {
+  width: 46%;
+}
+
+.directory__th--status {
+  width: 18%;
+}
+
+.directory__th--changed {
+  width: 20%;
+}
+
+.directory__th--actions {
+  width: 16%;
+  text-align: right;
+}
+
+.directory__row {
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.directory__row:last-child {
+  border-bottom: none;
+}
+
+.directory__row:hover {
+  background-color: color-mix(in srgb, var(--text-primary) 4%, var(--bg-surface));
+}
+
+.directory__td {
+  padding: 14px 16px;
+  vertical-align: middle;
+}
+
+.directory__td--name {
+  min-width: 0;
+}
+
+.directory__doc-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.directory__doc-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background-color: color-mix(in srgb, var(--color-primary) 12%, transparent);
+  color: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.directory__doc-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.directory__doc-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.directory__row:hover .directory__doc-title {
+  color: var(--color-primary);
+}
+
+.directory__doc-id {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-family: monospace;
+}
+
+/* Ownership badges */
+.directory__ownership {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.directory__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.directory__badge--owned {
+  background-color: color-mix(in srgb, var(--color-good) 15%, transparent);
+  color: var(--color-good);
+}
+
+.directory__badge--shared {
+  background-color: color-mix(in srgb, var(--color-warn) 15%, transparent);
+  color: var(--color-warn);
+}
+
+.directory__owner-note {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* Changed column */
+.directory__time {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+/* Actions column */
+.directory__td--actions {
+  text-align: right;
+}
+
+.directory__action-buttons {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.directory__action-buttons :deep(.btn) {
+  margin: 0;
+}
+
+.directory__non-owner-placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.directory__role-pill {
+  font-size: 0.75rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background-color: var(--bg-subtle);
+  color: var(--text-muted);
+  text-transform: capitalize;
+}
+
+/* Delete Modal Content */
+.directory__delete-modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+}
+
+.directory__delete-warning {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+/* Fixed Toast positioning */
+.directory__toast-anchor {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 1001;
+  pointer-events: auto;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .directory__th--changed,
+  .directory__td--changed {
+    display: none;
+  }
+
+  .directory__th--name {
+    width: 55%;
+  }
+
+  .directory__th--status {
+    width: 25%;
+  }
+
+  .directory__th--actions {
+    width: 20%;
+  }
+}
+</style>
