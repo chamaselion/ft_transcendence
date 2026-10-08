@@ -100,11 +100,13 @@ const style = computed(() => ({
 
 .citation__body {
   flex: 1;
+  min-width: 0;
 }
 
 .citation__text {
   outline: none;
   border-radius: 4px;
+  overflow-wrap:anywhere;
 }
 
 .citation__text--editable.citation__text--empty:not(:focus)::before {
