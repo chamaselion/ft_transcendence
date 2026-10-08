@@ -26,6 +26,7 @@
         :filename="filename"
         render-mode="text"
         style="width: 80%"
+        :pdf-styling="pdfStyling"
       >
         <template #pdf-content>
           <div class="pdf-content">
@@ -86,6 +87,23 @@ import { Html2Pdf } from 'vue-pdf-export'
 import 'vue-pdf-export/style.css'
 
 const pdfRef = ref<InstanceType<typeof Html2Pdf> | null>(null)
+
+const pdfStyling = {
+  cssText: `
+    .pdf-content .paragraph,
+    .pdf-content h1,
+    .pdf-content h2,
+    .pdf-content h3,
+    .pdf-content h4,
+    .pdf-content h5,
+    .pdf-content h6,
+    .pdf-content li,
+    .pdf-content blockquote {
+      word-spacing: 0.1em;
+      white-space: pre-wrap;
+    }
+  `,
+}
 
 const onGeneratePdf = async () => {
   store.setActive('')
