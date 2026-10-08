@@ -1,13 +1,13 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 import { createBlock, type Block, type BlockType } from '@/app/editor/types'
-import { useUserStore } from '@/stores/user'
+import { useAuthStore } from '@/stores/auth'
 
 export const useEditorStore = defineStore('editor', () => {
   const blocks = ref<Block[]>([])
   const activeBlockId = ref<string | null>(null)
   const clientId = ref<string>('')
-  const userStore = useUserStore()
+  const authStore = useAuthStore()
 
   const activeBlock = computed(
     () => blocks.value.find((block) => block.id === activeBlockId.value) ?? null,
@@ -98,8 +98,8 @@ export const useEditorStore = defineStore('editor', () => {
     if (clientId.value) {
       return block.lockedBy !== clientId.value
     }
-    if (userStore.userId) {
-      return block.lockedBy !== userStore.userId
+    if (authStore.userId) {
+      return block.lockedBy !== authStore.userId
     }
     return true
   }
@@ -107,14 +107,14 @@ export const useEditorStore = defineStore('editor', () => {
   function lock(id: string, lockHolder?: string) {
     const block = blocks.value.find((item) => item.id === id)
     if (!block) return
-    const holder = lockHolder || clientId.value || userStore.userId || 'locked'
+    const holder = lockHolder || clientId.value || authStore.userId || 'locked'
     block.lockedBy = holder
   }
 
   function unlock(id: string) {
     const block = blocks.value.find((item) => item.id === id)
     if (!block) return
-    const myId = clientId.value || userStore.userId
+    const myId = clientId.value || authStore.userId
     if (!block.lockedBy || !myId || block.lockedBy === myId) {
       block.lockedBy = null
     }
