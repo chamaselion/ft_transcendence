@@ -1,6 +1,11 @@
 import { httpClient } from '@/auth/auth.api'
 import type { Block } from '@/app/editor/types'
 
+export interface DocumentOwner {
+  id: string
+  login: string
+}
+
 export interface DocumentData {
   id: string
   title: string
@@ -8,6 +13,28 @@ export interface DocumentData {
   permission: 'owner' | 'editor' | 'viewer'
   createdAt: string
   updatedAt: string
+  owner?: DocumentOwner
+  ownerId?: string
+}
+
+export interface DocumentPagination {
+  total: number
+  limit: number
+  offset: number
+}
+
+export interface DocumentsListResponse {
+  documents: DocumentData[]
+  pagination?: DocumentPagination
+}
+
+export interface ListDocumentsOptions {
+  q?: string
+  sort?: 'updatedAt' | 'createdAt' | 'title'
+  order?: 'ASC' | 'DESC' | 'asc' | 'desc'
+  limit?: number
+  offset?: number
+  scope?: 'own' | 'shared' | 'all'
 }
 
 export interface DocumentResponse {
@@ -46,7 +73,10 @@ export async function getDocument(id: string): Promise<DocumentData> {
   return res.document
 }
 
-export async function updateDocumentTitle(documentId: string, title: string): Promise<DocumentData> {
+export async function updateDocumentTitle(
+  documentId: string,
+  title: string,
+): Promise<DocumentData> {
   const res = await httpClient.patch<DocumentResponse>(`/api/documents/${documentId}`, {
     title,
   })
@@ -84,4 +114,28 @@ export async function updateShare(
 
 export async function deleteShare(documentId: string, userId: string): Promise<void> {
   await httpClient.delete(`/api/documents/${documentId}/shares/${userId}`)
+}
+
+export async function listDocuments(
+  options: ListDocumentsOptions = {},
+): Promise<DocumentsListResponse> {
+  const query: Record<string, string | number | undefined> = {}
+  if (options.q) query.q = options.q
+  if (options.sort) query.sort = options.sort
+  if (options.order) query.order = options.order
+  if (options.limit !== undefined) query.limit = options.limit
+  if (options.offset !== undefined) query.offset = options.offset
+  if (options.scope) query.scope = options.scope
+
+  const res = await httpClient.get<DocumentsListResponse>('/api/documents', {
+    query,
+  })
+  return {
+    documents: res?.documents ?? [],
+    pagination: res?.pagination,
+  }
+}
+
+export async function deleteDocument(documentId: string): Promise<void> {
+  await httpClient.delete(`/api/documents/${documentId}`)
 }

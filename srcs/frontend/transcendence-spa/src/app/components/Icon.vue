@@ -29,6 +29,16 @@ export const iconNames = [
   'Github',
   'FortyTwo',
   'ExclamationMark',
+  'Share',
+  'FileText',
+  'Plus',
+  'Folder',
+  'Search',
+  'Refresh',
+  'ChevronLeft',
+  'ChevronRight',
+  'ChevronsLeft',
+  'ChevronsRight',
 ] as const
 
 export type IconName = (typeof iconNames)[number]
@@ -65,6 +75,16 @@ import {
   IconBrandGithub,
   IconNumber42Small,
   IconExclamationMark,
+  IconShare,
+  IconFileText,
+  IconPlus,
+  IconFolder,
+  IconSearch,
+  IconRefresh,
+  IconChevronLeft,
+  IconChevronRight,
+  IconChevronsLeft,
+  IconChevronsRight,
 } from '@tabler/icons-vue'
 
 const iconMap: Record<IconName, Component> = {
@@ -97,6 +117,16 @@ const iconMap: Record<IconName, Component> = {
   Github: IconBrandGithub,
   FortyTwo: IconNumber42Small,
   ExclamationMark: IconExclamationMark,
+  Share: IconShare,
+  FileText: IconFileText,
+  Plus: IconPlus,
+  Folder: IconFolder,
+  Search: IconSearch,
+  Refresh: IconRefresh,
+  ChevronLeft: IconChevronLeft,
+  ChevronRight: IconChevronRight,
+  ChevronsLeft: IconChevronsLeft,
+  ChevronsRight: IconChevronsRight,
 }
 
 const props = withDefaults(
@@ -118,13 +148,7 @@ const currentIcon = computed(() => iconMap[props.name] ?? IconSparkles)
 </script>
 
 <template>
-  <component
-    :is="currentIcon"
-    :size="size"
-    :color="color"
-    :stroke="stroke"
-    class="icon"
-  />
+  <component :is="currentIcon" :size="size" :color="color" :stroke="stroke" class="icon" />
 </template>
 
 <style scoped>
