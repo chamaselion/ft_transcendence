@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Editor from '@/app/components/Editor.vue'
 import Button from '@/app/components/Button.vue'
+import Icon from '@/app/components/Icon.vue'
 import { WebSocketEditorDataProvider } from '@/app/editor/dataProvider'
 import type { EditorDataProvider } from '@/app/editor/types'
 import { createBlock } from '@/app/editor/types'
@@ -19,7 +20,9 @@ const documentTitle = ref<string>('Untitled Document')
 const titleEl = ref<HTMLElement | null>(null)
 const documentId = ref<string | null>(null)
 const userPermission = ref<'owner' | 'editor' | 'viewer'>('viewer')
-const isTitleEditable = computed(() => userPermission.value === 'owner' || userPermission.value === 'editor')
+const isTitleEditable = computed(
+  () => userPermission.value === 'owner' || userPermission.value === 'editor',
+)
 const showShareModal = ref(false)
 const connectionStatus = ref<'connecting' | 'connected' | 'disconnected'>('connecting')
 const errorMessage = ref<string | null>(null)
@@ -124,10 +127,7 @@ async function loadEditor(idParam?: string) {
   if (!id) {
     // Route /editor called -> create new document and open room automatically
     try {
-      const defaultBlocks = [
-        createBlock('h', 'Untitled document'),
-        createBlock('p', ''),
-      ]
+      const defaultBlocks = [createBlock('h', 'Untitled document'), createBlock('p', '')]
       const newDoc = await createDocument('Untitled document', defaultBlocks)
       if (newDoc && newDoc.id) {
         if (newDoc.permission) userPermission.value = newDoc.permission
@@ -198,12 +198,11 @@ onBeforeUnmount(() => {
           :title="isTitleEditable ? 'Click to rename document' : undefined"
           @blur="onTitleBlur"
           @keydown="onTitleKeydown"
-        >{{ documentTitle }}</h1>
+        >
+          {{ documentTitle }}
+        </h1>
         <div class="editor-view__badges">
-          <span
-            class="status-badge"
-            :class="`status-badge--${connectionStatus}`"
-          >
+          <span class="status-badge" :class="`status-badge--${connectionStatus}`">
             {{
               connectionStatus === 'connected'
                 ? 'Multiuser Room Live'
@@ -215,28 +214,18 @@ onBeforeUnmount(() => {
           <span v-if="documentId" class="doc-id-badge">
             Room: {{ documentId.slice(0, 8) }}...
           </span>
-          <span v-if="userPermission" class="permission-badge">
-            Role: {{ userPermission }}
-          </span>
+          <span v-if="userPermission" class="permission-badge"> Role: {{ userPermission }} </span>
         </div>
       </div>
 
       <div class="editor-view__actions">
-        <Button
-          v-if="documentId"
-          variant="outlined"
-          size="small"
-          @click="showShareModal = true"
-        >
+        <Button v-if="documentId" variant="outlined" size="small" @click="showShareModal = true">
+          <template #icon>
+            <Icon name="Share" :size="16" />
+          </template>
           Share
         </Button>
-        <Button
-          variant="outlined"
-          size="small"
-          @click="handleCreateNew"
-        >
-          + New Document
-        </Button>
+        <Button variant="outlined" size="small" @click="handleCreateNew"> + New Document </Button>
       </div>
     </div>
 
@@ -244,9 +233,7 @@ onBeforeUnmount(() => {
       {{ errorMessage }}
     </div>
 
-    <div v-if="isLoading" class="editor-view__loading">
-      Initializing document room...
-    </div>
+    <div v-if="isLoading" class="editor-view__loading">Initializing document room...</div>
 
     <Editor
       v-else-if="provider"
@@ -303,7 +290,9 @@ onBeforeUnmount(() => {
   border-radius: 4px;
   padding: 2px 6px;
   margin-left: -6px;
-  transition: background-color 0.2s, box-shadow 0.2s;
+  transition:
+    background-color 0.2s,
+    box-shadow 0.2s;
   cursor: text;
 }
 
