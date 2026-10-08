@@ -25,7 +25,6 @@
         ref="pdfRef"
         :filename="filename"
         style="width: 80%"
-        manual-pagination
       >
         <template #pdf-content>
           <div class="pdf-content">
