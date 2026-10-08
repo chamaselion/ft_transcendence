@@ -28,10 +28,52 @@ onMounted(async () => {
     <h1>This is the Admin User Management</h1>
   </div>
 
-  <div
-    v-for="user in users"
-    :key="user.id"
-  >
-    <p>{{ user.login }} - {{ user.email }}</p>
-  </div>
+  <table>
+    <tr>
+      <td>User ID</td>
+      <td>Username</td>
+      <td>Email</td>
+      <td>Role</td>
+    </tr>
+    <tr
+      v-for="user in users"
+      :key="user.id"
+      class="user-listing"
+    >
+      <td>{{ user.id }}</td>
+      <td>{{ user.login }}</td>
+      <td>{{ user.email }}</td>
+      <td :class="`user-role-${user.role}`">{{ user.role }}</td>
+    </tr>
+  </table>
 </template>
+
+<style scoped>
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+td {
+  border: 1px solid #ddd;
+  padding: 8px;
+}
+
+.user-listing:hover {
+  background-color: var(--bg-subtle);
+}
+
+th {
+  padding-top: 12px;
+  padding-bottom: 12px;
+  text-align: left;
+  color: var(--text-primary);
+}
+
+.user-role-admin {
+  color: red;
+}
+.user-role-user {
+  color: blue;
+}
+</style>
