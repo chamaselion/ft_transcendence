@@ -24,6 +24,7 @@
       <Html2Pdf
         ref="pdfRef"
         :filename="filename"
+        render-mode="text"
         style="width: 80%"
       >
         <template #pdf-content>
