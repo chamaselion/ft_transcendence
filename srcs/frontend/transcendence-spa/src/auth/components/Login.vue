@@ -1,15 +1,16 @@
 <script setup lang="ts">
-  import { ref } from 'vue'
-  import { httpClient,  HttpError } from '../auth.api'
-  import OtpValidation from './OtpValidation.vue'
-  import Toast from '@/app/components/Toast.vue'
-  import Input from '@/app/components/Input.vue'
-  import Button from '@/app/components/Button.vue'
+import { ref } from 'vue'
+import { httpClient, HttpError } from '../auth.api'
+import OtpValidation from './OtpValidation.vue'
+import Toast from '@/app/components/Toast.vue'
+import Input from '@/app/components/Input.vue'
+import Button from '@/app/components/Button.vue'
+import OAuth from './OAuth.vue'
 
-  const props = defineProps<{
-    email?: string | null
-    isRegisterRedirect?: boolean
-  }>()
+const props = defineProps<{
+  email?: string | null
+  isRegisterRedirect?: boolean
+}>()
 
 export interface LoginResponse {
   loginChallenge: boolean
@@ -23,49 +24,55 @@ export interface LoginResponse {
   message: string
 }
 
-  const email = ref(props.email ?? '');
-  const password = ref()
-  const errorFlag = ref(false)
-  const message = ref('')
-  const challengeID = ref('')
-  const registerRedirectFlag = ref(Boolean(props.isRegisterRedirect))
-  const otpConfirmationRequired = ref(false)
-  const isSubmitting = ref(false)
+const email = ref(props.email ?? '')
+const password = ref()
+const errorFlag = ref(false)
+const message = ref('')
+const challengeID = ref('')
+const registerRedirectFlag = ref(Boolean(props.isRegisterRedirect))
+const otpConfirmationRequired = ref(false)
+const isSubmitting = ref(false)
 
-  const handleLogin = async () => {
-    if (isSubmitting.value) return
-    isSubmitting.value = true
-    errorFlag.value = false
-    try {
-      const data = await httpClient.post<LoginResponse>('login', {
-        email: email.value,
-        password: password.value
-      })
-      challengeID.value = data.challengeId
-      otpConfirmationRequired.value = true
-      } catch (error) {
-      errorFlag.value = true
-      message.value = error instanceof Error ? error.message : typeof error === 'string' ? error : 'Something went wrong'
-      if (error instanceof HttpError) {
-        if (error.status === 400) {
-          console.log(error.message)
-        } else if (error.status === 401) {
-          console.log('Wrong email or password')
-        } else {
-          console.log(`Request failed: ${error.status}`)
-        }
+const handleLogin = async () => {
+  if (isSubmitting.value) return
+  isSubmitting.value = true
+  errorFlag.value = false
+  try {
+    const data = await httpClient.post<LoginResponse>('login', {
+      email: email.value,
+      password: password.value,
+    })
+    challengeID.value = data.challengeId
+    otpConfirmationRequired.value = true
+  } catch (error) {
+    errorFlag.value = true
+    message.value =
+      error instanceof Error
+        ? error.message
+        : typeof error === 'string'
+          ? error
+          : 'Something went wrong'
+    if (error instanceof HttpError) {
+      if (error.status === 400) {
         console.log(error.message)
+      } else if (error.status === 401) {
+        console.log('Wrong email or password')
+      } else {
+        console.log(`Request failed: ${error.status}`)
       }
-    } finally {
-      isSubmitting.value = false
+      console.log(error.message)
     }
+  } finally {
+    isSubmitting.value = false
   }
+}
 </script>
 
-
 <template>
-
-  <div v-if="registerRedirectFlag" class="login-notice">
+  <div
+    v-if="registerRedirectFlag"
+    class="login-notice"
+  >
     <Toast
       v-model="registerRedirectFlag"
       type="info"
@@ -76,7 +83,10 @@ export interface LoginResponse {
     />
   </div>
 
-  <div class="login-card" v-if="!otpConfirmationRequired">
+  <div
+    class="login-card"
+    v-if="!otpConfirmationRequired"
+  >
     <header class="login-card__header">
       <h1 class="login-card__title">Login</h1>
       <p class="login-card__subtitle">Sign in to continue to your account.</p>
@@ -89,15 +99,34 @@ export interface LoginResponse {
         :duration="6000"
         fluid
       />
+      <OAuth />
       <form @submit.prevent="handleLogin">
-        <Input label="E-mail" type="email" v-model="email" required />
-        <Input label="Password" type="password" v-model="password" required />
-        <Button type="submit" size="large" class="login-card__submit" :loading="isSubmitting">
+        <Input
+          label="E-mail"
+          type="email"
+          v-model="email"
+          required
+        />
+        <Input
+          label="Password"
+          type="password"
+          v-model="password"
+          required
+        />
+        <Button
+          type="submit"
+          size="large"
+          class="login-card__submit"
+          :loading="isSubmitting"
+        >
           {{ isSubmitting ? 'Signing in' : 'Login' }}
         </Button>
       </form>
     </div>
-    <p v-if="!registerRedirectFlag" class="login-card__footer">
+    <p
+      v-if="!registerRedirectFlag"
+      class="login-card__footer"
+    >
       Don't have an account? <router-link to="/register">Register here</router-link>
     </p>
   </div>

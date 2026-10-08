@@ -3,9 +3,9 @@
 *For sure:*
 ---
 **2p Major: Use a framework for both the frontend and backend.**
-- [ ] Use a frontend framework (React, Vue, Angular, Svelte, etc.).
+- [x] Use a frontend framework (React, Vue, Angular, Svelte, etc.).
 	Surprise.
-- [ ] Use a backend framework (Express, NestJS, Django, Flask, Ruby on Rails,
+- [x] Use a backend framework (Express, NestJS, Django, Flask, Ruby on Rails,
 	etc.).
 - (Full-stack frameworks (Next.js, Nuxt.js, SvelteKit) count as both if you use
 	both their frontend and backend capabilities.)
@@ -15,25 +15,25 @@ Implementation note:
 
 ---
 **2p Major: Implement real-time features using WebSockets or similar technology.**
-- [ ] Real-time updates across clients.
-- [ ] Handle connection/disconnection gracefully.
-- [ ] Efficient message broadcasting.
+- [x] Real-time updates across clients.
+- [x] Handle connection/disconnection gracefully.
+- [x] Efficient message broadcasting.
 
 Implementation note:
 
 ---
-- [ ] **1p Minor: Real-time collaborative features (shared workspaces, live editing, collaborative drawing, etc.).**
+- [x] **1p Minor: Real-time collaborative features (shared workspaces, live editing, collaborative drawing, etc.).**
 
 Implementation note:
 
 ---
-- [ ] **1p Minor: Custom-made design system with reusable components, including a proper color palette, typography, and icons (minimum: 10 reusable components).**
+- [x] **1p Minor: Custom-made design system with reusable components, including a proper color palette, typography, and icons (minimum: 10 reusable components).**
 
 Implementation note:
 
 ---
 **1p Minor: Support for additional browsers.**
-- [ ] Full compatibility with at least 2 additional browsers (Firefox, Safari, Edge,
+- [x] Full compatibility with at least 2 additional browsers (Firefox, Safari, Edge,
 	etc.).
 - [ ] Test and fix all features in each browser.
 - [ ] Document any browser-specific limitations.
@@ -56,16 +56,17 @@ Implementation note:
 
 ---
 - [ ] **1p Minor: Sentiment analysis for user-generated content.**
+AI transation for editor content?
 
 Implementation note:
 
 ---
-- [ ] **1p Minor: Progressive Web App (PWA) with offline support and installability.**
+- [x] **1p Minor: Progressive Web App (PWA) with offline support and installability.**
 
 Implementation note:
 
 ---
-- [ ] **1p Minor: Implement remote authentication with OAuth 2.0 (Google, GitHub, 42,etc.).**
+- [x] **1p Minor: Implement remote authentication with OAuth 2.0 (Google, GitHub, 42,etc.).**
 
 Implementation note:
 
