@@ -7,13 +7,13 @@ import Icon from '@/app/components/Icon.vue'
 import { WebSocketEditorDataProvider } from '@/app/editor/dataProvider'
 import type { EditorDataProvider } from '@/app/editor/types'
 import { createBlock } from '@/app/editor/types'
-import { useUserStore } from '@/stores/user'
+import { useAuthStore } from '@/stores/auth'
 import { createDocument, getDocument, updateDocumentTitle } from '@/app/editor/document.api'
 import ShareModal from '@/app/components/ShareModal.vue'
 
 const route = useRoute()
 const router = useRouter()
-const userStore = useUserStore()
+const authStore = useAuthStore()
 
 const provider = ref<EditorDataProvider | null>(null)
 const documentTitle = ref<string>('Untitled Document')
@@ -120,7 +120,7 @@ async function loadEditor(idParam?: string) {
   isLoading.value = true
   errorMessage.value = null
 
-  await userStore.fetchCurrentUser()
+  await authStore.checkForAuthentication()
 
   const id = idParam || (route.params.id as string | undefined)
 

@@ -1,50 +1,63 @@
+import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 import { httpClient } from '@/auth/auth.api'
 import type { Root, User } from '@/auth/types/user'
 
-export const useAuthStore = defineStore('auth', {
-  state: () => ({
-    user: undefined as User | undefined,
-    isAuthenticated: false,
-    authChecked: false,
-  }),
+export const useAuthStore = defineStore('auth', () => {
+  const user = ref<User | null>(null)
+  const isAuthenticated = computed(() => user.value !== null)
+  const userId = computed(() => user.value?.id ?? null)
 
-  getters: {},
+  function setUser(newUser: User | null) {
+    user.value = newUser
+  }
 
-  actions: {
-    invalidate() {
-      this.user = {} as User
-      this.isAuthenticated = false
-      this.authChecked = true
-    },
-    setStoreToApiResponse(response: Root) {
-      this.user = response.user
-      this.isAuthenticated = true
-      this.authChecked = true
-    },
-    async checkForAuthentication() {
-      if (this.user && this.user.id) {
-        this.isAuthenticated = true
-        this.authChecked = true
-      } else {
-        try {
-          const res = await httpClient.get<Root>('me')
-          console.log('Authentication check response:', res)
-          this.setStoreToApiResponse(res)
-        } catch {
-          this.invalidate()
-        } finally {
-          this.authChecked = true
-        }
-      }
-    },
-    async logout() {
-      try {
-        await httpClient.post('logout', {})
-        this.invalidate()
-      } catch (error) {
-        console.error('Logout failed:', error)
-      }
-    },
-  },
+  function invalidate() {
+    user.value = null
+  }
+
+  function setStoreToApiResponse(response: Root) {
+    if (response && response.loggedIn && response.user) {
+      user.value = response.user
+    } else {
+      invalidate()
+    }
+  }
+
+  async function checkForAuthentication(force = false): Promise<User | null> {
+    if (!force && user.value && user.value.id) {
+      return user.value
+    }
+    try {
+      const res = await httpClient.get<Root>('me')
+      setStoreToApiResponse(res)
+      return user.value
+    } catch {
+      invalidate()
+      return null
+    }
+  }
+
+  async function logout() {
+    try {
+      await httpClient.post('logout', {})
+    } catch (error) {
+      console.error('Logout failed:', error)
+    } finally {
+      invalidate()
+    }
+  }
+
+  return {
+    user,
+    userId,
+    isAuthenticated,
+    setUser,
+    clearUser: invalidate,
+    invalidate,
+    setStoreToApiResponse,
+    checkForAuthentication,
+    fetchCurrentUser: checkForAuthentication,
+    logout,
+  }
 })
