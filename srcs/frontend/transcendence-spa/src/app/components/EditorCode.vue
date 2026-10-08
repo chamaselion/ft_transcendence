@@ -166,7 +166,8 @@ const style = computed(() => ({
 .code__content {
   font-family: inherit;
   font-size: inherit;
-  white-space: pre;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
   outline: none;
 }
 
