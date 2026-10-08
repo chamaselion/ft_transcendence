@@ -10,6 +10,7 @@ import type { Root, User } from '../types/user'
 import type { OtpConfirmationResponse } from '../types/auth.types'
 import { useAuthStore } from '@/stores/auth'
 import UserIcon from '@/app/components/UserIcon.vue'
+import UserManaging from '@/admin/components/UserManaging.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -202,6 +203,7 @@ onMounted(loadProfile)
           <span
             v-if="roleLabel"
             class="profile__role"
+            :class="`profile__role--${user?.role}`"
             >{{ roleLabel }}</span
           >
         </div>
@@ -211,16 +213,6 @@ onMounted(loadProfile)
         v-if="user"
         class="profile__details"
       >
-        <div class="profile__id-detail">
-          <span class="profile__detail-label">User ID</span>
-          <p
-            id="userID"
-            class="profile__detail-value"
-          >
-            {{ user.id }}
-          </p>
-        </div>
-
         <div class="profile__detail">
           <form @submit.prevent="updateUserDetails(email, login)">
             <Input
@@ -412,6 +404,11 @@ form {
   font-weight: 600;
   letter-spacing: 0.02em;
   text-transform: uppercase;
+}
+
+.profile__role--admin {
+  background-color: color-mix(in srgb, var(--color-alert) 12%, transparent);
+  color: var(--color-alert);
 }
 
 .profile__details {

@@ -16,6 +16,10 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = null
   }
 
+  function isAdmin(): boolean {
+    return user.value?.role === 'admin'
+  }
+
   function setStoreToApiResponse(response: Root) {
     if (response && response.loggedIn && response.user) {
       user.value = response.user
@@ -52,6 +56,7 @@ export const useAuthStore = defineStore('auth', () => {
     user,
     userId,
     isAuthenticated,
+    isAdmin,
     setUser,
     clearUser: invalidate,
     invalidate,
