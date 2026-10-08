@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Editor from '@/app/components/Editor.vue'
 import Button from '@/app/components/Button.vue'
+import Icon from '@/app/components/Icon.vue'
 import { WebSocketEditorDataProvider } from '@/app/editor/dataProvider'
 import type { EditorDataProvider } from '@/app/editor/types'
 import { createBlock } from '@/app/editor/types'
@@ -201,10 +202,7 @@ onBeforeUnmount(() => {
           {{ documentTitle }}
         </h1>
         <div class="editor-view__badges">
-          <span
-            class="status-badge"
-            :class="`status-badge--${connectionStatus}`"
-          >
+          <span class="status-badge" :class="`status-badge--${connectionStatus}`">
             {{
               connectionStatus === 'connected'
                 ? 'Multiuser Room Live'
@@ -219,31 +217,18 @@ onBeforeUnmount(() => {
           >
             Room: {{ documentId.slice(0, 8) }}...
           </span>
-          <span
-            v-if="userPermission"
-            class="permission-badge"
-          >
-            Role: {{ userPermission }}
-          </span>
+          <span v-if="userPermission" class="permission-badge"> Role: {{ userPermission }} </span>
         </div>
       </div>
 
       <div class="editor-view__actions">
-        <Button
-          v-if="documentId"
-          variant="outlined"
-          size="small"
-          @click="showShareModal = true"
-        >
+        <Button v-if="documentId" variant="outlined" size="small" @click="showShareModal = true">
+          <template #icon>
+            <Icon name="Share" :size="16" />
+          </template>
           Share
         </Button>
-        <Button
-          variant="outlined"
-          size="small"
-          @click="handleCreateNew"
-        >
-          + New Document
-        </Button>
+        <Button variant="outlined" size="small" @click="handleCreateNew"> + New Document </Button>
       </div>
     </div>
 
@@ -254,12 +239,7 @@ onBeforeUnmount(() => {
       {{ errorMessage }}
     </div>
 
-    <div
-      v-if="isLoading"
-      class="editor-view__loading"
-    >
-      Initializing document room...
-    </div>
+    <div v-if="isLoading" class="editor-view__loading">Initializing document room...</div>
 
     <Editor
       v-else-if="provider"
