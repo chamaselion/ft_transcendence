@@ -19,7 +19,9 @@ const documentTitle = ref<string>('Untitled Document')
 const titleEl = ref<HTMLElement | null>(null)
 const documentId = ref<string | null>(null)
 const userPermission = ref<'owner' | 'editor' | 'viewer'>('viewer')
-const isTitleEditable = computed(() => userPermission.value === 'owner' || userPermission.value === 'editor')
+const isTitleEditable = computed(
+  () => userPermission.value === 'owner' || userPermission.value === 'editor',
+)
 const showShareModal = ref(false)
 const connectionStatus = ref<'connecting' | 'connected' | 'disconnected'>('connecting')
 const errorMessage = ref<string | null>(null)
@@ -124,10 +126,7 @@ async function loadEditor(idParam?: string) {
   if (!id) {
     // Route /editor called -> create new document and open room automatically
     try {
-      const defaultBlocks = [
-        createBlock('h', 'Untitled document'),
-        createBlock('p', ''),
-      ]
+      const defaultBlocks = [createBlock('h', 'Untitled document'), createBlock('p', '')]
       const newDoc = await createDocument('Untitled document', defaultBlocks)
       if (newDoc && newDoc.id) {
         if (newDoc.permission) userPermission.value = newDoc.permission
@@ -198,7 +197,9 @@ onBeforeUnmount(() => {
           :title="isTitleEditable ? 'Click to rename document' : undefined"
           @blur="onTitleBlur"
           @keydown="onTitleKeydown"
-        >{{ documentTitle }}</h1>
+        >
+          {{ documentTitle }}
+        </h1>
         <div class="editor-view__badges">
           <span
             class="status-badge"
@@ -212,10 +213,16 @@ onBeforeUnmount(() => {
                   : 'Disconnected'
             }}
           </span>
-          <span v-if="documentId" class="doc-id-badge">
+          <span
+            v-if="documentId"
+            class="doc-id-badge"
+          >
             Room: {{ documentId.slice(0, 8) }}...
           </span>
-          <span v-if="userPermission" class="permission-badge">
+          <span
+            v-if="userPermission"
+            class="permission-badge"
+          >
             Role: {{ userPermission }}
           </span>
         </div>
@@ -240,11 +247,17 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <div v-if="errorMessage" class="editor-view__error">
+    <div
+      v-if="errorMessage"
+      class="editor-view__error"
+    >
       {{ errorMessage }}
     </div>
 
-    <div v-if="isLoading" class="editor-view__loading">
+    <div
+      v-if="isLoading"
+      class="editor-view__loading"
+    >
       Initializing document room...
     </div>
 
@@ -253,6 +266,7 @@ onBeforeUnmount(() => {
       :provider="provider"
       :scrollable="false"
       nav-position="top"
+      :filename="documentTitle"
       @error="errorMessage = $event"
     />
 
@@ -303,7 +317,9 @@ onBeforeUnmount(() => {
   border-radius: 4px;
   padding: 2px 6px;
   margin-left: -6px;
-  transition: background-color 0.2s, box-shadow 0.2s;
+  transition:
+    background-color 0.2s,
+    box-shadow 0.2s;
   cursor: text;
 }
 

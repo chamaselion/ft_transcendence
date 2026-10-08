@@ -1,6 +1,9 @@
 <template>
   <Button @click="pdfRef?.generatePdf()">Generate PDF</Button>
-  <div class="editor" :class="[`editor--nav-${navPosition}`]">
+  <div
+    class="editor"
+    :class="[`editor--nav-${navPosition}`]"
+  >
     <!-- Nav toolbar (can be positioned on top, left or bottom) -->
     <EditorNav
       v-if="navPosition !== 'bottom'"
@@ -20,27 +23,30 @@
     >
       <Html2Pdf
         ref="pdfRef"
-        :filename="'{}.pdf'"
-        style="width: 80%;"
+        :filename="filename"
+        style="width: 80%"
         manual-pagination
       >
-      <template #pdf-content>
-      <div class="pdf-content">
-      <EditorBlock
-        v-for="block in store.blocks"
-        :key="block.id"
-        :block="block"
-        :active="block.id === store.activeBlockId && !store.isLockedByOther(block)"
-        :locked="store.isLockedByOther(block)"
-        @focus="onFocus(block)"
-        @blur="onBlur(block)"
-        @update:text="onUpdateText(block, $event)"
-        @update:decorator="onUpdateDecorator(block, parseDecorator($event))"
-      />
-      </div>
-      </template>
+        <template #pdf-content>
+          <div class="pdf-content">
+            <EditorBlock
+              v-for="block in store.blocks"
+              :key="block.id"
+              :block="block"
+              :active="block.id === store.activeBlockId && !store.isLockedByOther(block)"
+              :locked="store.isLockedByOther(block)"
+              @focus="onFocus(block)"
+              @blur="onBlur(block)"
+              @update:text="onUpdateText(block, $event)"
+              @update:decorator="onUpdateDecorator(block, parseDecorator($event))"
+            />
+          </div>
+        </template>
       </Html2Pdf>
-      <p v-if="store.blocks.length === 0" class="editor__empty">
+      <p
+        v-if="store.blocks.length === 0"
+        class="editor__empty"
+      >
         This document is empty. Add a block from the toolbar.
       </p>
     </div>
@@ -86,6 +92,7 @@ const props = withDefaults(
     provider: EditorDataProvider
     scrollable?: boolean
     navPosition?: 'top' | 'left' | 'bottom'
+    filename?: string
   }>(),
   {
     scrollable: false,
@@ -103,6 +110,8 @@ const isDeleteDisabled = computed(() => {
   if (!store.activeBlock) return true
   return store.isLockedByOther(store.activeBlock)
 })
+
+const filename = ref<string | undefined>(props.filename)
 
 const EDIT_DEBOUNCE_MS = 2000
 const LOCK_TIMEOUT_MS = 5000
@@ -387,7 +396,11 @@ const onFocus = async (block: Block) => {
   }
 
   const previousId = store.activeBlockId
-  if (previousId && previousId !== block.id && !store.isLockedByOther({ id: previousId } as Block)) {
+  if (
+    previousId &&
+    previousId !== block.id &&
+    !store.isLockedByOther({ id: previousId } as Block)
+  ) {
     flushPendingEdit()
     clearLockTimers()
     store.unlock(previousId)
@@ -422,7 +435,7 @@ const onBlur = async (block: Block) => {
   width: 100%;
   box-sizing: border-box;
   padding: 14px 24px;
-  border: 1px solid rgba(0,0,0,0.1);
+  border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 14px;
 }
 
