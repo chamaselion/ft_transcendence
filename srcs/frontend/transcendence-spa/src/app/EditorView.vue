@@ -8,12 +8,15 @@ import { WebSocketEditorDataProvider } from '@/app/editor/dataProvider'
 import type { EditorDataProvider } from '@/app/editor/types'
 import { createBlock } from '@/app/editor/types'
 import { useAuthStore } from '@/stores/auth'
+import { useEditorStore } from '@/stores/editor'
+import { translateBlocks, type SupportedLanguage } from '@/app/editor/translation.api'
 import { createDocument, getDocument, updateDocumentTitle } from '@/app/editor/document.api'
 import ShareModal from '@/app/components/ShareModal.vue'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const editorStore = useEditorStore()
 
 const provider = ref<EditorDataProvider | null>(null)
 const documentTitle = ref<string>('Untitled Document')
@@ -79,6 +82,31 @@ function openRoom(docId: string, initialTitle?: string) {
   }
 
   provider.value = wsProvider
+}
+
+async function onLanguageChange(targetLang: SupportedLanguage) {
+  if (targetLang === editorStore.activeLanguage) return
+  if (targetLang === 'en') {
+    editorStore.setLanguage('en')
+    return
+  }
+
+  editorStore.isTranslating = true
+  editorStore.translationError = null
+  try {
+    const payload = editorStore.blocks.map((b) => ({
+      id: b.id,
+      text: editorStore.getCanonicalText(b.id) || b.text,
+    }))
+    const translated = await translateBlocks(payload, 'en', targetLang)
+    editorStore.applyTranslations(translated)
+    editorStore.setLanguage(targetLang)
+  } catch (err) {
+    console.error('Document translation failed:', err)
+    errorMessage.value = err instanceof Error ? err.message : 'Translation failed'
+  } finally {
+    editorStore.isTranslating = false
+  }
 }
 
 async function onTitleBlur() {
@@ -218,7 +246,23 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <div class="editor-view__actions">
+        <div class="lang-selector-group">
+          <select
+            class="lang-selector"
+            :value="editorStore.activeLanguage"
+            :disabled="editorStore.isTranslating"
+            title="Select document display language"
+            @change="onLanguageChange(($event.target as HTMLSelectElement).value as SupportedLanguage)"
+          >
+            <option value="en">🇬🇧 English (Canonical)</option>
+            <option value="de">🇩🇪 Deutsch</option>
+            <option value="hu">🇭🇺 Magyar</option>
+          </select>
+          <span v-if="editorStore.isTranslating" class="lang-translating-pill">
+            Translating...
+          </span>
+        </div>
+
         <Button v-if="documentId" variant="outlined" size="small" @click="showShareModal = true">
           <template #icon>
             <Icon name="Share" :size="16" />
@@ -357,6 +401,50 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.lang-selector-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lang-selector {
+  background-color: var(--bg-surface, #fff);
+  color: var(--text-base, #1e293b);
+  border: 1px solid var(--border-subtle, #cbd5e1);
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.lang-selector:focus {
+  border-color: var(--color-primary, #3b82f6);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary, #3b82f6) 20%, transparent);
+}
+
+.lang-selector:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.lang-translating-pill {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  background-color: color-mix(in srgb, var(--color-primary, #3b82f6) 15%, transparent);
+  color: var(--color-primary, #3b82f6);
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
 
 .editor-view__error {
