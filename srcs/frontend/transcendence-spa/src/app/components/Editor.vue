@@ -1,5 +1,5 @@
 <template>
-  <button @click="pdfRef?.generatePdf()">Generate PDF</button>
+  <Button @click="pdfRef?.generatePdf()">Generate PDF</Button>
   <div class="editor" :class="[`editor--nav-${navPosition}`]">
     <!-- Nav toolbar (can be positioned on top, left or bottom) -->
     <EditorNav
@@ -20,12 +20,12 @@
     >
       <Html2Pdf
         ref="pdfRef"
-        :filename="'document.pdf'"
-        :html="store.blocks.map(block => `<div>${block.text}</div>`).join('')"
-        render-mode="canvas"
+        :filename="'{}.pdf'"
+        style="width: 80%;"
         manual-pagination
       >
       <template #pdf-content>
+      <div class="pdf-content">
       <EditorBlock
         v-for="block in store.blocks"
         :key="block.id"
@@ -37,10 +37,9 @@
         @update:text="onUpdateText(block, $event)"
         @update:decorator="onUpdateDecorator(block, parseDecorator($event))"
       />
+      </div>
       </template>
       </Html2Pdf>
-
-
       <p v-if="store.blocks.length === 0" class="editor__empty">
         This document is empty. Add a block from the toolbar.
       </p>
@@ -65,6 +64,7 @@ import { computed, onBeforeUnmount, ref, onMounted, watch } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
 import EditorBlock from '@/app/components/EditorBlock.vue'
 import EditorNav from '@/app/components/EditorNav.vue'
+import Button from '@/app/components/Button.vue'
 import { useEditorStore } from '@/stores/editor'
 import { isStandardText } from '@/app/editor/useEditable'
 import {
@@ -418,6 +418,12 @@ const onBlur = async (block: Block) => {
 </script>
 
 <style lang="css" scoped>
+.pdf-content {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 14px 24px;
+}
+
 .editor {
   display: flex;
   flex-direction: column;
