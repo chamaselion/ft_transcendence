@@ -9,6 +9,8 @@ interface ResponseShape {
   pagination: Pagination
 }
 
+const limit = ref<number>(10)
+
 const res = ref<ResponseShape | null>(null)
 const users = ref<User[] | null>(null)
 const pagination = ref<Pagination | null>(null)
@@ -17,7 +19,9 @@ const prevPageBtn = ref<boolean>(false)
 
 async function fetchUsers(limit: number, offset: number) {
   try {
-    res.value = await httpClient.get<ResponseShape>(`/api/users?limit=${limit}&offset=${offset}`)
+    res.value = await httpClient.get<ResponseShape>(
+      `/api/users?limit=${limit}&offset=${offset}&sort=login`,
+    )
     users.value = res.value.users
     pagination.value = res.value.pagination
   } catch (error) {
@@ -27,7 +31,7 @@ async function fetchUsers(limit: number, offset: number) {
 
 function currentPage(): number {
   if (!pagination.value) return 0
-  return Math.floor(pagination.value.offset) + 10
+  return Math.floor(pagination.value.offset) + limit.value
 }
 
 function displayCurrentPage(): number {
@@ -53,19 +57,30 @@ onMounted(async () => {
 
 <template>
   <div class="user-listing-view">
-    <p v-if="pagination">Listing {{ displayCurrentPage() }} of {{ pagination.total }} users</p>
-    <button
-      @click="fetchUsers(10, currentPage())"
-      :disabled="!nextPageBtn"
-    >
-      Next Page
-    </button>
-    <button
-      @click="fetchUsers(10, currentPage() - 20)"
-      :disabled="!prevPageBtn"
-    >
-      Previous Page
-    </button>
+    <div class="listing-header-options">
+      <p v-if="pagination">Listing {{ displayCurrentPage() }} of {{ pagination.total }} users</p>
+      <label for="limit">Users per page:</label>
+      <select
+        v-model="limit"
+        @change="fetchUsers(limit, 0)"
+      >
+        <option value="10">10</option>
+        <option value="20">20</option>
+        <option value="50">50</option>
+      </select>
+      <button
+        @click="fetchUsers(limit, currentPage())"
+        :disabled="!nextPageBtn"
+      >
+        Next Page
+      </button>
+      <button
+        @click="fetchUsers(limit, currentPage() - limit)"
+        :disabled="!prevPageBtn"
+      >
+        Previous Page
+      </button>
+    </div>
 
     <table>
       <tr>
@@ -89,6 +104,16 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.listing-header-options {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  background-color: var(--bg-subtle);
+  padding: 12px;
+  border-radius: 8px;
+}
+
 .user-listing-view {
   margin: 12px 24px;
 }
