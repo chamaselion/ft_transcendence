@@ -117,7 +117,7 @@ const isDeleteDisabled = computed(() => {
   return store.isLockedByOther(store.activeBlock)
 })
 
-const filename = ref<string | undefined>(props.filename)
+const filename = computed(() => props.filename)
 
 const EDIT_DEBOUNCE_MS = 2000
 const LOCK_TIMEOUT_MS = 5000
