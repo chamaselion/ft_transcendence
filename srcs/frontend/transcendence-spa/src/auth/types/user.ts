@@ -8,4 +8,5 @@ export interface User {
   login: string
   email: string
   role: string
+  avatarUrl?: string // NOTE: Temporary ICON/Avatar URL for Profile Icon
 }

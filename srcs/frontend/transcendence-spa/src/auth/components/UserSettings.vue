@@ -9,6 +9,7 @@ import Toast from '@/app/components/Toast.vue'
 import type { Root, User } from '../types/user'
 import type { OtpConfirmationResponse } from '../types/auth.types'
 import { useAuthStore } from '@/stores/auth'
+import UserIcon from '@/app/components/UserIcon.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -110,6 +111,11 @@ async function confirmUpdateDetails() {
   }
 }
 
+async function changeAvatar() {
+  // NOTE: Placeholder for avatar change functionality
+  console.log('Change avatar clicked')
+}
+
 onMounted(loadProfile)
 </script>
 
@@ -171,8 +177,28 @@ onMounted(loadProfile)
       class="user-settings__card"
     >
       <div class="profile__identity">
-        <div class="profile__meta">
-          <span class="profile__login">{{ user?.login }}</span>
+        <div
+          class="profile__meta"
+          style="width: 100%"
+        >
+          <div
+            style="display: flex; align-items: center; justify-content: space-between; width: 100%"
+          >
+            <span class="profile__login">{{ user?.login }}</span>
+            <div class="profile__avatar">
+              <UserIcon
+                class="profile__avatar-icon"
+                avatar-url="https://thispersondoesnotexist.com/random-person.jpeg"
+                size="large"
+                @click="changeAvatar"
+              />
+              <span
+                class="profile__avatar-overlay"
+                aria-hidden="true"
+                >+</span
+              >
+            </div>
+          </div>
           <span
             v-if="roleLabel"
             class="profile__role"
@@ -333,6 +359,41 @@ form {
   align-items: flex-start;
   gap: 6px;
   min-width: 0;
+}
+
+.profile__avatar {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+.profile__avatar-icon {
+  transition: filter 180ms ease;
+}
+
+.profile__avatar-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgb(0 0 0 / 25%);
+  color: #fff;
+  font-size: 28px;
+  line-height: 1;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease;
+}
+
+.profile__avatar:hover .profile__avatar-icon {
+  filter: blur(2px);
+}
+
+.profile__avatar:hover .profile__avatar-overlay {
+  opacity: 1;
 }
 
 .profile__login {

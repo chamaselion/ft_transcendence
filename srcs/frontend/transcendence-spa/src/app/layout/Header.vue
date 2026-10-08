@@ -81,7 +81,7 @@ const isActive = (path: string) => (path === '/' ? route.path === '/' : route.pa
       </button>
     </nav>
     <router-link to="/profile">
-      <UserIcon :user="currentUser" />
+      <UserIcon :avatar-url="currentUser.avatarUrl" />
     </router-link>
   </header>
 </template>
