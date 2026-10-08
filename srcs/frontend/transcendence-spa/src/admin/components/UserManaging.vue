@@ -12,6 +12,8 @@ interface ResponseShape {
 const res = ref<ResponseShape | null>(null)
 const users = ref<User[] | null>(null)
 const pagination = ref<Pagination | null>(null)
+const nextPageBtn = ref<boolean>(true)
+const prevPageBtn = ref<boolean>(false)
 
 async function fetchUsers(limit: number, offset: number) {
   try {
@@ -28,6 +30,22 @@ function currentPage(): number {
   return Math.floor(pagination.value.offset) + 10
 }
 
+function displayCurrentPage(): number {
+  if (pagination.value === null) return 0
+  const tmp = pagination.value.limit + pagination.value.offset
+  if (pagination.value.total < tmp) {
+    nextPageBtn.value = false
+    return pagination.value.total
+  }
+  if (tmp == 10) {
+    prevPageBtn.value = false
+  } else {
+    prevPageBtn.value = true
+  }
+  nextPageBtn.value = true
+  return tmp
+}
+
 onMounted(async () => {
   await fetchUsers(10, 0)
 })
@@ -35,13 +53,16 @@ onMounted(async () => {
 
 <template>
   <div class="user-listing-view">
-    <p v-if="pagination">
-      Listing {{ pagination.limit + pagination.offset }} of {{ pagination.total }} users
-    </p>
-    <button @click="fetchUsers(10, currentPage())">Next Page</button>
+    <p v-if="pagination">Listing {{ displayCurrentPage() }} of {{ pagination.total }} users</p>
+    <button
+      @click="fetchUsers(10, currentPage())"
+      :disabled="!nextPageBtn"
+    >
+      Next Page
+    </button>
     <button
       @click="fetchUsers(10, currentPage() - 20)"
-      :disabled="currentPage() === 0"
+      :disabled="!prevPageBtn"
     >
       Previous Page
     </button>
