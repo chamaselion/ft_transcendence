@@ -1,5 +1,5 @@
 <template>
-  <Button @click="pdfRef?.generatePdf()">Generate PDF</Button>
+  <Button @click="onGeneratePdf">Generate PDF</Button>
   <div
     class="editor"
     :class="[`editor--nav-${navPosition}`]"
@@ -66,7 +66,7 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, onBeforeUnmount, ref, onMounted, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, onMounted, watch, nextTick } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
 import EditorBlock from '@/app/components/EditorBlock.vue'
 import EditorNav from '@/app/components/EditorNav.vue'
@@ -86,6 +86,12 @@ import { Html2Pdf } from 'vue-pdf-export'
 import 'vue-pdf-export/style.css'
 
 const pdfRef = ref<InstanceType<typeof Html2Pdf> | null>(null)
+
+const onGeneratePdf = async () => {
+  store.setActive('')
+  await nextTick()
+  await pdfRef.value?.generatePdf()
+}
 
 const props = withDefaults(
   defineProps<{
@@ -435,8 +441,7 @@ const onBlur = async (block: Block) => {
   width: 100%;
   box-sizing: border-box;
   padding: 14px 24px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 14px;
+  background-color: var(--bg-ap);
 }
 
 .editor {
