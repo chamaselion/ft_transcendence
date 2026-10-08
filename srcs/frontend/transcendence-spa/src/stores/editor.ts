@@ -2,12 +2,20 @@ import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 import { createBlock, type Block, type BlockType } from '@/app/editor/types'
 import { useAuthStore } from '@/stores/auth'
+import type { SupportedLanguage } from '@/app/editor/translation.api'
 
 export const useEditorStore = defineStore('editor', () => {
   const blocks = ref<Block[]>([])
   const activeBlockId = ref<string | null>(null)
   const clientId = ref<string>('')
   const authStore = useAuthStore()
+
+  // Translation & Canonical Language State
+  const activeLanguage = ref<SupportedLanguage>('en')
+  const canonicalEnglishMap = ref<Map<string, string>>(new Map())
+  const dirtyBlockIds = ref<Set<string>>(new Set())
+  const isTranslating = ref<boolean>(false)
+  const translationError = ref<string | null>(null)
 
   const activeBlock = computed(
     () => blocks.value.find((block) => block.id === activeBlockId.value) ?? null,
@@ -21,8 +29,61 @@ export const useEditorStore = defineStore('editor', () => {
     clientId.value = id
   }
 
+  function initCanonicalBlocks(next: Block[]) {
+    for (const b of next) {
+      if (b && b.id) {
+        canonicalEnglishMap.value.set(b.id, b.text)
+      }
+    }
+  }
+
+  function setLanguage(lang: SupportedLanguage) {
+    activeLanguage.value = lang
+    if (lang === 'en') {
+      // Instantly restore canonical English with zero API latency and zero drift
+      for (const b of blocks.value) {
+        if (canonicalEnglishMap.value.has(b.id)) {
+          b.text = canonicalEnglishMap.value.get(b.id)!
+        }
+      }
+      dirtyBlockIds.value.clear()
+    }
+  }
+
+  function getCanonicalText(id: string): string {
+    return canonicalEnglishMap.value.get(id) ?? blocks.value.find((b) => b.id === id)?.text ?? ''
+  }
+
+  function setCanonicalText(id: string, text: string) {
+    canonicalEnglishMap.value.set(id, text)
+  }
+
+  function markBlockDirty(id: string) {
+    dirtyBlockIds.value.add(id)
+  }
+
+  function clearBlockDirty(id: string) {
+    dirtyBlockIds.value.delete(id)
+  }
+
+  function isBlockDirty(id: string): boolean {
+    return dirtyBlockIds.value.has(id)
+  }
+
+  function applyTranslations(translated: { id: string; text: string }[]) {
+    const tMap = new Map(translated.map((t) => [t.id, t.text]))
+    for (const block of blocks.value) {
+      if (tMap.has(block.id)) {
+        block.text = tMap.get(block.id)!
+      }
+    }
+  }
+
   function setBlocks(next: Block[]) {
     blocks.value = next
+    if (activeLanguage.value === 'en' || canonicalEnglishMap.value.size === 0) {
+      initCanonicalBlocks(next)
+    }
     if (!next.some((block) => block.id === activeBlockId.value)) {
       const firstAvailable = next.find((b) => !isLockedByOther(b)) ?? next[0]
       activeBlockId.value = firstAvailable?.id ?? null
@@ -39,6 +100,11 @@ export const useEditorStore = defineStore('editor', () => {
     const at = index === -1 ? blocks.value.length : index + 1
     blocks.value.splice(at, 0, block)
     activeBlockId.value = block.id
+    if (activeLanguage.value === 'en') {
+      setCanonicalText(block.id, text)
+    } else {
+      markBlockDirty(block.id)
+    }
     return block
   }
 
@@ -46,6 +112,9 @@ export const useEditorStore = defineStore('editor', () => {
     if (blocks.value.some((b) => b.id === block.id)) {
       // Already present, ignore duplicate insert
       return
+    }
+    if (activeLanguage.value === 'en' || !canonicalEnglishMap.value.has(block.id)) {
+      setCanonicalText(block.id, block.text)
     }
     if (!afterBlockId) {
       blocks.value.push(block)
@@ -63,6 +132,8 @@ export const useEditorStore = defineStore('editor', () => {
     const index = blocks.value.findIndex((b) => b.id === blockId)
     if (index === -1) return
     blocks.value.splice(index, 1)
+    canonicalEnglishMap.value.delete(blockId)
+    dirtyBlockIds.value.delete(blockId)
     if (activeBlockId.value === blockId) {
       const next = blocks.value[index] ?? blocks.value[index - 1] ?? null
       activeBlockId.value = next?.id ?? null
@@ -82,6 +153,11 @@ export const useEditorStore = defineStore('editor', () => {
     const current = blocks.value[index]
     if (index !== -1 && current) {
       blocks.value[index] = { ...current, text }
+      if (activeLanguage.value === 'en') {
+        setCanonicalText(id, text)
+      } else {
+        markBlockDirty(id)
+      }
     }
   }
 
@@ -133,6 +209,11 @@ export const useEditorStore = defineStore('editor', () => {
     activeBlock,
     activeIndex,
     clientId,
+    activeLanguage,
+    canonicalEnglishMap,
+    dirtyBlockIds,
+    isTranslating,
+    translationError,
     setClientId,
     setBlocks,
     setActive,
@@ -147,5 +228,13 @@ export const useEditorStore = defineStore('editor', () => {
     lock,
     unlock,
     unlockBlockById,
+    initCanonicalBlocks,
+    setLanguage,
+    getCanonicalText,
+    setCanonicalText,
+    markBlockDirty,
+    clearBlockDirty,
+    isBlockDirty,
+    applyTranslations,
   }
 })
