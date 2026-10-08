@@ -1,4 +1,5 @@
 <template>
+  <button @click="pdfRef?.generatePdf()">Generate PDF</button>
   <div class="editor" :class="[`editor--nav-${navPosition}`]">
     <!-- Nav toolbar (can be positioned on top, left or bottom) -->
     <EditorNav
@@ -17,6 +18,14 @@
       class="editor__content"
       :class="{ 'editor__content--scrollable': scrollable }"
     >
+      <Html2Pdf
+        ref="pdfRef"
+        :filename="'document.pdf'"
+        :html="store.blocks.map(block => `<div>${block.text}</div>`).join('')"
+        render-mode="canvas"
+        manual-pagination
+      >
+      <template #pdf-content>
       <EditorBlock
         v-for="block in store.blocks"
         :key="block.id"
@@ -28,6 +37,9 @@
         @update:text="onUpdateText(block, $event)"
         @update:decorator="onUpdateDecorator(block, parseDecorator($event))"
       />
+      </template>
+      </Html2Pdf>
+
 
       <p v-if="store.blocks.length === 0" class="editor__empty">
         This document is empty. Add a block from the toolbar.
@@ -49,7 +61,7 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, onBeforeUnmount, onMounted, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, onMounted, watch } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
 import EditorBlock from '@/app/components/EditorBlock.vue'
 import EditorNav from '@/app/components/EditorNav.vue'
@@ -64,6 +76,10 @@ import {
   type BlockType,
   type EditorDataProvider,
 } from '@/app/editor/types'
+import { Html2Pdf } from 'vue-pdf-export'
+import 'vue-pdf-export/style.css'
+
+const pdfRef = ref<InstanceType<typeof Html2Pdf> | null>(null)
 
 const props = withDefaults(
   defineProps<{
