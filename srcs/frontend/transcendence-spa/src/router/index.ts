@@ -29,14 +29,14 @@ const router = createRouter({
       component: () => import('@/auth/views/RegisterView.vue'),
     },
     {
-      path: '/settings',
-      name: 'settings',
-      component: () => import('@/auth/views/SettingsView.vue'),
-    },
-    {
       name: 'oauth-callback',
       path: '/auth/oauth/:provider/callback',
       component: () => import('@/auth/views/OAuthCallbackView.vue'),
+    },
+    {
+      path: '/profile',
+      name: 'Profile',
+      component: () => import('@/app/ProfileView.vue'),
     },
   ],
 })

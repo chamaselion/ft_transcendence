@@ -32,9 +32,7 @@ const updateSuccessMessage = ref('')
 
 const loggedIn = computed(() => res.value?.loggedIn === true)
 const status = computed(() => (loggedIn.value ? 'good' : 'warn'))
-const statusLabel = computed(() =>
-  loggedIn.value ? 'You are logged in' : 'You are not logged in',
-)
+const statusLabel = computed(() => (loggedIn.value ? 'You are logged in' : 'You are not logged in'))
 
 const roleLabel = computed(() => {
   const role = user.value?.role
@@ -107,9 +105,8 @@ async function confirmUpdateDetails() {
     errorFlag.value = true
     message.value =
       error instanceof Error ? error.message : 'Something went wrong while confirming OTP'
-  }
-  finally{
-    otpCode.value = '';
+  } finally {
+    otpCode.value = ''
   }
 }
 
@@ -141,37 +138,75 @@ onMounted(loadProfile)
       class="user-settings__toast"
     />
 
-    <Card v-if="pending" class="user-settings__card">
+    <Card
+      v-if="pending"
+      class="user-settings__card"
+    >
       <p class="skeleton__caption">Loading your profile…</p>
     </Card>
 
-    <Card v-else-if="failed" class="user-settings__card">
+    <Card
+      v-else-if="failed"
+      class="user-settings__card"
+    >
       <div class="state">
-        <span class="state__badge state__badge--alert" aria-hidden="true">!</span>
+        <span
+          class="state__badge state__badge--alert"
+          aria-hidden="true"
+          >!</span
+        >
         <p class="state__title">We couldn't load your profile</p>
         <p class="state__text">Something went wrong while contacting the server.</p>
-        <Button variant="elevated" color="primary" @click="loadProfile">Try again</Button>
+        <Button
+          variant="elevated"
+          color="primary"
+          @click="loadProfile"
+          >Try again</Button
+        >
       </div>
     </Card>
 
-    <Card v-else-if="loggedIn" class="user-settings__card">
+    <Card
+      v-else-if="loggedIn"
+      class="user-settings__card"
+    >
       <div class="profile__identity">
         <div class="profile__meta">
           <span class="profile__login">{{ user?.login }}</span>
-          <span v-if="roleLabel" class="profile__role">{{ roleLabel }}</span>
+          <span
+            v-if="roleLabel"
+            class="profile__role"
+            >{{ roleLabel }}</span
+          >
         </div>
       </div>
 
-      <dl v-if="user" class="profile__details">
+      <dl
+        v-if="user"
+        class="profile__details"
+      >
         <div class="profile__id-detail">
           <span class="profile__detail-label">User ID</span>
-          <p id="userID" class="profile__detail-value">{{ user.id }}</p>
+          <p
+            id="userID"
+            class="profile__detail-value"
+          >
+            {{ user.id }}
+          </p>
         </div>
 
         <div class="profile__detail">
           <form @submit.prevent="updateUserDetails(email, login)">
-            <Input label="Email" v-model="email" type="text" />
-            <Input label="Username" v-model="login" type="text" />
+            <Input
+              label="Email"
+              v-model="email"
+              type="text"
+            />
+            <Input
+              label="Username"
+              v-model="login"
+              type="text"
+            />
             <Button
               v-if="(isChanged(user.email, email) || isChanged(user.login, login)) && !displayOTP"
               variant="elevated"
@@ -182,9 +217,16 @@ onMounted(loadProfile)
           </form>
         </div>
 
-        <div v-if="displayOTP" class="profile__detail">
+        <div
+          v-if="displayOTP"
+          class="profile__detail"
+        >
           <form @submit.prevent="confirmUpdateDetails">
-            <Input label="OTP Code" v-model="otpCode" type="text" />
+            <Input
+              label="OTP Code"
+              v-model="otpCode"
+              type="text"
+            />
             <Button
               v-if="confirmationID"
               variant="elevated"
@@ -197,19 +239,38 @@ onMounted(loadProfile)
       </dl>
 
       <template #footer>
-        <div class="status" :class="`status--${status}`" role="status">
-          <span class="status__dot" aria-hidden="true" />
+        <div
+          class="status"
+          :class="`status--${status}`"
+          role="status"
+        >
+          <span
+            class="status__dot"
+            aria-hidden="true"
+          />
           <span class="status__text">{{ statusLabel }}</span>
         </div>
       </template>
     </Card>
 
-    <Card v-else class="user-settings__card">
+    <Card
+      v-else
+      class="user-settings__card"
+    >
       <div class="state">
-        <span class="state__badge state__badge--warn" aria-hidden="true">!</span>
+        <span
+          class="state__badge state__badge--warn"
+          aria-hidden="true"
+          >!</span
+        >
         <p class="state__title">You're not logged in</p>
         <p class="state__text">Sign in to view and manage your account settings.</p>
-        <Button variant="elevated" color="primary" @click="goToLogin">Sign in</Button>
+        <Button
+          variant="elevated"
+          color="primary"
+          @click="goToLogin"
+          >Sign in</Button
+        >
       </div>
     </Card>
   </div>
@@ -218,7 +279,7 @@ onMounted(loadProfile)
 <style lang="css" scoped>
 form {
   display: grid;
-  gap:8px;
+  gap: 8px;
 }
 
 .user-settings {
