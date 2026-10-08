@@ -441,6 +441,7 @@ const onBlur = async (block: Block) => {
   box-sizing: border-box;
   padding: 14px 24px;
   background-color: var(--bg-app);
+  word-spacing: 0.4em;
 }
 
 .editor {
