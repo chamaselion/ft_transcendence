@@ -3,17 +3,16 @@ import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Editor from '@/app/components/Editor.vue'
 import Button from '@/app/components/Button.vue'
-import Icon from '@/app/components/Icon.vue'
 import { WebSocketEditorDataProvider } from '@/app/editor/dataProvider'
 import type { EditorDataProvider } from '@/app/editor/types'
 import { createBlock } from '@/app/editor/types'
-import { useAuthStore } from '@/stores/auth'
+import { useUserStore } from '@/stores/user'
 import { createDocument, getDocument, updateDocumentTitle } from '@/app/editor/document.api'
 import ShareModal from '@/app/components/ShareModal.vue'
 
 const route = useRoute()
 const router = useRouter()
-const authStore = useAuthStore()
+const userStore = useUserStore()
 
 const provider = ref<EditorDataProvider | null>(null)
 const documentTitle = ref<string>('Untitled Document')
@@ -120,7 +119,7 @@ async function loadEditor(idParam?: string) {
   isLoading.value = true
   errorMessage.value = null
 
-  await authStore.checkForAuthentication()
+  await userStore.fetchCurrentUser()
 
   const id = idParam || (route.params.id as string | undefined)
 
@@ -202,7 +201,10 @@ onBeforeUnmount(() => {
           {{ documentTitle }}
         </h1>
         <div class="editor-view__badges">
-          <span class="status-badge" :class="`status-badge--${connectionStatus}`">
+          <span
+            class="status-badge"
+            :class="`status-badge--${connectionStatus}`"
+          >
             {{
               connectionStatus === 'connected'
                 ? 'Multiuser Room Live'
@@ -211,35 +213,60 @@ onBeforeUnmount(() => {
                   : 'Disconnected'
             }}
           </span>
-          <span v-if="documentId" class="doc-id-badge">
+          <span
+            v-if="documentId"
+            class="doc-id-badge"
+          >
             Room: {{ documentId.slice(0, 8) }}...
           </span>
-          <span v-if="userPermission" class="permission-badge"> Role: {{ userPermission }} </span>
+          <span
+            v-if="userPermission"
+            class="permission-badge"
+          >
+            Role: {{ userPermission }}
+          </span>
         </div>
       </div>
 
       <div class="editor-view__actions">
-        <Button v-if="documentId" variant="outlined" size="small" @click="showShareModal = true">
-          <template #icon>
-            <Icon name="Share" :size="16" />
-          </template>
+        <Button
+          v-if="documentId"
+          variant="outlined"
+          size="small"
+          @click="showShareModal = true"
+        >
           Share
         </Button>
-        <Button variant="outlined" size="small" @click="handleCreateNew"> + New Document </Button>
+        <Button
+          variant="outlined"
+          size="small"
+          @click="handleCreateNew"
+        >
+          + New Document
+        </Button>
       </div>
     </div>
 
-    <div v-if="errorMessage" class="editor-view__error">
+    <div
+      v-if="errorMessage"
+      class="editor-view__error"
+    >
       {{ errorMessage }}
     </div>
 
-    <div v-if="isLoading" class="editor-view__loading">Initializing document room...</div>
+    <div
+      v-if="isLoading"
+      class="editor-view__loading"
+    >
+      Initializing document room...
+    </div>
 
     <Editor
       v-else-if="provider"
       :provider="provider"
       :scrollable="false"
       nav-position="top"
+      :filename="documentTitle"
       @error="errorMessage = $event"
     />
 
