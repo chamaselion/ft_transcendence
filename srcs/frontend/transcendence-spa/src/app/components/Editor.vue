@@ -422,6 +422,8 @@ const onBlur = async (block: Block) => {
   width: 100%;
   box-sizing: border-box;
   padding: 14px 24px;
+  border: 1px solid rgba(0,0,0,0.1);
+  border-radius: 14px;
 }
 
 .editor {
