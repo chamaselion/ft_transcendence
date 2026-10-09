@@ -16,11 +16,12 @@ const users = ref<User[] | null>(null)
 const pagination = ref<Pagination | null>(null)
 const nextPageBtn = ref<boolean>(true)
 const prevPageBtn = ref<boolean>(false)
+const sortOption = ref<string>('createdAt')
 
 async function fetchUsers(limit: number, offset: number) {
   try {
     res.value = await httpClient.get<ResponseShape>(
-      `/api/users?limit=${limit}&offset=${offset}&sort=login`,
+      `/api/users?limit=${limit}&offset=${offset}&sort=${sortOption.value}`,
     )
     users.value = res.value.users
     pagination.value = res.value.pagination
@@ -80,6 +81,15 @@ onMounted(async () => {
       >
         Previous Page
       </button>
+      <label for="sort">Sort by:</label>
+      <select
+        v-model="sortOption"
+        @change="fetchUsers(limit, 0)"
+      >
+        <option value="createdAt">Created At</option>
+        <option value="login">Username</option>
+        <option value="email">Email</option>
+      </select>
     </div>
 
     <table>
