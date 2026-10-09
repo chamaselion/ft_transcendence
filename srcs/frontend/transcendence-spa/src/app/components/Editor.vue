@@ -58,6 +58,7 @@ import { isStandardText } from '@/app/editor/useEditable'
 import { translateBlocks, backTranslateBlock } from '@/app/editor/translation.api'
 import {
   createBlock,
+  isCodeOrCitation,
   parseDecorator,
   serializeDecorator,
   type Block,
@@ -125,19 +126,25 @@ async function flushPendingEdit(): Promise<boolean> {
 
     // If edited in non-English mode, back-translate dirty block to English before saving to DB/WS
     if (store.activeLanguage !== 'en' && store.isBlockDirty(blockId)) {
-      try {
-        const surroundingContext = getSurroundingContext(blockId)
-        const canonical = await backTranslateBlock(
-          textToSend,
-          store.activeLanguage,
-          'en',
-          surroundingContext,
-        )
-        store.setCanonicalText(blockId, canonical)
+      const currentBlock = store.blocks.find((b) => b.id === blockId)
+      if (currentBlock && isCodeOrCitation(currentBlock.decorator)) {
+        store.setCanonicalText(blockId, textToSend)
         store.clearBlockDirty(blockId)
-        textToSend = canonical
-      } catch (err) {
-        console.error('Back-translation failed during save:', err)
+      } else {
+        try {
+          const surroundingContext = getSurroundingContext(blockId)
+          const canonical = await backTranslateBlock(
+            textToSend,
+            store.activeLanguage,
+            'en',
+            surroundingContext,
+          )
+          store.setCanonicalText(blockId, canonical)
+          store.clearBlockDirty(blockId)
+          textToSend = canonical
+        } catch (err) {
+          console.error('Back-translation failed during save:', err)
+        }
       }
     }
 
@@ -196,18 +203,21 @@ function wireProvider(provider: EditorDataProvider) {
     store.initCanonicalBlocks(e.blocks)
     store.setBlocks(e.blocks)
     if (store.activeLanguage !== 'en') {
-      const payload = e.blocks.map((b) => ({ id: b.id, text: b.text }))
-      translateBlocks(payload, 'en', store.activeLanguage)
-        .then((res) => {
-          store.applyTranslations(res)
-        })
-        .catch((err) => console.error('Failed to translate initial blocks:', err))
+      const translatable = e.blocks.filter((b) => !isCodeOrCitation(b.decorator))
+      const payload = translatable.map((b) => ({ id: b.id, text: b.text }))
+      if (payload.length > 0) {
+        translateBlocks(payload, 'en', store.activeLanguage)
+          .then((res) => {
+            store.applyTranslations(res)
+          })
+          .catch((err) => console.error('Failed to translate initial blocks:', err))
+      }
     }
   }
 
   provider.onCreated = (e) => {
     store.insertBlock(e.block, e.afterBlockId)
-    if (store.activeLanguage !== 'en') {
+    if (store.activeLanguage !== 'en' && !isCodeOrCitation(e.block.decorator)) {
       translateBlocks([{ id: e.block.id, text: e.block.text }], 'en', store.activeLanguage)
         .then((res) => {
           if (res.length > 0) {
@@ -226,14 +236,17 @@ function wireProvider(provider: EditorDataProvider) {
       } else {
         // If local user is not actively editing this block, translate it to activeLanguage
         if (store.activeBlockId !== e.blockId) {
-          translateBlocks([{ id: e.blockId, text: e.text }], 'en', store.activeLanguage)
-            .then((res) => {
-              const first = res[0]
-              if (first && store.activeLanguage !== 'en') {
-                store.updateBlockText(e.blockId, first.text)
-              }
-            })
-            .catch((err) => console.error('Failed to translate updated block:', err))
+          const currentBlock = store.blocks.find((b) => b.id === e.blockId)
+          if (!currentBlock || !isCodeOrCitation(currentBlock.decorator)) {
+            translateBlocks([{ id: e.blockId, text: e.text }], 'en', store.activeLanguage)
+              .then((res) => {
+                const first = res[0]
+                if (first && store.activeLanguage !== 'en') {
+                  store.updateBlockText(e.blockId, first.text)
+                }
+              })
+              .catch((err) => console.error('Failed to translate updated block:', err))
+          }
         }
       }
     }

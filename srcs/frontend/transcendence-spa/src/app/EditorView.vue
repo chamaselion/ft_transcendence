@@ -5,8 +5,7 @@ import Editor from '@/app/components/Editor.vue'
 import Button from '@/app/components/Button.vue'
 import Icon from '@/app/components/Icon.vue'
 import { WebSocketEditorDataProvider } from '@/app/editor/dataProvider'
-import type { EditorDataProvider } from '@/app/editor/types'
-import { createBlock } from '@/app/editor/types'
+import { createBlock, isCodeOrCitation, type EditorDataProvider } from '@/app/editor/types'
 import { useAuthStore } from '@/stores/auth'
 import { useEditorStore } from '@/stores/editor'
 import { translateBlocks, type SupportedLanguage } from '@/app/editor/translation.api'
@@ -95,7 +94,7 @@ async function onLanguageChange(targetLang: SupportedLanguage) {
   editorStore.translationError = null
   try {
     // remove code and citation blocks from translation, as they are not translatable
-    const filteredBlocks = editorStore.blocks.filter((b) => b.decorator !== 'c' && b.decorator !== 'cit')
+    const filteredBlocks = editorStore.blocks.filter((b) => !isCodeOrCitation(b.decorator))
     const payload = filteredBlocks.map((b) => ({
       id: b.id,
       text: editorStore.getCanonicalText(b.id) || b.text,

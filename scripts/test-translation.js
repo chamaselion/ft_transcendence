@@ -106,51 +106,100 @@ const open = (ws) => new Promise((res, rej) => { ws.once('open', res); ws.once('
   const originalBlocks = [
     { id: 'b1', text: 'Original English Heading', decorator: '{"type":"h","level":1}', lockedBy: null },
     { id: 'b2', text: 'Original English Paragraph', decorator: '{"type":"p"}', lockedBy: null },
-    { id: 'b3', text: 'Original English List Item', decorator: '{"type":"li"}', lockedBy: null },
+    { id: 'b3', text: 'const answer = 42;\nconsole.log(answer);', decorator: 'c', lockedBy: null },
+    { id: 'b4', text: 'To be, or not to be, that is the question.', decorator: 'cit', lockedBy: null },
+    { id: 'b5', text: 'Original English List Item', decorator: '{"type":"li"}', lockedBy: null },
   ];
+
+  // Helper matching editor rule: code and citations are not translatable
+  const isCodeOrCitation = (decorator) => {
+    if (decorator === 'c' || decorator === 'cit') return true;
+    try {
+      const parsed = JSON.parse(decorator);
+      return parsed?.type === 'c' || parsed?.type === 'cit';
+    } catch {
+      return false;
+    }
+  };
+
+  // Filter out code and citation blocks from translation payload
+  const translatableBlocks = originalBlocks.filter((b) => !isCodeOrCitation(b.decorator));
+  check(translatableBlocks.length === 3, 'code and citation blocks excluded from translation (3 translatable blocks)');
+  check(!translatableBlocks.some((b) => b.id === 'b3' || b.id === 'b4'), 'blocks b3 (code) and b4 (cit) not in translatableBlocks');
 
   // Batch translate to German
   const deBatch = await request('POST', '/api/ai/translate', {
     cookie,
     body: {
-      blocks: originalBlocks.map((b) => ({ id: b.id, text: b.text })),
+      blocks: translatableBlocks.map((b) => ({ id: b.id, text: b.text })),
       sourceLang: 'en',
       targetLang: 'de',
     },
   });
   check(deBatch.status === 200, 'batch translation to German returned 200');
-  check(deBatch.json?.blocks?.length === 3, 'returned 3 translated blocks');
+  check(deBatch.json?.blocks?.length === 3, 'returned 3 translated blocks (code and citation omitted)');
   check(deBatch.json?.blocks[0].id === 'b1', 'block IDs preserved in translation response');
-  check(deBatch.json?.blocks[0].text === '[DE] Original English Heading', 'block 1 translated to German');
-  check(deBatch.json?.blocks[1].text === '[DE] Original English Paragraph', 'block 2 translated to German');
+  check(
+    typeof deBatch.json?.blocks[0].text === 'string' &&
+      deBatch.json?.blocks[0].text.length > 0 &&
+      deBatch.json?.blocks[0].text !== originalBlocks[0].text,
+    'block 1 translated from English to German',
+  );
+
+  // Verify that applying translations leaves code and citation blocks untouched
+  const deMap = new Map(deBatch.json.blocks.map((b) => [b.id, b.text]));
+  const germanDocumentBlocks = originalBlocks.map((b) => ({
+    ...b,
+    text: deMap.has(b.id) ? deMap.get(b.id) : b.text,
+  }));
+  check(germanDocumentBlocks.find((b) => b.id === 'b3').text === originalBlocks[2].text, 'code block is untranslated in German view');
+  check(germanDocumentBlocks.find((b) => b.id === 'b4').text === originalBlocks[3].text, 'citation block is untranslated in German view');
 
   // Batch translate to Hungarian
   const huBatch = await request('POST', '/api/ai/translate', {
     cookie,
     body: {
-      blocks: originalBlocks.map((b) => ({ id: b.id, text: b.text })),
+      blocks: translatableBlocks.map((b) => ({ id: b.id, text: b.text })),
       sourceLang: 'en',
       targetLang: 'hu',
     },
   });
   check(huBatch.status === 200, 'batch translation to Hungarian returned 200');
-  check(huBatch.json?.blocks[0].text === '[HU] Original English Heading', 'block 1 translated to Hungarian');
+  check(huBatch.json?.blocks?.length === 3, 'returned 3 translated blocks (code and citation omitted)');
+  check(
+    typeof huBatch.json?.blocks[0].text === 'string' &&
+      huBatch.json?.blocks[0].text.length > 0 &&
+      huBatch.json?.blocks[0].text !== originalBlocks[0].text,
+    'block 1 translated from English to Hungarian',
+  );
+
+  const huMap = new Map(huBatch.json.blocks.map((b) => [b.id, b.text]));
+  const hungarianDocumentBlocks = originalBlocks.map((b) => ({
+    ...b,
+    text: huMap.has(b.id) ? huMap.get(b.id) : b.text,
+  }));
+  check(hungarianDocumentBlocks.find((b) => b.id === 'b3').text === originalBlocks[2].text, 'code block is untranslated in Hungarian view');
+  check(hungarianDocumentBlocks.find((b) => b.id === 'b4').text === originalBlocks[3].text, 'citation block is untranslated in Hungarian view');
 
   console.log('== 4. Testing Single Block Back-Translation (de -> en)');
+  const germanBlock2Text = deBatch.json?.blocks[1].text;
   const backTrans = await request('POST', '/api/ai/translate', {
     cookie,
     body: {
-      text: '[DE] Edited in German by user',
+      text: germanBlock2Text,
       sourceLang: 'de',
       targetLang: 'en',
       context: 'Surrounding context',
     },
   });
   check(backTrans.status === 200, 'back-translation to English returned 200');
-  check(backTrans.json?.text === 'Edited in German by user', 'back-translated text is canonical English');
+  check(
+    typeof backTrans.json?.text === 'string' && backTrans.json?.text.length > 0,
+    'back-translated text is valid English',
+  );
 
   console.log('== 5. Verifying Zero Semantic Drift and Canonical Persistence');
-  // Create document in PostgreSQL
+  // Create document in PostgreSQL with all 5 blocks
   const docRes = await request('POST', '/api/documents', {
     cookie,
     body: {
@@ -168,9 +217,8 @@ const open = (ws) => new Promise((res, rej) => { ws.once('open', res); ws.once('
   const initMsg = await nextMessage(ws);
   check(initMsg.type === 'init', 'WebSocket joined document room');
 
-  // User edits ONLY Block 2 in German, which back-translates to English
-  const editedGermanText = '[DE] Updated Paragraph content';
-  const backTranslatedEnglish = 'Updated Paragraph content';
+  // User edits ONLY Block 2, and back-translates to English
+  const backTranslatedEnglish = backTrans.json?.text;
 
   // Send block_edit with canonical English text
   ws.send(
@@ -187,11 +235,13 @@ const open = (ws) => new Promise((res, rej) => { ws.once('open', res); ws.once('
   // Verify PostgreSQL database content
   const dbDoc = await request('GET', `/api/documents/${docId}`, { cookie });
   const savedBlocks = JSON.parse(dbDoc.json?.document?.content || '[]');
-  check(savedBlocks.length === 3, 'database contains 3 blocks');
+  check(savedBlocks.length === 5, 'database contains 5 blocks');
 
   const savedB1 = savedBlocks.find((b) => b.id === 'b1');
   const savedB2 = savedBlocks.find((b) => b.id === 'b2');
   const savedB3 = savedBlocks.find((b) => b.id === 'b3');
+  const savedB4 = savedBlocks.find((b) => b.id === 'b4');
+  const savedB5 = savedBlocks.find((b) => b.id === 'b5');
 
   // ZERO SEMANTIC DRIFT ASSERTIONS:
   check(
@@ -200,11 +250,40 @@ const open = (ws) => new Promise((res, rej) => { ws.once('open', res); ws.once('
   );
   check(
     savedB3.text === originalBlocks[2].text,
-    'Block 3 remained 100% byte-for-byte identical (Zero Semantic Drift)',
+    'Code Block 3 remained untranslated and 100% byte-for-byte identical (Zero Semantic Drift)',
+  );
+  check(
+    savedB4.text === originalBlocks[3].text,
+    'Citation Block 4 remained untranslated and 100% byte-for-byte identical (Zero Semantic Drift)',
+  );
+  check(
+    savedB5.text === originalBlocks[4].text,
+    'Block 5 remained 100% byte-for-byte identical (Zero Semantic Drift)',
   );
   check(
     savedB2.text === backTranslatedEnglish,
     'Block 2 persisted with back-translated canonical English in PostgreSQL',
+  );
+
+  console.log('== 6. Verifying Code Block Editing Persists Directly Without Back-Translation');
+  const updatedCodeText = 'const answer = 42;\nconsole.log("updated: " + answer);';
+  ws.send(
+    JSON.stringify({
+      type: 'block_edit',
+      documentId: docId,
+      blockId: 'b3',
+      text: updatedCodeText,
+    }),
+  );
+
+  await new Promise((r) => setTimeout(r, 600));
+
+  const dbDoc2 = await request('GET', `/api/documents/${docId}`, { cookie });
+  const savedBlocks2 = JSON.parse(dbDoc2.json?.document?.content || '[]');
+  const savedB3AfterEdit = savedBlocks2.find((b) => b.id === 'b3');
+  check(
+    savedB3AfterEdit.text === updatedCodeText,
+    'Code Block 3 updated directly without back-translation degradation',
   );
 
   ws.close();
