@@ -65,9 +65,9 @@ onMounted(async () => {
         v-model="limit"
         @change="fetchUsers(limit, 0)"
       >
-        <option value="10">10</option>
-        <option value="20">20</option>
-        <option value="50">50</option>
+        <option :value="10">10</option>
+        <option :value="20">20</option>
+        <option :value="50">50</option>
       </select>
       <button
         @click="fetchUsers(limit, currentPage())"
@@ -76,7 +76,7 @@ onMounted(async () => {
         Next Page
       </button>
       <button
-        @click="fetchUsers(limit, currentPage() - limit)"
+        @click="fetchUsers(limit, currentPage() - limit * 2)"
         :disabled="!prevPageBtn"
       >
         Previous Page
