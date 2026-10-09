@@ -33,6 +33,15 @@ const promoteToAdmin = async (userID: string) => {
     console.error('Failed to promote to admin:', error)
   }
 }
+
+const deleteUser = async (userID: string) => {
+  try {
+    await httpClient.delete(`/api/users/${userID}`)
+    emit('close')
+  } catch (error) {
+    console.error('Failed to delete user:', error)
+  }
+}
 </script>
 
 <template>
@@ -59,7 +68,7 @@ const promoteToAdmin = async (userID: string) => {
         @click="revokeAdmin(user.id)"
         >Revoke Admin</Button
       >
-      <Button @click="emit('close')">Delete User</Button>
+      <Button @click="deleteUser(user.id)">Delete User</Button>
     </div>
   </div>
 </template>
