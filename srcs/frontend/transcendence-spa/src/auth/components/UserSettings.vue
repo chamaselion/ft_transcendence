@@ -10,7 +10,6 @@ import type { Root, User } from '../types/user'
 import type { OtpConfirmationResponse } from '../types/auth.types'
 import { useAuthStore } from '@/stores/auth'
 import UserIcon from '@/app/components/UserIcon.vue'
-import UserManaging from '@/admin/components/UserManaging.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()

@@ -16,6 +16,7 @@ const res = ref<ResponseShape | null>(null)
 const users = ref<User[] | null>(null)
 const pagination = ref<Pagination | null>(null)
 const sortOption = ref<string>('createdAt')
+const lastClickedUser = ref<User | null>(null)
 
 const hasNext = computed(() => {
   const p = pagination.value
@@ -52,6 +53,14 @@ const rangeEnd = computed(() => {
   const p = pagination.value
   return p && users.value?.length ? Math.min(p.offset + users.value.length, p.total) : 0
 })
+
+const openModal = (user: User) => {
+  lastClickedUser.value = user
+}
+
+const closeModal = () => {
+  lastClickedUser.value = null
+}
 
 onMounted(async () => {
   await fetchUsers(10, 0)
@@ -107,11 +116,7 @@ onMounted(async () => {
         v-for="user in users"
         :key="user.id"
         class="user-listing"
-        @click="
-          () => {
-            console.log('User clicked:', user.id)
-          }
-        "
+        @click="openModal(user)"
       >
         <td>{{ user.id }}</td>
         <td>{{ user.login }}</td>
@@ -121,7 +126,12 @@ onMounted(async () => {
     </table>
   </div>
 
-  <UserManagmentModal />
+  <UserManagmentModal
+    v-if="lastClickedUser"
+    :key="lastClickedUser.id"
+    :user="lastClickedUser"
+    @close="closeModal"
+  />
 </template>
 
 <style scoped>
