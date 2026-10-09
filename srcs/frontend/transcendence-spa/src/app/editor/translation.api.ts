@@ -30,7 +30,6 @@ export async function translateBlocks(
   if (sourceLang === targetLang || blocks.length === 0) {
     return blocks
   }
-
   const response = await httpClient.post<BatchTranslationResponse>('/api/ai/translate', {
     blocks,
     sourceLang,

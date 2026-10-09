@@ -81,7 +81,7 @@ class OpenAiProvider extends OpenAiCompatibleProvider {
 
 class DeepSeekProvider extends OpenAiCompatibleProvider {
   constructor(config = {}) {
-    super(config, 'https://api.deepseek.com/v1', 'deepseek-v4.1-flash');
+    super(config, 'https://api.deepseek.com/v1', 'deepseek-flash');
   }
 }
 

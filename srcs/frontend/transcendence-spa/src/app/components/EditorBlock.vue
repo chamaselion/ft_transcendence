@@ -17,7 +17,7 @@
       @blur="$emit('blur')"
     />
     <div
-      v-if="isForeignLanguage && canonicalText"
+      v-if="isForeignLanguage && canonicalText && decorator.type !== 'c' && decorator.type !== 'cit'"
       class="editor-block__canonical-preview"
       :title="`Canonical English: ${canonicalText}`"
     >
