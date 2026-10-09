@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, computed } from 'vue'
 import { httpClient } from '@/auth/auth.api'
 import type { User } from '@/auth/types/user'
 import { type Pagination } from '@/types/pagination'
+import UserManagmentModal from './UserManagmentModal.vue'
 
 interface ResponseShape {
   users: User[]
@@ -14,9 +15,16 @@ const limit = ref<number>(10)
 const res = ref<ResponseShape | null>(null)
 const users = ref<User[] | null>(null)
 const pagination = ref<Pagination | null>(null)
-const nextPageBtn = ref<boolean>(true)
-const prevPageBtn = ref<boolean>(false)
 const sortOption = ref<string>('createdAt')
+
+const hasNext = computed(() => {
+  const p = pagination.value
+  return p !== null && p.offset + p.limit < p.total
+})
+
+const hasPrevious = computed(() => {
+  return (pagination.value?.offset ?? 0) > 0
+})
 
 async function fetchUsers(limit: number, offset: number) {
   try {
@@ -35,21 +43,15 @@ function currentPage(): number {
   return Math.floor(pagination.value.offset) + limit.value
 }
 
-function displayCurrentPage(): number {
-  if (pagination.value === null) return 0
-  const tmp = pagination.value.limit + pagination.value.offset
-  if (pagination.value.total < tmp) {
-    nextPageBtn.value = false
-    return pagination.value.total
-  }
-  if (tmp == 10) {
-    prevPageBtn.value = false
-  } else {
-    prevPageBtn.value = true
-  }
-  nextPageBtn.value = true
-  return tmp
-}
+const rangeStart = computed(() => {
+  const p = pagination.value
+  return p && users.value?.length ? p.offset + 1 : 0
+})
+
+const rangeEnd = computed(() => {
+  const p = pagination.value
+  return p && users.value?.length ? Math.min(p.offset + users.value.length, p.total) : 0
+})
 
 onMounted(async () => {
   await fetchUsers(10, 0)
@@ -59,7 +61,9 @@ onMounted(async () => {
 <template>
   <div class="user-listing-view">
     <div class="listing-header-options">
-      <p v-if="pagination">Listing {{ displayCurrentPage() }} of {{ pagination.total }} users</p>
+      <p v-if="pagination">
+        Showing {{ rangeStart }}–{{ rangeEnd }} of {{ pagination.total }} users
+      </p>
       <label for="limit">Users per page:</label>
       <select
         v-model="limit"
@@ -71,13 +75,13 @@ onMounted(async () => {
       </select>
       <button
         @click="fetchUsers(limit, currentPage())"
-        :disabled="!nextPageBtn"
+        :disabled="!hasNext"
       >
         Next Page
       </button>
       <button
         @click="fetchUsers(limit, currentPage() - limit * 2)"
-        :disabled="!prevPageBtn"
+        :disabled="!hasPrevious"
       >
         Previous Page
       </button>
@@ -103,6 +107,11 @@ onMounted(async () => {
         v-for="user in users"
         :key="user.id"
         class="user-listing"
+        @click="
+          () => {
+            console.log('User clicked:', user.id)
+          }
+        "
       >
         <td>{{ user.id }}</td>
         <td>{{ user.login }}</td>
@@ -111,6 +120,8 @@ onMounted(async () => {
       </tr>
     </table>
   </div>
+
+  <UserManagmentModal />
 </template>
 
 <style scoped>

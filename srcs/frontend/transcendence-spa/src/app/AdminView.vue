@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import UserManaging from '@/admin/components/UserManaging.vue'
+import UserManaging from '@/admin/components/UserManagingList.vue'
 </script>
 
 <template>
