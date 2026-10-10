@@ -9,6 +9,11 @@ Supported providers: `github`, `42`.
 - Method: `GET`
 - Path: `/oauth/:provider/authorize`
 
+Query params:
+
+- `nonce` (required): client-generated nonce used in OAuth state
+- `next` (optional): safe relative redirect target after successful auth
+
 This starts the OAuth login flow for the selected provider. The backend creates a one-time server-side state intent and redirects the browser to the provider authorization URL.
 
 Example:
@@ -23,22 +28,32 @@ Success response (`302`):
 Common errors:
 
 - `400` missing or unsupported provider
+- `400` missing or invalid nonce
 - `501` provider is not configured yet
 - `500` server error
 
-## OAuth callback
+## Finish OAuth from frontend callback
 
-- Method: `GET`
-- Path: `/oauth/:provider/callback`
+- Method: `POST`
+- Path: `/oauth/:provider/exchange`
 
-This is the callback URL configured with the provider. The provider redirects the user here with `code` and `state` in the query string.
+Use this endpoint when the OAuth provider redirects to the frontend first. The frontend validates `nonce` from `state`, then forwards `code` and `state` to backend.
 
-The backend validates the single-use state, exchanges the authorization code for a provider token, resolves the user, and sets the auth cookie for a normal login flow.
+Important:
 
-Success response (`200` or `302`):
+- The backend no longer accepts provider callbacks directly.
+- Configure the provider redirect URI to point to the frontend callback route.
 
-- Browser clients are redirected to the valid `next` target or `/`.
-- API clients receive:
+Request body:
+
+```json
+{
+  "code": "provider-auth-code",
+  "state": "base64url-encoded-state"
+}
+```
+
+Success response (`200`):
 
 ```json
 {
@@ -53,9 +68,9 @@ Success response (`200` or `302`):
 
 Common errors:
 
-- `400` missing code/state, invalid or expired state, or unsupported provider
+- `400` invalid provider, code, or state
 - `401` unauthorized or unable to resolve the user
-- `409` an account with that email already exists and must be linked explicitly from account settings
+- `409` account conflict that requires explicit linking
 - `501` provider is not configured yet
 - `500` server error
 
@@ -65,6 +80,11 @@ All endpoints below require the auth cookie and an active session.
 
 - Method: `GET`
 - Path: `/oauth/:provider/link`
+
+Query params:
+
+- `nonce` (required): client-generated nonce used in OAuth state
+- `next` (optional): safe relative redirect target after successful linking
 
 This starts the provider authorization flow for linking a provider account to the currently authenticated user.
 
@@ -80,6 +100,7 @@ Success response (`302`):
 Common errors:
 
 - `400` unsupported provider
+- `400` missing or invalid nonce
 - `401` unauthorized
 - `409` provider account is already linked to another user
 - `501` provider is not configured yet
@@ -87,14 +108,13 @@ Common errors:
 
 ## Finish linking provider account
 
-- Method: `GET`
-- Path: `/oauth/:provider/callback`
+- Method: `POST`
+- Path: `/oauth/:provider/exchange`
 
-This is the same callback path as the login flow. For link requests, the backend validates the server-side user id stored in the one-time state and attaches the provider account to the authenticated local user without creating a new session.
+For link requests, the backend validates the server-side user id stored in the one-time state and attaches the provider account to the authenticated local user without creating a new session.
 
-Success response (`200` or `302`):
+Success response (`200`):
 
-- Browser clients are redirected to the valid `next` target or `/`.
 - API clients receive:
 
 ```json
