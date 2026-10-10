@@ -26,6 +26,10 @@ module.exports = (sequelize) => {
       allowNull: false,
       defaultValue: '/',
     },
+    nonce: {
+      type: DataTypes.STRING(128),
+      allowNull: true,
+    },
     expiresAt: {
       type: DataTypes.DATE,
       allowNull: false,
@@ -37,6 +41,7 @@ module.exports = (sequelize) => {
     indexes: [
       { fields: ['user_id'] },
       { fields: ['provider'] },
+      { fields: ['nonce'] },
       { fields: ['expires_at'] },
     ],
   });

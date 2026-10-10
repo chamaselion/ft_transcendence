@@ -1,6 +1,7 @@
 const { getOptionalEnv } = require('../../config');
 
 const supportedProviders = ['github', '42'];
+const OAUTH_NONCE_PATTERN = /^[A-Za-z0-9_-]{22,128}$/;
 
 const normalizeProvider = (provider) => String(provider || '').trim().toLowerCase();
 
@@ -16,6 +17,19 @@ const normalizeOAuthRedirectTarget = (value) => {
 
   if (normalizedValue.startsWith('//')) {
     return '/';
+  }
+
+  return normalizedValue;
+};
+
+const normalizeOAuthNonce = (value) => {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const normalizedValue = value.trim();
+  if (!OAUTH_NONCE_PATTERN.test(normalizedValue)) {
+    return null;
   }
 
   return normalizedValue;
@@ -88,6 +102,35 @@ const decodeOAuthState = (rawState) => {
   }
 };
 
+const encodeOAuthStatePayload = (payload = {}) => {
+  const raw = JSON.stringify(payload);
+  return Buffer.from(raw, 'utf8').toString('base64url');
+};
+
+const decodeOAuthStatePayload = (rawState) => {
+  const parsed = decodeOAuthState(rawState);
+  if (!parsed || typeof parsed !== 'object') {
+    return null;
+  }
+
+  const stateId = typeof parsed.sid === 'string' ? parsed.sid : null;
+  const nonce = normalizeOAuthNonce(parsed.n);
+  const provider = typeof parsed.p === 'string' ? normalizeProvider(parsed.p) : null;
+  const mode = typeof parsed.m === 'string' ? parsed.m : null;
+
+  if (!stateId || !nonce || !provider || !mode) {
+    return null;
+  }
+
+  return {
+    stateId,
+    nonce,
+    provider,
+    mode,
+    issuedAt: parsed.iat || null,
+  };
+};
+
 const buildAuthorizeUrl = ({ provider, config, state, next = '/' } = {}) => {
   const normalizedProvider = normalizeProvider(provider);
   const targetConfig = config || getProviderConfig(normalizedProvider);
@@ -148,9 +191,12 @@ module.exports = {
   supportedProviders,
   normalizeProvider,
   normalizeOAuthRedirectTarget,
+  normalizeOAuthNonce,
   getProviderConfig,
   buildOAuthState,
   decodeOAuthState,
+  encodeOAuthStatePayload,
+  decodeOAuthStatePayload,
   buildAuthorizeUrl,
   normalizeProviderProfile,
 };
