@@ -1,13 +1,13 @@
 const { randomUUID } = require('crypto');
 const sequelize = require('../../db');
-const { normalizeOAuthRedirectTarget } = require('./oauth2-config');
+const { normalizeOAuthRedirectTarget, normalizeOAuthNonce } = require('./oauth2-config');
 
 const DEFAULT_TTL_MS = Number(process.env.OAUTH_STATE_TTL_MS) || 10 * 60 * 1000;
 const SUPPORTED_INTENT_MODES = new Set(['login', 'link']);
 
 const getIntentModel = () => sequelize.models.oauthStateIntent;
 
-const createOAuthStateIntent = async ({ provider, mode = 'login', userId = null, next = '/' } = {}) => {
+const createOAuthStateIntent = async ({ provider, mode = 'login', userId = null, next = '/', nonce } = {}) => {
   const oauthStateIntentModel = getIntentModel();
   if (!oauthStateIntentModel) {
     throw new Error('OAuth state intent storage is not available');
@@ -25,6 +25,11 @@ const createOAuthStateIntent = async ({ provider, mode = 'login', userId = null,
     throw new Error('OAuth login intents must not carry a user id');
   }
 
+  const normalizedNonce = normalizeOAuthNonce(nonce);
+  if (!normalizedNonce) {
+    throw new Error('OAuth intents require a valid nonce');
+  }
+
   const stateId = randomUUID();
   const expiresAt = new Date(Date.now() + DEFAULT_TTL_MS);
 
@@ -34,6 +39,7 @@ const createOAuthStateIntent = async ({ provider, mode = 'login', userId = null,
     mode,
     userId,
     next: normalizeOAuthRedirectTarget(next),
+    nonce: normalizedNonce,
     expiresAt,
   });
 
@@ -43,6 +49,7 @@ const createOAuthStateIntent = async ({ provider, mode = 'login', userId = null,
     mode: intent.mode,
     userId: intent.userId,
     next: intent.next,
+    nonce: intent.nonce,
     issuedAt: intent.createdAt,
     expiresAt: intent.expiresAt,
   };
@@ -90,6 +97,7 @@ const consumeOAuthStateIntent = async ({ stateId, provider } = {}) => {
       mode: intent.mode,
       userId: intent.userId,
       next: intent.next,
+      nonce: intent.nonce,
       issuedAt: intent.createdAt,
       expiresAt: intent.expiresAt,
     };

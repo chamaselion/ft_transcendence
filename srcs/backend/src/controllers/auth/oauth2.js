@@ -6,9 +6,12 @@ const { ensureSession, setAuthCookie } = require('./helpers');
 const {
   supportedProviders,
   normalizeProvider,
+  normalizeOAuthNonce,
   normalizeOAuthRedirectTarget,
   getProviderConfig,
   buildAuthorizeUrl,
+  encodeOAuthStatePayload,
+  decodeOAuthStatePayload,
   normalizeProviderProfile,
 } = require('./oauth2-config');
 const {
@@ -79,18 +82,31 @@ const createOAuthAccountManager = ({
       }
 
       const redirectTarget = normalizeOAuthRedirectTarget(req.query?.next);
+      const nonce = normalizeOAuthNonce(req.query?.nonce);
+      if (!nonce) {
+        return res.status(400).json({ error: 'Authentication failed' });
+      }
 
       const stateIntent = await createOAuthStateIntent({
         provider,
         mode: 'link',
         userId: user.id,
         next: redirectTarget,
+        nonce,
+      });
+
+      const encodedState = encodeOAuthStatePayload({
+        sid: stateIntent.stateId,
+        n: stateIntent.nonce,
+        p: provider,
+        m: stateIntent.mode,
+        iat: new Date().toISOString(),
       });
 
       const authorizeUrl = buildAuthorizeUrl({
         provider,
         config: providerConfig,
-        state: stateIntent.stateId,
+        state: encodedState,
         next: redirectTarget,
       });
 
@@ -126,16 +142,29 @@ const createOAuth2Handler = ({ logger = console } = {}) => {
       }
 
       const redirectTarget = normalizeOAuthRedirectTarget(req.query?.next);
+      const nonce = normalizeOAuthNonce(req.query?.nonce);
+      if (!nonce) {
+        return res.status(400).json({ error: 'Authentication failed' });
+      }
 
       const stateIntent = await createOAuthStateIntent({
         provider,
         mode: 'login',
         next: redirectTarget,
+        nonce,
       });
+      const encodedState = encodeOAuthStatePayload({
+        sid: stateIntent.stateId,
+        n: stateIntent.nonce,
+        p: provider,
+        m: stateIntent.mode,
+        iat: new Date().toISOString(),
+      });
+
       const authorizeUrl = buildAuthorizeUrl({
         provider,
         config: providerConfig,
-        state: stateIntent.stateId,
+        state: encodedState,
         next: redirectTarget,
       });
 
@@ -172,19 +201,36 @@ const createOAuth2Handler = ({ logger = console } = {}) => {
         return res.status(400).json({ error: 'Authentication failed' });
       }
 
+      const decodedState = decodeOAuthStatePayload(state);
+      if (decodedState && decodedState.provider !== provider) {
+        return res.status(400).json({ error: 'Authentication failed' });
+      }
+
+      const stateId = decodedState?.stateId || String(state);
+      const callbackNonce = decodedState?.nonce || null;
+      const callbackMode = decodedState?.mode || null;
+
       const providerConfig = getProviderConfig(provider);
       if (!providerConfig.enabled) {
         return res.status(501).json({ error: 'Authentication failed' });
       }
 
       const stateIntent = await consumeOAuthStateIntent({
-        stateId: String(state),
+        stateId,
         provider,
       });
       if (!stateIntent.ok) {
         return res.status(stateIntent.statusCode).json({ error: stateIntent.error });
       }
       const parsedState = stateIntent.payload;
+
+      if (parsedState.nonce && callbackNonce && callbackNonce !== parsedState.nonce) {
+        return res.status(400).json({ error: 'Authentication failed' });
+      }
+
+      if (callbackMode && callbackMode !== parsedState.mode) {
+        return res.status(400).json({ error: 'Authentication failed' });
+      }
 
       const tokenResponse = await exchangeCodeForToken({
         provider,
@@ -327,6 +373,182 @@ const createOAuth2Handler = ({ logger = console } = {}) => {
     }
   };
 
+  const exchange = async (req, res) => {
+    try {
+      const provider = normalizeProvider(req.params?.provider);
+      const { code, state, error } = req.body || {};
+
+      if (!provider || !supportedProviders.includes(provider)) {
+        return res.status(400).json({ error: 'Authentication failed' });
+      }
+
+      if (error || !code || !state) {
+        return res.status(400).json({ error: 'Authentication failed' });
+      }
+
+      const decodedState = decodeOAuthStatePayload(state);
+      if (!decodedState || decodedState.provider !== provider) {
+        return res.status(400).json({ error: 'Authentication failed' });
+      }
+
+      const providerConfig = getProviderConfig(provider);
+      if (!providerConfig.enabled) {
+        return res.status(501).json({ error: 'Authentication failed' });
+      }
+
+      const stateIntent = await consumeOAuthStateIntent({
+        stateId: decodedState.stateId,
+        provider,
+      });
+      if (!stateIntent.ok) {
+        return res.status(stateIntent.statusCode).json({ error: stateIntent.error });
+      }
+      const parsedState = stateIntent.payload;
+
+      if (decodedState.nonce !== parsedState.nonce) {
+        return res.status(400).json({ error: 'Authentication failed' });
+      }
+
+      if (decodedState.mode && decodedState.mode !== parsedState.mode) {
+        return res.status(400).json({ error: 'Authentication failed' });
+      }
+
+      const tokenResponse = await exchangeCodeForToken({
+        provider,
+        code,
+        config: providerConfig,
+      });
+
+      const providerProfilePayload = await fetchProviderProfile({
+        provider,
+        accessToken: tokenResponse.accessToken,
+        config: providerConfig,
+      });
+
+      let profilePayload = providerProfilePayload;
+      if (!profilePayload?.email) {
+        const fallbackEmail = await fetchProviderEmailAddress({
+          provider,
+          accessToken: tokenResponse.accessToken,
+          config: providerConfig,
+        });
+
+        if (fallbackEmail) {
+          profilePayload = {
+            ...profilePayload,
+            email: fallbackEmail,
+            email_verified: profilePayload?.email_verified ?? true,
+          };
+        }
+      }
+
+      const profile = normalizeProviderProfile(provider, profilePayload);
+      const isLinkIntent = parsedState.mode === 'link';
+      const linkUserId = isLinkIntent && parsedState.userId ? String(parsedState.userId) : null;
+
+      let user;
+      let oauthAccount;
+
+      if (isLinkIntent) {
+        const targetUser = await sequelize.models.user.findByPk(linkUserId);
+        if (!targetUser) {
+          return res.status(401).json({ error: 'Unauthorized' });
+        }
+
+        const existingOauthAccount = await sequelize.models.userOauthAccount.findOne({
+          where: {
+            provider,
+            providerUserId: profile.providerUserId,
+          },
+        });
+
+        if (existingOauthAccount && String(existingOauthAccount.userId) !== linkUserId) {
+          return res.status(409).json({ error: 'Authentication failed' });
+        }
+
+        oauthAccount = existingOauthAccount || await sequelize.models.userOauthAccount.create({
+          userId: targetUser.id,
+          provider,
+          providerUserId: profile.providerUserId,
+          email: profile.email,
+          emailVerified: profile.emailVerified,
+          displayName: profile.displayName,
+          avatarUrl: profile.avatarUrl,
+        });
+
+        user = targetUser;
+      } else {
+        const resolutionResult = await resolveOrCreateUserForOAuthProfile({ provider, profile });
+
+        if (resolutionResult.reason === 'link_required') {
+          return res.status(409).json({
+            error: 'An account with that email already exists. Sign in and link this provider from account settings.',
+          });
+        }
+
+        if (resolutionResult.reason === 'provider_identity_mismatch') {
+          return res.status(409).json({
+            error: 'Authentication failed',
+          });
+        }
+
+        user = resolutionResult.user;
+        oauthAccount = resolutionResult.oauthAccount;
+
+        if (!user) {
+          return res.status(401).json({ error: 'Authentication failed' });
+        }
+      }
+
+      if (oauthAccount) {
+        await oauthAccount.update({
+          email: profile.email || oauthAccount.email,
+          emailVerified: profile.emailVerified,
+          displayName: profile.displayName || oauthAccount.displayName,
+          avatarUrl: profile.avatarUrl || oauthAccount.avatarUrl,
+          accessTokenHash: hashTokenValue(tokenResponse.accessToken),
+          refreshTokenHash: hashTokenValue(tokenResponse.refreshToken),
+        });
+      }
+
+      logger.info(`[OAUTH2] user authenticated via ${provider}`, {
+        userId: user.id,
+        provider,
+        redirectTarget: normalizeOAuthRedirectTarget(parsedState.next),
+        linked: isLinkIntent,
+      });
+
+      if (!isLinkIntent) {
+        const internalToken = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+        setAuthCookie(res, internalToken);
+        await ensureSession({ token: internalToken, user });
+      }
+
+      if (isLinkIntent) {
+        return res.json({
+          linked: true,
+          provider,
+          id: user.id,
+          login: user.login,
+          email: user.email,
+          oauthAccountId: oauthAccount?.id || null,
+        });
+      }
+
+      return res.json({
+        id: user.id,
+        login: user.login,
+        email: user.email,
+        loggedIn: true,
+        provider,
+        oauthAccountId: oauthAccount?.id || null,
+      });
+    } catch (err) {
+      logger.error('[OAUTH2] exchange failed:', err);
+      return res.status(500).json({ error: 'Server error' });
+    }
+  };
+
   const finalizeAuth = async ({
     provider,
     providerUser,
@@ -343,6 +565,7 @@ const createOAuth2Handler = ({ logger = console } = {}) => {
   return {
     startAuthorization,
     callback,
+    exchange,
     getProviderConfig,
     buildAuthorizeUrl,
     normalizeProviderProfile,
