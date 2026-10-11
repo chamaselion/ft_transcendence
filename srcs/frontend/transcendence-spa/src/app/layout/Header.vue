@@ -91,7 +91,6 @@ const isActive = (path: string) => (path === '/' ? route.path === '/' : route.pa
       to="/login"
     >
       <UserIcon avatar-url="/user-default-avatar.png" />
-      <!-- NOTE: Add placeholder ICON URL -->
     </router-link>
   </header>
 </template>
