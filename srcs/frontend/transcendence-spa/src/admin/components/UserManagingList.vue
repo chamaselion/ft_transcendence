@@ -73,57 +73,77 @@ onMounted(async () => {
       <p v-if="pagination">
         Showing {{ rangeStart }}–{{ rangeEnd }} of {{ pagination.total }} users
       </p>
-      <label for="limit">Users per page:</label>
-      <select
-        v-model="limit"
-        @change="fetchUsers(limit, 0)"
-      >
-        <option :value="10">10</option>
-        <option :value="20">20</option>
-        <option :value="50">50</option>
-      </select>
-      <button
-        @click="fetchUsers(limit, currentPage())"
-        :disabled="!hasNext"
-      >
-        Next Page
-      </button>
-      <button
-        @click="fetchUsers(limit, currentPage() - limit * 2)"
-        :disabled="!hasPrevious"
-      >
-        Previous Page
-      </button>
-      <label for="sort">Sort by:</label>
-      <select
-        v-model="sortOption"
-        @change="fetchUsers(limit, 0)"
-      >
-        <option value="createdAt">Created At</option>
-        <option value="login">Username</option>
-        <option value="email">Email</option>
-      </select>
+      <div class="listing-filter">
+        <label for="limit">Users per page:</label>
+        <select
+          id="limit"
+          v-model="limit"
+          @change="fetchUsers(limit, 0)"
+        >
+          <option :value="10">10</option>
+          <option :value="20">20</option>
+          <option :value="50">50</option>
+        </select>
+      </div>
+      <div class="listing-pagination">
+        <button
+          @click="fetchUsers(limit, currentPage())"
+          :disabled="!hasNext"
+        >
+          Next Page
+        </button>
+        <button
+          @click="fetchUsers(limit, currentPage() - limit * 2)"
+          :disabled="!hasPrevious"
+        >
+          Previous Page
+        </button>
+      </div>
+      <div class="listing-filter">
+        <label for="sort">Sort by:</label>
+        <select
+          id="sort"
+          v-model="sortOption"
+          @change="fetchUsers(limit, 0)"
+        >
+          <option value="createdAt">Created At</option>
+          <option value="login">Username</option>
+          <option value="email">Email</option>
+        </select>
+      </div>
     </div>
 
-    <table>
-      <tr>
-        <td>User ID</td>
-        <td>Username</td>
-        <td>Email</td>
-        <td>Role</td>
-      </tr>
-      <tr
-        v-for="user in users"
-        :key="user.id"
-        class="user-listing"
-        @click="openModal(user)"
-      >
-        <td>{{ user.id }}</td>
-        <td>{{ user.login }}</td>
-        <td>{{ user.email }}</td>
-        <td :class="`user-role-${user.role}`">{{ user.role }}</td>
-      </tr>
-    </table>
+    <div class="listing-table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">User ID</th>
+            <th scope="col">Username</th>
+            <th scope="col">Email</th>
+            <th scope="col">Role</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr
+            v-for="user in users"
+            :key="user.id"
+            class="user-listing"
+            @click="openModal(user)"
+          >
+            <td>{{ user.id }}</td>
+            <td>{{ user.login }}</td>
+            <td>{{ user.email }}</td>
+            <td>
+              <span
+                class="user-role"
+                :class="`user-role-${user.role}`"
+                >{{ user.role }}</span
+              >
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 
   <UserManagmentModal
@@ -135,45 +155,166 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.listing-header-options {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 12px;
-  background-color: var(--bg-subtle);
-  padding: 12px;
-  border-radius: 8px;
+.user-listing-view {
+  min-width: 0;
+  margin: 12px 24px;
+  color: var(--text-primary);
 }
 
-.user-listing-view {
-  margin: 12px 24px;
+.listing-header-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 16px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background-color: var(--bg-subtle);
+  font-size: 14px;
+}
+
+.listing-header-options p {
+  margin: 0 auto 0 0;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.listing-filter,
+.listing-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.listing-filter label {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.listing-header-options select,
+.listing-header-options button {
+  min-height: 38px;
+  padding: 8px 12px;
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+  font: inherit;
+  cursor: pointer;
+  transition:
+    background-color 0.2s,
+    border-color 0.2s;
+}
+
+.listing-header-options button {
+  font-weight: 500;
+}
+
+.listing-header-options select:hover,
+.listing-header-options button:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  background-color: var(--bg-subtle);
+}
+
+.listing-header-options select:focus-visible,
+.listing-header-options button:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.listing-header-options button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.listing-table-wrapper {
+  overflow-x: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background-color: var(--bg-surface);
 }
 
 table {
   width: 100%;
+  min-width: 600px;
   border-collapse: collapse;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+th,
+td {
+  padding: 14px 16px;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+th {
+  border-bottom: 1px solid var(--border-subtle);
+  background-color: var(--bg-subtle);
+  color: var(--text-secondary);
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 td {
-  border: 1px solid #ddd;
-  padding: 8px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.user-listing {
+  cursor: pointer;
+  transition: background-color 0.2s;
 }
 
 .user-listing:hover {
   background-color: var(--bg-subtle);
 }
 
-th {
-  padding-top: 12px;
-  padding-bottom: 12px;
-  text-align: left;
-  color: var(--text-primary);
+.user-role {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background-color: var(--bg-subtle);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: capitalize;
 }
 
 .user-role-admin {
-  color: red;
+  background-color: color-mix(in srgb, var(--color-alert) 12%, transparent);
+  color: var(--color-alert);
 }
+
 .user-role-user {
-  color: blue;
+  background-color: color-mix(in srgb, var(--color-primary) 12%, transparent);
+  color: var(--color-primary);
+}
+
+@media (max-width: 640px) {
+  .user-listing-view {
+    margin: 12px;
+  }
+
+  .listing-header-options {
+    align-items: stretch;
+    flex-direction: column;
+    padding: 12px;
+  }
+
+  .listing-filter select {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .listing-pagination button {
+    flex: 1;
+  }
 }
 </style>

@@ -96,29 +96,72 @@ const updateUsername = async () => {
 <style scoped>
 .manage-user-modal {
   position: fixed;
-  top: 10%;
-  left: 10%;
-  width: 80%;
-  height: 80%;
-  background-color: var(--bg-subtle);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  padding: 16px;
+  top: 50%;
+  left: 50%;
   z-index: 1000;
+  box-sizing: border-box;
+  width: min(520px, calc(100% - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  transform: translate(-50%, -50%);
+  padding: 20px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-md);
+}
+
+.manage-user-modal h1 {
+  margin: 0 0 20px;
+  padding: 0 40px 16px 0;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.user-management-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.user-management-content p {
+  margin: 0 0 4px;
+  padding: 12px;
+  border-radius: 8px;
+  background-color: var(--bg-subtle);
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.user-management-content > .input {
+  margin-top: 8px;
 }
 
 .close-button {
   position: absolute;
-  top: 8px;
-  right: 8px;
+  top: 16px;
+  right: 20px;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  color: var(--text-secondary);
   cursor: pointer;
-  font-size: 34px;
-  font-weight: bold;
-  padding: 4px 8px;
+  font-size: 18px;
+  line-height: 1;
+  transition:
+    background-color 0.2s,
+    color 0.2s;
 }
 
 .close-button:hover {
-  color: red;
+  background-color: var(--bg-subtle);
+  color: var(--text-primary);
 }
 </style>
