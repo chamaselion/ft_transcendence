@@ -1,8 +1,11 @@
 <script setup lang="ts">
-import { defineProps, defineEmits } from 'vue'
+import { defineProps, defineEmits, ref } from 'vue'
 import { httpClient } from '@/auth/auth.api'
 import type { User } from '@/auth/types/user'
 import Button from '@/app/components/Button.vue'
+import Input from '@/app/components/Input.vue'
+
+const username = ref<string | undefined | null>(null)
 
 const props = defineProps<{
   user: User
@@ -12,9 +15,9 @@ const emit = defineEmits<{
   (e: 'close'): void
 }>()
 
-const revokeAdmin = async (userID: string) => {
+const revokeAdmin = async () => {
   try {
-    await httpClient.patch(`/api/users/${userID}`, {
+    await httpClient.patch(`/api/users/${props.user.id}`, {
       role: 'user',
     })
     emit('close')
@@ -23,9 +26,9 @@ const revokeAdmin = async (userID: string) => {
   }
 }
 
-const promoteToAdmin = async (userID: string) => {
+const promoteToAdmin = async () => {
   try {
-    await httpClient.patch(`/api/users/${userID}`, {
+    await httpClient.patch(`/api/users/${props.user.id}`, {
       role: 'admin',
     })
     emit('close')
@@ -34,12 +37,23 @@ const promoteToAdmin = async (userID: string) => {
   }
 }
 
-const deleteUser = async (userID: string) => {
+const deleteUser = async () => {
   try {
-    await httpClient.delete(`/api/users/${userID}`)
+    await httpClient.delete(`/api/users/${props.user.id}`)
     emit('close')
   } catch (error) {
     console.error('Failed to delete user:', error)
+  }
+}
+
+const updateUsername = async () => {
+  try {
+    await httpClient.patch(`/api/users/${props.user.id}`, {
+      login: username.value,
+    })
+    emit('close')
+  } catch (error) {
+    console.error('Failed to update username:', error)
   }
 }
 </script>
@@ -60,15 +74,21 @@ const deleteUser = async (userID: string) => {
       <!-- User management content goes here -->
       <Button
         v-if="user.role !== 'admin'"
-        @click="promoteToAdmin(user.id)"
+        @click="promoteToAdmin()"
         >Promote to Admin</Button
       >
       <Button
         v-if="user.role === 'admin'"
-        @click="revokeAdmin(user.id)"
+        @click="revokeAdmin()"
         >Revoke Admin</Button
       >
-      <Button @click="deleteUser(user.id)">Delete User</Button>
+      <Button @click="deleteUser()">Delete User</Button>
+      <Input
+        type="text"
+        v-model="username"
+        placeholder="Update Username"
+      />
+      <Button @click="updateUsername">Update Username</Button>
     </div>
   </div>
 </template>
