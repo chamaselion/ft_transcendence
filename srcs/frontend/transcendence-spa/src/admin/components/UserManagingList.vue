@@ -153,7 +153,7 @@ onMounted(async () => {
   <UserManagmentModal
     v-if="lastClickedUser"
     :key="lastClickedUser.id"
-    :user="lastClickedUser"
+    :userID="lastClickedUser.id"
     @close="closeModal"
   />
 </template>
