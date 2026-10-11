@@ -30,6 +30,9 @@
       })
       console.log('OTP confirmed successfully')
       loggedInSuccess.value = true
+      setTimeout(() => {
+        window.location.href = '/'
+      }, 1000)
     } catch (error) {
       errorFlag.value = true
       message.value = error instanceof Error ? error.message : typeof error === 'string' ? error : 'Something went wrong'
@@ -51,44 +54,72 @@
 <template>
   <div class="otp-confirm" v-if="!loggedInSuccess">
       <h1>OTP Confirmation</h1>
-      <Toast
-        v-model="errorFlag"
-        type="alert"
-        :message="message"
-        :duration="6000"
-        fluid
-        class="auth-toast"
-      />
-      <form @submit.prevent="handleOtpConfirmation">
-        <div class="form-group">
+      <div class="otp-confirm__body">
+        <Toast
+          v-model="errorFlag"
+          type="alert"
+          :message="message"
+          :duration="6000"
+          fluid
+        />
+        <form @submit.prevent="handleOtpConfirmation">
           <Input label="Enter OTP" type="text" v-model="otp" required />
-        </div>
-        <Button type="submit">Confirm OTP</Button>
-      </form>
+          <Button type="submit">Confirm OTP</Button>
+        </form>
+      </div>
     </div>
 
-  <Toast
-      v-model="loggedInSuccess"
-      type="good"
-      message="Login successful!"
-      fluid
-      class="auth-toast"
-    />
+  <div v-if="loggedInSuccess" class="otp-notice">
+      <Toast
+        v-model="loggedInSuccess"
+        type="good"
+        message="Login successful! Redirecting to the home page..."
+        fluid
+      />
+    </div>
 </template>
 
 <style scoped>
-.otp-confirm {
+.otp-notice {
   width: 100%;
   max-width: 400px;
-  margin: 80px auto;
-  padding: 24px;
-  border: 1px solid var(--border-default);
-  background-color: var(--bg-subtle);
-  border-radius: 8px;
+  margin: 0 auto;
 }
 
-.auth-toast {
-  margin: 16px auto;
+.otp-confirm {
+  box-sizing: border-box;
+  width: 100%;
   max-width: 400px;
+  padding: 32px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background-color: var(--bg-surface);
+  box-shadow: var(--shadow-md);
+}
+
+.otp-confirm h1 {
+  margin: 0 0 6px;
+  font-size: 26px;
+  font-weight: 600;
+  text-align: center;
+  color: var(--text-primary);
+}
+
+.otp-confirm__body {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  margin-top: 24px;
+}
+
+.otp-confirm form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.otp-confirm :deep(.btn) {
+  width: 100%;
+  margin: 0;
 }
 </style>
