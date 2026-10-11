@@ -1,86 +1,147 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
-import { getPendingOAuth } from '@/auth/oauth'
-import { httpClient } from '../auth.api'
+import { onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { validateOAuthCallback } from '@/auth/oauth'
+import { httpClient, HttpError } from '@/auth/auth.api'
 import { useAuthStore } from '@/stores/auth'
 import type { Root } from '@/auth/types/user'
-
-export interface OAuthState {
-  sid: string
-  n: string
-  p: string
-  m: string
-  iat: string
-}
+import Button from '@/app/components/Button.vue'
 
 const authStore = useAuthStore()
-
 const route = useRoute()
-const code = route.query.code as string | undefined // NOTE: short-lived authorization code, backend exchanges it with GitHub for an access token.
+const router = useRouter()
+const loading = ref(true)
+const errorMessage = ref('')
+const canRetrySession = ref(false)
+let started = false
 
-// NOTE: helper to decode the state base64URL encoded JSON string back to an object.
-function decodeOAuthState(rawState: string): OAuthState {
-  // Convert Base64URL to standard Base64.
-  const base64 = rawState.replace(/-/g, '+').replace(/_/g, '/')
-
-  // Restore padding.
-  const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=')
-
-  // Decode Base64 bytes, then UTF-8 JSON.
-  const bytes = Uint8Array.from(atob(padded), (char) => char.charCodeAt(0))
-  const json = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
-
-  return JSON.parse(json)
+async function loadSession() {
+  loading.value = true
+  errorMessage.value = ''
+  try {
+    const response = await httpClient.get<Root>('me', {
+      headers: { 'Cache-Control': 'no-cache' },
+    })
+    const user = response?.user
+    if (
+      response?.loggedIn !== true ||
+      !user ||
+      typeof user.id !== 'string' ||
+      !user.id ||
+      typeof user.login !== 'string' ||
+      typeof user.email !== 'string' ||
+      typeof user.role !== 'string'
+    ) {
+      throw new Error('Invalid session response')
+    }
+    authStore.setStoreToApiResponse(response)
+    await router.replace('/settings')
+  } catch {
+    errorMessage.value =
+      'Sign-in completed, but your session could not be loaded. Retry loading your session or start again.'
+    canRetrySession.value = true
+  } finally {
+    loading.value = false
+  }
 }
 
-const state = computed(() => {
-  const rawState = route.query.state as string | undefined
-  if (!rawState) return null
-  try {
-    return decodeOAuthState(rawState)
-  } catch (error) {
-    console.error('Failed to decode OAuth state:', error)
-    return null
-  }
-})
-
-const pendingOauth = getPendingOAuth()
-
-console.log(code)
-console.log(state.value)
-console.log(pendingOauth)
-
 onMounted(async () => {
-  if (code && state.value) {
-    if (!pendingOauth) {
-      console.error('No pending OAuth request found. The state may not match.')
-      return
-    } else {
-      if (pendingOauth.nonce !== state.value.n) {
-        console.error('OAuth state nonce does not match the pending request.')
-        return
+  if (started) return
+  started = true
+
+  try {
+    const provider = route.params.provider
+    const query = new URLSearchParams(window.location.search)
+    await router.replace({ path: route.path, query: {}, hash: '' })
+
+    const callback = validateOAuthCallback(provider, query)
+    await httpClient.post(`oauth/${callback.provider}/exchange`, {
+      code: callback.code,
+      state: callback.state,
+    })
+
+    authStore.invalidate()
+    await loadSession()
+  } catch (error) {
+    if (error instanceof HttpError) {
+      if (error.status === 409) {
+        errorMessage.value =
+          'An account conflict requires explicit linking. Sign in and link the provider from settings.'
+      } else if (error.status === 501) {
+        errorMessage.value = 'This sign-in provider is not configured.'
+      } else if (error.status === 400 || error.status === 401) {
+        errorMessage.value = 'Sign-in could not be verified. Please start again.'
       } else {
-        try {
-          const res = await httpClient.post<Root>('/api/auth/oauth/github/exchange', {
-            code,
-            state: state.value,
-          })
-          authStore.setStoreToApiResponse(res)
-          window.location.href = '/settings'
-        } catch (error) {
-          console.error('Failed to exchange OAuth code for token:', error)
-        }
+        errorMessage.value = 'Unable to finish sign-in. Please start again.'
       }
+    } else if (error instanceof TypeError) {
+      errorMessage.value = 'A network error interrupted sign-in. Please start again.'
+    } else {
+      errorMessage.value =
+        error instanceof Error ? error.message : 'Unable to finish sign-in. Please start again.'
     }
-    // Here you would typically send the code and state to your backend for verification and token exchange.
-    console.log('OAuth code and state are ready to be sent to the backend.')
-  } else {
-    console.error('Missing OAuth code or state.')
+  } finally {
+    loading.value = false
   }
 })
 </script>
 
 <template>
-  <h1>Redirecting...</h1>
+  <main
+    class="oauth-callback"
+    :aria-busy="loading"
+  >
+    <section class="callback-card">
+      <template v-if="loading">
+        <h1>Completing sign-in</h1>
+        <p role="status">Please wait while we verify your account.</p>
+      </template>
+      <template v-else-if="errorMessage">
+        <h1>Unable to finish sign-in</h1>
+        <p role="alert">{{ errorMessage }}</p>
+        <Button
+          v-if="canRetrySession"
+          @click="loadSession"
+          >Retry loading session</Button
+        >
+        <RouterLink to="/login">Back to login</RouterLink>
+      </template>
+    </section>
+  </main>
 </template>
+
+<style scoped>
+.oauth-callback {
+  display: grid;
+  place-items: center;
+  min-height: 60vh;
+  padding: 24px;
+}
+
+.callback-card {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 440px;
+  padding: 32px;
+  text-align: center;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+}
+
+h1 {
+  margin-top: 0;
+  font-size: 24px;
+}
+
+p {
+  line-height: 1.6;
+}
+
+a {
+  display: block;
+  margin-top: 16px;
+  color: var(--color-primary);
+}
+</style>
