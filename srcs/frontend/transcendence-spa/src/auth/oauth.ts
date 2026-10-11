@@ -24,3 +24,18 @@ export function startOAuth(provider: OAuthProvider) {
 
   window.location.assign(url.toString())
 }
+
+// Gets the pending oauth from the browser storage, if it exists and is valid
+export function getPendingOAuth() {
+  const pending = sessionStorage.getItem(STORAGE_KEY)
+  if (!pending) return null
+  try {
+    const parsed = JSON.parse(pending)
+    if (parsed && parsed.nonce && parsed.provider) {
+      return parsed
+    }
+  } catch (e) {
+    console.error('Failed to parse pending oauth', e)
+  }
+  return null
+}
