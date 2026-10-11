@@ -1,11 +1,20 @@
 <script setup lang="ts">
-import { defineProps, defineEmits, ref } from 'vue'
-import { httpClient } from '@/auth/auth.api'
+import { ref } from 'vue'
+import { httpClient, HttpError } from '@/auth/auth.api'
 import type { User } from '@/auth/types/user'
 import Button from '@/app/components/Button.vue'
 import Input from '@/app/components/Input.vue'
+import Toast from '@/app/components/Toast.vue'
 
-const username = ref<string | undefined | null>(null)
+const username = ref('')
+
+const toastMessage = ref('')
+const toastVisible = ref(false)
+
+const showError = (error: unknown, fallback: string) => {
+  toastMessage.value = error instanceof HttpError && error.message ? error.message : fallback
+  toastVisible.value = true
+}
 
 const props = defineProps<{
   user: User
@@ -16,44 +25,48 @@ const emit = defineEmits<{
 }>()
 
 const revokeAdmin = async () => {
+  toastVisible.value = false
   try {
     await httpClient.patch(`/api/users/${props.user.id}`, {
       role: 'user',
     })
     emit('close')
   } catch (error) {
-    console.error('Failed to revoke admin:', error)
+    showError(error, 'Failed to revoke admin. Please try again.')
   }
 }
 
 const promoteToAdmin = async () => {
+  toastVisible.value = false
   try {
     await httpClient.patch(`/api/users/${props.user.id}`, {
       role: 'admin',
     })
     emit('close')
   } catch (error) {
-    console.error('Failed to promote to admin:', error)
+    showError(error, 'Failed to promote to admin. Please try again.')
   }
 }
 
 const deleteUser = async () => {
+  toastVisible.value = false
   try {
     await httpClient.delete(`/api/users/${props.user.id}`)
     emit('close')
   } catch (error) {
-    console.error('Failed to delete user:', error)
+    showError(error, 'Failed to delete user. Please try again.')
   }
 }
 
 const updateUsername = async () => {
+  toastVisible.value = false
   try {
     await httpClient.patch(`/api/users/${props.user.id}`, {
       login: username.value,
     })
     emit('close')
   } catch (error) {
-    console.error('Failed to update username:', error)
+    showError(error, 'Failed to update username. Please try again.')
   }
 }
 </script>
@@ -61,6 +74,15 @@ const updateUsername = async () => {
 <template>
   <div class="manage-user-modal">
     <h1>Manage Users here</h1>
+    <Toast
+      v-model="toastVisible"
+      class="management-error"
+      :message="toastMessage"
+      type="alert"
+      :duration="0"
+      fluid
+      role="alert"
+    />
     <span
       class="close-button"
       @click="$emit('close')"
@@ -125,6 +147,11 @@ const updateUsername = async () => {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.management-error {
+  min-width: 0;
+  margin-bottom: 16px;
 }
 
 .user-management-content p {

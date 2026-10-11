@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref, computed } from 'vue'
-import { httpClient } from '@/auth/auth.api'
+import { httpClient, HttpError } from '@/auth/auth.api'
 import type { User } from '@/auth/types/user'
 import { type Pagination } from '@/types/pagination'
 import UserManagmentModal from './UserManagmentModal.vue'
@@ -35,7 +35,11 @@ async function fetchUsers(limit: number, offset: number) {
     users.value = res.value.users
     pagination.value = res.value.pagination
   } catch (error) {
-    console.error('Failed to fetch users:', error)
+    if (error instanceof HttpError) {
+      console.error('HTTP error while fetching users:', error.message)
+    } else {
+      console.error('Unexpected error while fetching users:', error)
+    }
   }
 }
 
