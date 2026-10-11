@@ -80,8 +80,18 @@ const isActive = (path: string) => (path === '/' ? route.path === '/' : route.pa
         <span>{{ currentTheme === 'light' ? 'Dark' : 'Light' }}</span>
       </button>
     </nav>
-    <router-link to="/profile">
+    <router-link
+      v-if="authStore.isAuthenticated"
+      to="/profile"
+    >
       <UserIcon :avatar-url="currentUser.avatarUrl" />
+    </router-link>
+    <router-link
+      v-else
+      to="/login"
+    >
+      <UserIcon avatar-url="/user-default-avatar.png" />
+      <!-- NOTE: Add placeholder ICON URL -->
     </router-link>
   </header>
 </template>

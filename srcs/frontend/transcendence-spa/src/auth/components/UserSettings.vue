@@ -28,6 +28,10 @@ const otpCode = ref('')
 const displayOTP = ref(false)
 const confirmationID = ref('')
 
+const deletionConfirmationID = ref('')
+const deletionCode = ref('')
+const deleting = ref(false)
+
 const updateSuccess = ref(false)
 const updateSuccessMessage = ref('')
 
@@ -114,6 +118,46 @@ async function confirmUpdateDetails() {
 async function changeAvatar() {
   // NOTE: Placeholder for avatar change functionality
   console.log('Change avatar clicked')
+}
+
+async function requestDeletion() {
+  if (deleting.value) return
+  deleting.value = true
+  errorFlag.value = false
+  try {
+    const response = await httpClient.post<{ confirmationId: string }>(
+      'me/data-deletion/request',
+      {},
+    )
+    deletionConfirmationID.value = response.confirmationId
+    deletionCode.value = ''
+  } catch (error) {
+    message.value = error instanceof Error ? error.message : 'Failed to request account deletion.'
+    errorFlag.value = true
+  } finally {
+    deleting.value = false
+  }
+}
+
+async function confirmDeletion() {
+  if (deleting.value || !deletionConfirmationID.value || !deletionCode.value.trim()) return
+  deleting.value = true
+  errorFlag.value = false
+  try {
+    await httpClient.post('me/data-deletion/confirm', {
+      confirmationId: deletionConfirmationID.value,
+      code: deletionCode.value.trim(),
+    })
+    authStore.invalidate()
+    res.value = { loggedIn: false }
+    user.value = null
+    await router.replace('/login')
+  } catch (error) {
+    message.value = error instanceof Error ? error.message : 'Failed to delete your account.'
+    errorFlag.value = true
+  } finally {
+    deleting.value = false
+  }
 }
 
 onMounted(loadProfile)
@@ -254,6 +298,49 @@ onMounted(loadProfile)
           </form>
         </div>
       </dl>
+
+      <Button
+        v-if="!deletionConfirmationID"
+        color="alert"
+        variant="outlined"
+        :loading="deleting"
+        @click="requestDeletion"
+      >
+        Delete account
+      </Button>
+      <form
+        v-else
+        @submit.prevent="confirmDeletion"
+      >
+        <p class="state__text">
+          Enter the code sent to your email to permanently delete your account.
+        </p>
+        <Input
+          v-model="deletionCode"
+          label="Deletion confirmation code"
+          type="text"
+          :disabled="deleting"
+        />
+        <Button
+          type="submit"
+          color="alert"
+          :loading="deleting"
+          :disabled="!deletionCode.trim()"
+        >
+          Confirm deletion
+        </Button>
+        <Button
+          variant="outlined"
+          color="default"
+          :disabled="deleting"
+          @click="
+            deletionConfirmationID = ''
+            deletionCode = ''
+          "
+        >
+          Cancel
+        </Button>
+      </form>
 
       <template #footer>
         <div
