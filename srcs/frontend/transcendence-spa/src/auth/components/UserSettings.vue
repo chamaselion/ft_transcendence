@@ -160,6 +160,11 @@ async function confirmDeletion() {
   }
 }
 
+function cancelDeletion() {
+  deletionConfirmationID.value = ''
+  deletionCode.value = ''
+}
+
 onMounted(loadProfile)
 </script>
 
@@ -333,10 +338,7 @@ onMounted(loadProfile)
           variant="outlined"
           color="default"
           :disabled="deleting"
-          @click="
-            deletionConfirmationID = ''
-            deletionCode = ''
-          "
+          @click="cancelDeletion"
         >
           Cancel
         </Button>
