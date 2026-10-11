@@ -64,6 +64,8 @@ const openModal = (user: User) => {
 
 const closeModal = () => {
   lastClickedUser.value = null
+  window.location.reload() // NOTE: unclean refresh to update the user list after changes.
+  //Considering to use a more reactive approach in the future.
 }
 
 onMounted(async () => {
