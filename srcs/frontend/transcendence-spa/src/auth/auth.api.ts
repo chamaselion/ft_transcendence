@@ -1,10 +1,8 @@
-
 /* Will add appConfig import */
 
+type HttpMethods = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 
-type HttpMethods = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
-
-type QueryParams = Record<string, string | number | boolean | undefined>;
+type QueryParams = Record<string, string | number | boolean | undefined>
 
 // Configuration for the request
 export interface RequestConfig<TBody = unknown> {
@@ -22,7 +20,7 @@ export interface HttpClientConfig {
 export class HttpError extends Error {
   constructor(
     message: string,
-    public status: number
+    public status: number,
   ) {
     super(message)
   }
@@ -33,11 +31,11 @@ interface ErrorResponseShape {
 }
 
 const DEFAULT_HEADERS: Record<string, string> = {
-  'Accept': 'application/json',
+  Accept: 'application/json',
   'Content-Type': 'application/json',
 }
 
-const RELATIVE_URL_BASE = 'https://localhost:8080/api/auth/'
+const RELATIVE_URL_BASE = 'https://localhost:8443/api/auth/'
 
 // buildUul takes a path as required path if the path has a leading / this will
 // be treated as an absolute path and will be appended to the baseUrl if provided, otherwise it will
@@ -55,7 +53,6 @@ function buildUrl(path: string, baseUrl?: string, query?: QueryParams): URL {
       }
     })
   }
-  console.log('buildUrl', url.toString())
   return url
 }
 
@@ -70,12 +67,12 @@ export class HttpClient {
     path: string,
     config: RequestConfig<TBody> = {},
   ): Promise<TResponse> {
-      const headers: Record<string, string> = {
-        ...DEFAULT_HEADERS,
-        ...(config.headers ?? {}),
+    const headers: Record<string, string> = {
+      ...DEFAULT_HEADERS,
+      ...(config.headers ?? {}),
     }
 
-    const response = await fetch(buildUrl(path, this.baseUrl, config.query),{
+    const response = await fetch(buildUrl(path, this.baseUrl, config.query), {
       method: config.method ?? 'GET',
       headers,
       body: config.body ? JSON.stringify(config.body) : undefined,
@@ -104,36 +101,21 @@ export class HttpClient {
     return (await response.json()) as TResponse
   }
 
-  get<TResponse>(
-    path: string,
-    config: RequestConfig = {}
-  ): Promise<TResponse> {
+  get<TResponse>(path: string, config: RequestConfig = {}): Promise<TResponse> {
     return this.request<TResponse>(path, { ...config, method: 'GET' })
   }
 
-  post<TResponse>(
-    path: string,
-    body: unknown,
-    config: RequestConfig = {}
-  ): Promise<TResponse> {
+  post<TResponse>(path: string, body: unknown, config: RequestConfig = {}): Promise<TResponse> {
     return this.request<TResponse>(path, { ...config, method: 'POST', body })
   }
 
-  patch<TResponse>(
-    path: string,
-    body: unknown,
-    config: RequestConfig = {}
-  ): Promise<TResponse> {
+  patch<TResponse>(path: string, body: unknown, config: RequestConfig = {}): Promise<TResponse> {
     return this.request<TResponse>(path, { ...config, method: 'PATCH', body })
   }
 
-  delete<TReponse>(
-    path: string,
-    config: RequestConfig = {}
-  ): Promise<TReponse> {
+  delete<TReponse>(path: string, config: RequestConfig = {}): Promise<TReponse> {
     return this.request<TReponse>(path, { ...config, method: 'DELETE' })
   }
 }
 
-
-export const httpClient = new HttpClient({baseUrl: "https://localhost:8443/api/auth/"})
+export const httpClient = new HttpClient({ baseUrl: RELATIVE_URL_BASE })
