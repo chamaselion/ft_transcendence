@@ -23,15 +23,7 @@ async function loadSession() {
       headers: { 'Cache-Control': 'no-cache' },
     })
     const user = response?.user
-    if (
-      response?.loggedIn !== true ||
-      !user ||
-      typeof user.id !== 'string' ||
-      !user.id ||
-      typeof user.login !== 'string' ||
-      typeof user.email !== 'string' ||
-      typeof user.role !== 'string'
-    ) {
+    if (response?.loggedIn !== true || !user || !user.id) {
       throw new Error('Invalid session response')
     }
     authStore.setStoreToApiResponse(response)
@@ -50,7 +42,7 @@ onMounted(async () => {
   started = true
 
   try {
-    const provider = route.params.provider
+    const provider = route.params.provider // Github or 42
     const query = new URLSearchParams(window.location.search)
     await router.replace({ path: route.path, query: {}, hash: '' })
 
