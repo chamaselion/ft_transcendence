@@ -1,14 +1,7 @@
 <script setup lang="ts">
 import Button from '@/app/components/Button.vue'
 import Icon from '@/app/components/Icon.vue'
-
-function githubOauth() {
-  window.location.assign('https://localhost:8443/api/auth/oauth/github/authorize')
-}
-
-function fortyTwoOauth() {
-  window.location.assign('https://localhost:8443/api/auth/oauth/42/authorize')
-}
+import { startOAuth } from '@/auth/oauth'
 
 function showExplainer(event: MouseEvent) {
   const target = event.currentTarget as HTMLElement
@@ -36,7 +29,7 @@ function hideExplainer() {
   <div class="oauth-container">
     <div class="oauth-provider">
       <Button
-        @click="githubOauth"
+        @click="startOAuth('github')"
         @mouseenter="showExplainer"
         @mouseleave="hideExplainer"
         class="oauth-btn github"
@@ -57,7 +50,7 @@ function hideExplainer() {
     </div>
     <div class="oauth-provider">
       <Button
-        @click="fortyTwoOauth"
+        @click="startOAuth('42')"
         @mouseenter="showExplainer"
         @mouseleave="hideExplainer"
         class="oauth-btn"

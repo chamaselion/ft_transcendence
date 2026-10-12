@@ -6,34 +6,38 @@ const router = createRouter({
     {
       path: '/login',
       name: 'login',
-      component: () => import("@/auth/views/LoginView.vue"),
+      component: () => import('@/auth/views/LoginView.vue'),
     },
     {
       path: '/',
       name: 'home',
-      component: () => import("@/app/HomeView.vue"),
+      component: () => import('@/app/HomeView.vue'),
     },
     {
       path: '/editor/:id?',
       name: 'editor',
-      component: () => import("@/app/EditorView.vue"),
+      component: () => import('@/app/EditorView.vue'),
     },
     {
       path: '/test',
       name: 'Componenttest',
-      component: () => import("@/app/components/ComponentCatalouge.vue"),
+      component: () => import('@/app/components/ComponentCatalouge.vue'),
     },
     {
       path: '/register',
       name: 'register',
-      component: () => import("@/auth/views/RegisterView.vue"),
+      component: () => import('@/auth/views/RegisterView.vue'),
     },
     {
       path: '/settings',
       name: 'settings',
-      component: () => import("@/auth/views/SettingsView.vue"),
-    }
-
+      component: () => import('@/auth/views/SettingsView.vue'),
+    },
+    {
+      name: 'oauth-callback',
+      path: '/auth/oauth/:provider/callback',
+      component: () => import('@/auth/views/OAuthCallbackView.vue'),
+    },
   ],
 })
 

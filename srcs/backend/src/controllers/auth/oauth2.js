@@ -6,9 +6,12 @@ const { ensureSession, setAuthCookie } = require('./helpers');
 const {
   supportedProviders,
   normalizeProvider,
+  normalizeOAuthNonce,
   normalizeOAuthRedirectTarget,
   getProviderConfig,
   buildAuthorizeUrl,
+  encodeOAuthStatePayload,
+  decodeOAuthStatePayload,
   normalizeProviderProfile,
 } = require('./oauth2-config');
 const {
@@ -79,18 +82,31 @@ const createOAuthAccountManager = ({
       }
 
       const redirectTarget = normalizeOAuthRedirectTarget(req.query?.next);
+      const nonce = normalizeOAuthNonce(req.query?.nonce);
+      if (!nonce) {
+        return res.status(400).json({ error: 'Authentication failed' });
+      }
 
       const stateIntent = await createOAuthStateIntent({
         provider,
         mode: 'link',
         userId: user.id,
         next: redirectTarget,
+        nonce,
+      });
+
+      const encodedState = encodeOAuthStatePayload({
+        sid: stateIntent.stateId,
+        n: stateIntent.nonce,
+        p: provider,
+        m: stateIntent.mode,
+        iat: new Date().toISOString(),
       });
 
       const authorizeUrl = buildAuthorizeUrl({
         provider,
         config: providerConfig,
-        state: stateIntent.stateId,
+        state: encodedState,
         next: redirectTarget,
       });
 
@@ -126,16 +142,29 @@ const createOAuth2Handler = ({ logger = console } = {}) => {
       }
 
       const redirectTarget = normalizeOAuthRedirectTarget(req.query?.next);
+      const nonce = normalizeOAuthNonce(req.query?.nonce);
+      if (!nonce) {
+        return res.status(400).json({ error: 'Authentication failed' });
+      }
 
       const stateIntent = await createOAuthStateIntent({
         provider,
         mode: 'login',
         next: redirectTarget,
+        nonce,
       });
+      const encodedState = encodeOAuthStatePayload({
+        sid: stateIntent.stateId,
+        n: stateIntent.nonce,
+        p: provider,
+        m: stateIntent.mode,
+        iat: new Date().toISOString(),
+      });
+
       const authorizeUrl = buildAuthorizeUrl({
         provider,
         config: providerConfig,
-        state: stateIntent.stateId,
+        state: encodedState,
         next: redirectTarget,
       });
 
@@ -147,28 +176,21 @@ const createOAuth2Handler = ({ logger = console } = {}) => {
     }
   };
 
-  const callback = async (req, res) => {
+  const exchange = async (req, res) => {
     try {
       const provider = normalizeProvider(req.params?.provider);
-      const { code, state, error, error_description } = req.query || {};
+      const { code, state, error } = req.body || {};
 
-      if (!provider) {
+      if (!provider || !supportedProviders.includes(provider)) {
         return res.status(400).json({ error: 'Authentication failed' });
       }
 
-      if (!supportedProviders.includes(provider)) {
+      if (error || !code || !state) {
         return res.status(400).json({ error: 'Authentication failed' });
       }
 
-      if (error) {
-        return res.status(400).json({ error: 'Authentication failed' });
-      }
-
-      if (!code) {
-        return res.status(400).json({ error: 'Authentication failed' });
-      }
-
-      if (!state) {
+      const decodedState = decodeOAuthStatePayload(state);
+      if (!decodedState || decodedState.provider !== provider) {
         return res.status(400).json({ error: 'Authentication failed' });
       }
 
@@ -178,13 +200,21 @@ const createOAuth2Handler = ({ logger = console } = {}) => {
       }
 
       const stateIntent = await consumeOAuthStateIntent({
-        stateId: String(state),
+        stateId: decodedState.stateId,
         provider,
       });
       if (!stateIntent.ok) {
         return res.status(stateIntent.statusCode).json({ error: stateIntent.error });
       }
       const parsedState = stateIntent.payload;
+
+      if (decodedState.nonce !== parsedState.nonce) {
+        return res.status(400).json({ error: 'Authentication failed' });
+      }
+
+      if (decodedState.mode && decodedState.mode !== parsedState.mode) {
+        return res.status(400).json({ error: 'Authentication failed' });
+      }
 
       const tokenResponse = await exchangeCodeForToken({
         provider,
@@ -284,11 +314,10 @@ const createOAuth2Handler = ({ logger = console } = {}) => {
         });
       }
 
-      const redirectTarget = normalizeOAuthRedirectTarget(parsedState.next);
       logger.info(`[OAUTH2] user authenticated via ${provider}`, {
         userId: user.id,
         provider,
-        redirectTarget,
+        redirectTarget: normalizeOAuthRedirectTarget(parsedState.next),
         linked: isLinkIntent,
       });
 
@@ -296,10 +325,6 @@ const createOAuth2Handler = ({ logger = console } = {}) => {
         const internalToken = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
         setAuthCookie(res, internalToken);
         await ensureSession({ token: internalToken, user });
-      }
-
-      if (req.accepts('html')) {
-        return res.redirect(redirectTarget);
       }
 
       if (isLinkIntent) {
@@ -322,7 +347,7 @@ const createOAuth2Handler = ({ logger = console } = {}) => {
         oauthAccountId: oauthAccount?.id || null,
       });
     } catch (err) {
-      logger.error('[OAUTH2] callback failed:', err);
+      logger.error('[OAUTH2] exchange failed:', err);
       return res.status(500).json({ error: 'Server error' });
     }
   };
@@ -342,7 +367,7 @@ const createOAuth2Handler = ({ logger = console } = {}) => {
 
   return {
     startAuthorization,
-    callback,
+    exchange,
     getProviderConfig,
     buildAuthorizeUrl,
     normalizeProviderProfile,
