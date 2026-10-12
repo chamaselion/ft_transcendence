@@ -35,7 +35,7 @@ const DEFAULT_HEADERS: Record<string, string> = {
   'Content-Type': 'application/json',
 }
 
-const RELATIVE_URL_BASE = 'https://localhost:8080/api/auth/'
+const RELATIVE_URL_BASE = 'https://localhost:8443/api/auth/'
 
 // buildUul takes a path as required path if the path has a leading / this will
 // be treated as an absolute path and will be appended to the baseUrl if provided, otherwise it will
