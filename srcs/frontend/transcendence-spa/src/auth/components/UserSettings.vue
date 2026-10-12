@@ -4,10 +4,11 @@ import { useRouter } from 'vue-router'
 import { httpClient, HttpError } from '../auth.api'
 import Button from '@/app/components/Button.vue'
 import Card from '@/app/components/Card.vue'
+import Icon from '@/app/components/Icon.vue'
 import Input from '@/app/components/Input.vue'
 import Toast from '@/app/components/Toast.vue'
 import type { Root, User } from '../types/user'
-import type { OtpConfirmationResponse } from '../types/auth.types'
+import type { OtpConfirmationResponse, GdprDataRequestResponse } from '../types/auth.types'
 import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
@@ -29,6 +30,10 @@ const confirmationID = ref('')
 
 const updateSuccess = ref(false)
 const updateSuccessMessage = ref('')
+
+const gdprPending = ref(false)
+const gdprSuccess = ref(false)
+const gdprSuccessMessage = ref('')
 
 const loggedIn = computed(() => res.value?.loggedIn === true)
 const status = computed(() => (loggedIn.value ? 'good' : 'warn'))
@@ -113,6 +118,35 @@ async function confirmUpdateDetails() {
   }
 }
 
+async function exportGdprData(format: 'json' | 'csv' = 'json') {
+  gdprPending.value = true
+  gdprSuccess.value = false
+  errorFlag.value = false
+
+  try {
+    const endpoint = format === 'csv' ? 'me/data-export/csv' : 'me/data-export'
+    const { blob, filename } = await httpClient.download(endpoint)
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+
+    gdprSuccessMessage.value = `Your GDPR data export (${format.toUpperCase()}) has been downloaded successfully.`
+    gdprSuccess.value = true
+  } catch (error) {
+    console.error('Error exporting GDPR data:', error)
+    errorFlag.value = true
+    message.value =
+      error instanceof Error ? error.message : 'Something went wrong while exporting GDPR data'
+  } finally {
+    gdprPending.value = false
+  }
+}
+
 onMounted(loadProfile)
 </script>
 
@@ -136,6 +170,15 @@ onMounted(loadProfile)
       v-model="updateSuccess"
       type="info"
       :message="updateSuccessMessage"
+      :duration="6000"
+      fluid
+      class="user-settings__toast"
+    />
+
+    <Toast
+      v-model="gdprSuccess"
+      type="good"
+      :message="gdprSuccessMessage"
       :duration="6000"
       fluid
       class="user-settings__toast"
@@ -195,6 +238,41 @@ onMounted(loadProfile)
           </form>
         </div>
       </dl>
+
+      <div v-if="user" class="profile__gdpr">
+        <div class="profile__gdpr-info">
+          <span class="profile__gdpr-title">Privacy &amp; GDPR</span>
+          <p class="profile__gdpr-description">
+            Under GDPR Art. 15, you have the right to obtain a copy of your personal data.
+          </p>
+        </div>
+        <div class="profile__gdpr-actions">
+          <Button
+            id="request-gdpr-btn"
+            variant="outlined"
+            color="primary"
+            :loading="gdprPending"
+            @click="exportGdprData('json')"
+          >
+            <template #prepend>
+              <Icon name="ShieldCheck" :size="18" />
+            </template>
+            Export GDPR Data
+          </Button>
+          <Button
+            id="export-gdpr-csv-btn"
+            variant="outlined"
+            color="primary"
+            :loading="gdprPending"
+            @click="exportGdprData('csv')"
+          >
+            Export (CSV)
+          </Button>
+        </div>
+        <p v-if="gdprSuccess" class="profile__gdpr-success">
+          {{ gdprSuccessMessage }}
+        </p>
+      </div>
 
       <template #footer>
         <div class="status" :class="`status--${status}`" role="status">
@@ -417,5 +495,48 @@ form {
   font-size: 13px;
   color: var(--text-muted);
   text-align: center;
+}
+
+.profile__gdpr {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.profile__gdpr-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.profile__gdpr-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.profile__gdpr-description {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
+.profile__gdpr-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.profile__gdpr-success {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--color-good);
+  font-weight: 500;
 }
 </style>

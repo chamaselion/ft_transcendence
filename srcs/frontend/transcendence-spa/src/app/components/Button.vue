@@ -133,4 +133,14 @@ const style = computed(() => {
   --btn-contrast: var(--text-primary);
 }
 
+.btn--v-outlined.btn--c-default {
+  border-color: var(--border-default);
+  color: var(--text-primary);
+}
+
+.btn--v-outlined.btn--c-default:hover {
+  background-color: var(--bg-subtle);
+  border-color: var(--border-default);
+  color: var(--text-primary);
+}
 </style>
