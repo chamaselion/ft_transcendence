@@ -48,7 +48,6 @@ export function getPendingOAuth(): PendingOAuth | null {
     if (
       isRecord(parsed) &&
       typeof parsed.nonce === 'string' &&
-      NONCE_PATTERN.test(parsed.nonce) &&
       isOAuthProvider(parsed.provider) &&
       parsed.mode === 'login' &&
       typeof parsed.createdAt === 'number' &&
@@ -82,7 +81,7 @@ export function validateOAuthCallback(provider: unknown, query: URLSearchParams)
   const code = getValue('code')
   const providerError = getValue('error')
 
-  if (!rawState || rawState.length > 4096 || !/^[A-Za-z0-9_-]+$/.test(rawState)) {
+  if (!rawState || rawState.length > 4096) {
     throw new Error('Invalid OAuth state. Please start sign-in again.')
   }
 
@@ -106,7 +105,6 @@ export function validateOAuthCallback(provider: unknown, query: URLSearchParams)
     typeof state.sid !== 'string' ||
     !state.sid.trim() ||
     typeof state.n !== 'string' ||
-    !NONCE_PATTERN.test(state.n) ||
     state.n !== pending.nonce ||
     state.p !== pending.provider ||
     state.p !== provider ||
