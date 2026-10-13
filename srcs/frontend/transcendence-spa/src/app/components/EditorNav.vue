@@ -9,7 +9,6 @@
   >
     <!-- When block is active: Specific formatting options for active block + Delete button on left side -->
     <template v-if="activeBlock && activeDecorator">
-      <!-- Paragraph: Alignment (Left, Middle/Center, Right, Block/Justify) -->
       <div v-if="activeDecorator.type === 'p'" class="editor-nav__group editor-nav__group--formatting">
         <Button
           v-for="align in (['left', 'center', 'right', 'justify'] as const)"
@@ -25,6 +24,12 @@
             <Icon :name="alignIcons[align]" :size="18" />
           </template>
         </Button>
+        <span class="editor-nav__divider" />
+        <EditorElaborateDropdown
+          :disabled="deleteDisabled || isElaborating"
+          :loading="isElaborating"
+          @select="$emit('elaborate', $event)"
+        />
       </div>
 
       <!-- Heading: Level 1 to 6 (Size) -->
@@ -146,18 +151,22 @@ import {
   type ParagraphAlignment,
 } from '@/app/editor/types'
 import { supportedLanguages } from '@/app/components/EditorCode.vue'
+import EditorElaborateDropdown from '@/app/components/EditorElaborateDropdown.vue'
+import type { PersonaKey } from '@/app/editor/elaboration.api'
 
 const props = withDefaults(
   defineProps<{
     activeBlockId?: string | null
     activeBlock?: Block | null
     deleteDisabled?: boolean
+    isElaborating?: boolean
     position?: 'top' | 'left' | 'bottom'
   }>(),
   {
     activeBlockId: null,
     activeBlock: null,
     deleteDisabled: false,
+    isElaborating: false,
     position: 'top',
   },
 )
@@ -165,6 +174,7 @@ const props = withDefaults(
 const emit = defineEmits<{
   add: [type: BlockType]
   delete: []
+  elaborate: [personaKey: PersonaKey]
   'update:decorator': [decorator: BlockDecorator]
 }>()
 

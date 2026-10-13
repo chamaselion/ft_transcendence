@@ -168,6 +168,19 @@ class MockProvider extends BaseAiProvider {
       }
     }
 
+    // Check if this is an AI block elaboration request
+    if (userPrompt.includes('Text to rewrite:\n') || systemPrompt.includes('rewriting a block')) {
+      let targetText = userPrompt;
+      const textMarker = 'Text to rewrite:\n';
+      if (userPrompt.includes(textMarker)) {
+        targetText = userPrompt.split(textMarker)[1].trim();
+      }
+      const cleanText = targetText.replace(/^\[(DE|HU)\]\s*/, '').trim();
+      const personaMatch = systemPrompt.match(/You are (The [^.]+)\./);
+      const personaName = personaMatch ? personaMatch[1] : 'Elaborated Persona';
+      return `[${personaName}] ${cleanText}`;
+    }
+
     // Single text back-translation / translation
     const isToEnglish = /english|"en"/i.test(systemPrompt + userPrompt);
     let targetText = userPrompt;
