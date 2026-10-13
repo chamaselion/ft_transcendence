@@ -272,7 +272,6 @@ onBeforeUnmount(() => {
           </template>
           Share
         </Button>
-        <Button variant="outlined" size="small" @click="handleCreateNew"> + New Document </Button>
       </div>
     </div>
 
