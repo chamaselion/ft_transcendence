@@ -25,7 +25,7 @@
         ref="pdfRef"
         :filename="filename"
         render-mode="text"
-        style="width: 80%"
+        style="width: 100%"
         pdf-format="a4"
         pdf-orientation="portrait"
         :pdf-content-width="pdfContentWidth"
@@ -112,8 +112,12 @@ const pdfOptions: Html2PdfOptions = {
 const pdfStyling: PdfStylingOptions = {
   theme: 'light',
   pageBackground: '#ffffff',
-  bodyBackground: '#ffffff',
+  bodyBackground: '#ffa',
   cssText: `
+    [data-vue-pdf-export-staging] {
+      width: ${pdfContentWidth} !important;
+    }
+
     .pdf-content {
       font-family: Helvetica, Arial, sans-serif;
       font-size: 11pt;
@@ -664,7 +668,6 @@ const onBlur = async (block: Block) => {
   flex-direction: column;
   align-items: stretch;
   width: 100%;
-  max-width: 860px;
   margin: 0 auto;
 }
 
@@ -690,6 +693,15 @@ const onBlur = async (block: Block) => {
   min-width: 0;
   width: 100%;
   padding: 16px 8px;
+  box-sizing: border-box;
+}
+
+/* Widen only the live editor; export clones retain the fixed PDF body width. */
+.editor__content
+  :deep(
+    .content-wrapper:not([data-vue-pdf-export-staging]):not([data-vue-pdf-export-text-snapshot])
+  ) {
+  width: 100% !important;
 }
 
 /* Expands naturally with site by default, or scrollable when scrollable prop is active */
