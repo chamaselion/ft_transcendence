@@ -112,7 +112,7 @@ const pdfOptions: Html2PdfOptions = {
 const pdfStyling: PdfStylingOptions = {
   theme: 'light',
   pageBackground: '#ffffff',
-  bodyBackground: '#ffa',
+  bodyBackground: '#fff',
   cssText: `
     [data-vue-pdf-export-staging] {
       width: ${pdfContentWidth} !important;
