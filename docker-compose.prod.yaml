@@ -1,0 +1,53 @@
+services:
+
+  nginx:
+    build: srcs/nginx
+    ports:
+      - "${HTTPS_HOST_PORT}:443"
+      - "${HTTP_HOST_PORT}:80"
+    depends_on:
+      - frontend
+      - backend
+
+  # Production frontend: builds the SPA and serves the static dist from
+  # its own nginx on 8081. The main nginx proxies "/" here, exactly like
+  # the dev Vite server. No source bind-mounts, so it is immutable.
+  frontend:
+    build:
+      context: srcs/frontend
+      dockerfile: Dockerfile.prod
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-https://localhost:8443/api/auth/}
+    restart: unless-stopped
+    expose:
+      - "8081"
+
+  backend:
+    build: srcs/backend
+    env_file:
+      - .env
+    volumes:
+      - ./.env:/usr/src/app/.env:ro
+    # No host port: backend is reachable only through nginx (single entry point).
+    expose:
+      - "${PORT}"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:16-alpine
+    env_file:
+      - .env
+    ports:
+      - "${DB_HOST_PORT}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres-data:
