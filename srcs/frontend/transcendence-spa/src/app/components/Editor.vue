@@ -96,7 +96,7 @@ import 'vue-pdf-export/style.css'
 const pdfRef = ref<InstanceType<typeof Html2Pdf> | null>(null)
 
 const pdfPageMm = { width: 210, height: 297 }
-const pdfMarginsMm = { top: 20, right: 20, bottom: 20, left: 25 }
+const pdfMarginsMm = { top: 20, right: 20, bottom: 20, left: 20 }
 const cssPixelsPerMm = 96 / 25.4
 // Match the measured content width to the PDF body so pagination uses a 1:1 CSS scale.
 const pdfContentWidth = `${(pdfPageMm.width - pdfMarginsMm.left - pdfMarginsMm.right) * cssPixelsPerMm}px`
