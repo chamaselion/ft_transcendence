@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import Button from '@/app/components/Button.vue'
 import Icon from '@/app/components/Icon.vue'
 import Modal from '@/app/components/Modal.vue'
@@ -9,6 +10,7 @@ import ShareModal from '@/app/components/ShareModal.vue'
 import { listDocuments, deleteDocument, type DocumentData } from '@/app/editor/document.api'
 
 const router = useRouter()
+const { t } = useI18n()
 
 // Document list & pagination state
 const documents = ref<DocumentData[]>([])
@@ -61,7 +63,7 @@ async function fetchDocuments() {
     totalDocuments.value = res.pagination?.total ?? res.documents.length
   } catch (err) {
     console.error('Failed to load documents:', err)
-    errorMessage.value = err instanceof Error ? err.message : 'Failed to fetch documents'
+    errorMessage.value = err instanceof Error ? err.message : t('documents.fetchFailed')
   } finally {
     loading.value = false
   }
@@ -153,7 +155,7 @@ function openDeleteDialog(doc: DocumentData) {
 async function confirmDelete() {
   if (!selectedDeleteDoc.value) return
   const docId = selectedDeleteDoc.value.id
-  const docTitle = selectedDeleteDoc.value.title || 'Untitled Document'
+  const docTitle = selectedDeleteDoc.value.title || t('common.untitledDocument')
 
   isDeleting.value = true
   try {
@@ -162,7 +164,7 @@ async function confirmDelete() {
     selectedDeleteDoc.value = null
 
     toastType.value = 'good'
-    toastMessage.value = `"${docTitle}" has been deleted.`
+    toastMessage.value = t('documents.deletedToast', { title: docTitle })
     showToast.value = true
 
     // If deleting last document on page > 1, step back one page
@@ -173,7 +175,7 @@ async function confirmDelete() {
   } catch (err) {
     console.error('Failed to delete document:', err)
     toastType.value = 'alert'
-    toastMessage.value = err instanceof Error ? err.message : 'Failed to delete document.'
+    toastMessage.value = err instanceof Error ? err.message : t('documents.deleteFailed')
     showToast.value = true
   } finally {
     isDeleting.value = false
@@ -236,7 +238,7 @@ onBeforeUnmount(() => {
     <!-- Top toolbar / header -->
     <div class="directory__header">
       <div class="directory__title-group">
-        <h2 class="directory__title">Documents</h2>
+        <h2 class="directory__title">{{ $t('documents.title') }}</h2>
         <span class="directory__count">{{ totalDocuments }}</span>
       </div>
 
@@ -245,7 +247,7 @@ onBeforeUnmount(() => {
           <template #prepend>
             <Icon name="Plus" :size="16" />
           </template>
-          New Document
+          {{ $t('documents.newDocument') }}
         </Button>
       </div>
     </div>
@@ -258,14 +260,14 @@ onBeforeUnmount(() => {
           v-model="searchQuery"
           type="text"
           class="directory__search-input"
-          placeholder="Search documents by title..."
+          :placeholder="$t('documents.searchPlaceholder')"
           @input="onSearchInput"
         />
         <button
           v-if="searchQuery"
           type="button"
           class="directory__search-clear"
-          title="Clear search"
+          :title="$t('documents.clearSearch')"
           @click="clearSearch"
         >
           ×
@@ -279,7 +281,7 @@ onBeforeUnmount(() => {
           :class="{ 'directory__filter-tab--active': selectedScope === 'all' }"
           @click="setScope('all')"
         >
-          All
+          {{ $t('documents.filterAll') }}
         </button>
         <button
           type="button"
@@ -287,7 +289,7 @@ onBeforeUnmount(() => {
           :class="{ 'directory__filter-tab--active': selectedScope === 'own' }"
           @click="setScope('own')"
         >
-          Owned
+          {{ $t('documents.filterOwned') }}
         </button>
         <button
           type="button"
@@ -295,13 +297,13 @@ onBeforeUnmount(() => {
           :class="{ 'directory__filter-tab--active': selectedScope === 'shared' }"
           @click="setScope('shared')"
         >
-          Shared
+          {{ $t('documents.filterShared') }}
         </button>
 
         <button
           type="button"
           class="directory__refresh-btn"
-          title="Refresh documents"
+          :title="$t('documents.refresh')"
           :disabled="loading"
           @click="fetchDocuments"
         >
@@ -313,13 +315,13 @@ onBeforeUnmount(() => {
     <!-- Error message banner -->
     <div v-if="errorMessage" class="directory__error">
       <span>{{ errorMessage }}</span>
-      <Button variant="outlined" size="x-small" @click="fetchDocuments">Retry</Button>
+      <Button variant="outlined" size="x-small" @click="fetchDocuments">{{ $t('documents.retry') }}</Button>
     </div>
 
     <!-- Loading skeleton / state -->
     <div v-if="loading && documents.length === 0" class="directory__loading">
       <div class="directory__loader-spinner" />
-      <span>Loading available documents...</span>
+      <span>{{ $t('documents.loading') }}</span>
     </div>
 
     <!-- Empty states -->
@@ -328,13 +330,13 @@ onBeforeUnmount(() => {
         <Icon name="FileText" :size="48" />
       </div>
       <h3 class="directory__empty-title">
-        {{ searchQuery ? 'No matching documents' : 'No documents yet' }}
+        {{ searchQuery ? $t('documents.emptyNoMatchTitle') : $t('documents.emptyTitle') }}
       </h3>
       <p class="directory__empty-desc">
         {{
           searchQuery
-            ? 'Try adjusting your search terms or filter scope.'
-            : 'Get started by creating your first document to edit and collaborate in real-time.'
+            ? $t('documents.emptyNoMatchDesc')
+            : $t('documents.emptyDesc')
         }}
       </p>
       <Button
@@ -347,7 +349,7 @@ onBeforeUnmount(() => {
         <template #prepend>
           <Icon name="Plus" :size="16" />
         </template>
-        Create Document
+        {{ $t('documents.createDocument') }}
       </Button>
     </div>
 
@@ -356,10 +358,10 @@ onBeforeUnmount(() => {
       <table class="directory__table">
         <thead>
           <tr>
-            <th class="directory__th directory__th--name">Document Name</th>
-            <th class="directory__th directory__th--status">Ownership</th>
-            <th class="directory__th directory__th--changed">Last Changed</th>
-            <th class="directory__th directory__th--actions">Actions</th>
+            <th class="directory__th directory__th--name">{{ $t('documents.columnName') }}</th>
+            <th class="directory__th directory__th--status">{{ $t('documents.columnOwnership') }}</th>
+            <th class="directory__th directory__th--changed">{{ $t('documents.columnChanged') }}</th>
+            <th class="directory__th directory__th--actions">{{ $t('documents.columnActions') }}</th>
           </tr>
         </thead>
         <tbody>
@@ -376,8 +378,8 @@ onBeforeUnmount(() => {
                   <Icon name="FileText" :size="20" />
                 </div>
                 <div class="directory__doc-text">
-                  <span class="directory__doc-title" :title="doc.title || 'Untitled Document'">
-                    {{ doc.title || 'Untitled Document' }}
+                  <span class="directory__doc-title" :title="doc.title || $t('common.untitledDocument')">
+                    {{ doc.title || $t('common.untitledDocument') }}
                   </span>
                   <span class="directory__doc-id">ID: {{ doc.id.slice(0, 8) }}...</span>
                 </div>
@@ -391,22 +393,22 @@ onBeforeUnmount(() => {
                   v-if="doc.permission === 'owner'"
                   class="directory__badge directory__badge--owned"
                 >
-                  Owned
+                  {{ $t('documents.badgeOwned') }}
                 </span>
                 <span
                   v-else
                   class="directory__badge directory__badge--shared"
-                  :title="doc.owner ? `Shared by ${doc.owner.login}` : 'Shared document'"
+                  :title="doc.owner ? $t('documents.sharedBy', { login: doc.owner.login }) : $t('documents.sharedDocument')"
                 >
-                  Shared
+                  {{ $t('documents.badgeShared') }}
                 </span>
 
                 <span
                   v-if="doc.permission !== 'owner' && doc.owner"
                   class="directory__owner-note"
-                  :title="`Document created by ${doc.owner.login}`"
+                  :title="$t('documents.createdBy', { login: doc.owner.login })"
                 >
-                  by {{ doc.owner.login }}
+                  {{ $t('documents.by', { login: doc.owner.login }) }}
                 </span>
               </div>
             </td>
@@ -425,8 +427,8 @@ onBeforeUnmount(() => {
                   variant="outlined"
                   size="small"
                   square
-                  title="Share document"
-                  aria-label="Share document"
+                  :title="$t('documents.shareDocument')"
+                  :aria-label="$t('documents.shareDocument')"
                   @click.stop="openShareDialog(doc)"
                 >
                   <template #icon>
@@ -438,8 +440,8 @@ onBeforeUnmount(() => {
                   color="alert"
                   size="small"
                   square
-                  title="Delete document"
-                  aria-label="Delete document"
+                  :title="$t('documents.deleteDocument')"
+                  :aria-label="$t('documents.deleteDocument')"
                   @click.stop="openDeleteDialog(doc)"
                 >
                   <template #icon>
@@ -448,7 +450,7 @@ onBeforeUnmount(() => {
                 </Button>
               </div>
               <div v-else class="directory__non-owner-placeholder">
-                <span class="directory__role-pill" :title="`Your role: ${doc.permission}`">
+                <span class="directory__role-pill" :title="$t('documents.roleTitle', { role: doc.permission })">
                   {{ doc.permission }}
                 </span>
               </div>
@@ -460,22 +462,30 @@ onBeforeUnmount(() => {
       <!-- Pagination and Page Size Footer Bar -->
       <div class="directory__pagination">
         <!-- Range Information -->
-        <div class="directory__pagination-info">
-          Showing
-          <strong class="directory__pagination-strong">{{ fromItem }}</strong>
-          –
-          <strong class="directory__pagination-strong">{{ toItem }}</strong>
-          of
-          <strong class="directory__pagination-strong">{{ totalDocuments }}</strong>
-        </div>
+        <i18n-t
+          keypath="documents.paginationShowing"
+          tag="div"
+          scope="global"
+          class="directory__pagination-info"
+        >
+          <template #from>
+            <strong class="directory__pagination-strong">{{ fromItem }}</strong>
+          </template>
+          <template #to>
+            <strong class="directory__pagination-strong">{{ toItem }}</strong>
+          </template>
+          <template #total>
+            <strong class="directory__pagination-strong">{{ totalDocuments }}</strong>
+          </template>
+        </i18n-t>
 
         <!-- Page Navigation Buttons -->
         <div class="directory__pagination-nav">
           <button
             type="button"
             class="directory__page-btn directory__page-btn--arrow"
-            title="First page"
-            aria-label="First page"
+            :title="$t('documents.firstPage')"
+            :aria-label="$t('documents.firstPage')"
             :disabled="currentPage === 1 || loading"
             @click="goToPage(1)"
           >
@@ -484,8 +494,8 @@ onBeforeUnmount(() => {
           <button
             type="button"
             class="directory__page-btn directory__page-btn--arrow"
-            title="Previous page"
-            aria-label="Previous page"
+            :title="$t('documents.previousPage')"
+            :aria-label="$t('documents.previousPage')"
             :disabled="currentPage === 1 || loading"
             @click="goToPage(currentPage - 1)"
           >
@@ -513,8 +523,8 @@ onBeforeUnmount(() => {
           <button
             type="button"
             class="directory__page-btn directory__page-btn--arrow"
-            title="Next page"
-            aria-label="Next page"
+            :title="$t('documents.nextPage')"
+            :aria-label="$t('documents.nextPage')"
             :disabled="currentPage >= totalPages || loading"
             @click="goToPage(currentPage + 1)"
           >
@@ -523,8 +533,8 @@ onBeforeUnmount(() => {
           <button
             type="button"
             class="directory__page-btn directory__page-btn--arrow"
-            title="Last page"
-            aria-label="Last page"
+            :title="$t('documents.lastPage')"
+            :aria-label="$t('documents.lastPage')"
             :disabled="currentPage >= totalPages || loading"
             @click="goToPage(totalPages)"
           >
@@ -534,7 +544,7 @@ onBeforeUnmount(() => {
 
         <!-- Rows per page selector: 5, 10, 20 (default 10) -->
         <div class="directory__page-size">
-          <label for="page-size-select" class="directory__page-size-label">Rows:</label>
+          <label for="page-size-select" class="directory__page-size-label">{{ $t('documents.rows') }}</label>
           <select
             id="page-size-select"
             :value="pageSize"
@@ -559,15 +569,15 @@ onBeforeUnmount(() => {
     />
 
     <!-- Delete Confirmation Modal -->
-    <Modal v-model="showDeleteModal" title="Delete Document" size="small">
+    <Modal v-model="showDeleteModal" :title="$t('documents.deleteTitle')" size="small">
       <div class="directory__delete-modal-content">
-        <p>
-          Are you sure you want to delete
-          <strong>"{{ selectedDeleteDoc?.title || 'Untitled Document' }}"</strong>?
-        </p>
+        <i18n-t keypath="documents.deleteConfirm" tag="p" scope="global">
+          <template #title>
+            <strong>"{{ selectedDeleteDoc?.title || $t('common.untitledDocument') }}"</strong>
+          </template>
+        </i18n-t>
         <p class="directory__delete-warning">
-          This document and all its contents will be permanently deleted. This action cannot be
-          undone.
+          {{ $t('documents.deleteWarning') }}
         </p>
       </div>
       <template #footer>
@@ -577,10 +587,10 @@ onBeforeUnmount(() => {
           :disabled="isDeleting"
           @click="showDeleteModal = false"
         >
-          Cancel
+          {{ $t('common.cancel') }}
         </Button>
         <Button color="alert" size="small" :loading="isDeleting" @click="confirmDelete">
-          Delete Document
+          {{ $t('documents.deleteSubmit') }}
         </Button>
       </template>
     </Modal>

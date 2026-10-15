@@ -25,12 +25,12 @@ const isActive = (path: string) =>
         to="/"
         class="header__link"
         :class="{ 'header__link--active': isActive('/') }"
-      >Home</router-link>
+      >{{ $t('nav.home') }}</router-link>
       <router-link
         to="/editor"
         class="header__link"
         :class="{ 'header__link--active': isActive('/editor') }"
-      >Editor</router-link>
+      >{{ $t('nav.editor') }}</router-link>
     </nav>
 
     <span class="header__spacer" />
@@ -41,33 +41,33 @@ const isActive = (path: string) =>
           to="/register"
           class="header__link"
           :class="{ 'header__link--active': isActive('/register') }"
-        >Register</router-link>
+        >{{ $t('nav.register') }}</router-link>
         <router-link
           to="/login"
           class="header__link header__link--primary"
         >
           <Icon name="Login" :size="18" />
-          <span>Login</span>
+          <span>{{ $t('nav.login') }}</span>
         </router-link>
       </template>
 
       <button
         v-else
         class="header__link header__link--logout"
-        title="Log out of your account"
+        :title="$t('nav.logoutTitle')"
         @click.prevent="authStore.logout"
       >
         <Icon name="Logout" :size="18" />
-        <span>Logout</span>
+        <span>{{ $t('nav.logout') }}</span>
       </button>
 
       <button
         class="header__link header__link--ghost"
-        :title="currentTheme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'"
+        :title="currentTheme === 'light' ? $t('nav.switchToDark') : $t('nav.switchToLight')"
         @click="toggleTheme"
       >
         <Icon :name="currentTheme === 'light' ? 'Moon' : 'Sun'" :size="18" />
-        <span>{{ currentTheme === 'light' ? 'Dark' : 'Light' }}</span>
+        <span>{{ currentTheme === 'light' ? $t('nav.dark') : $t('nav.light') }}</span>
       </button>
 
       <LanguageSwitcher />

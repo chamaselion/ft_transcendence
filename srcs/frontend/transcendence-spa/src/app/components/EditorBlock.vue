@@ -16,14 +16,15 @@
       @focus="!locked && $emit('focus')"
       @blur="$emit('blur')"
     />
-    <span v-if="locked" class="editor-block__lock" title="This block is locked by another user">
-      Locked
+    <span v-if="locked" class="editor-block__lock" :title="$t('editor.lockedTitle')">
+      {{ $t('editor.lockedBadge') }}
     </span>
   </div>
 </template>
 
 <script lang="ts" setup>
 import { computed, type Component } from 'vue'
+import { useI18n } from 'vue-i18n'
 import EditorParagraph from '@/app/components/EditorParagraph.vue'
 import EditorHeading from '@/app/components/EditorHeading.vue'
 import EditorList from '@/app/components/EditorList.vue'
@@ -36,6 +37,8 @@ const props = defineProps<{
   active?: boolean
   locked?: boolean
 }>()
+
+const { t } = useI18n()
 
 const emit = defineEmits<{
   'update:text': [value: string]
@@ -67,21 +70,42 @@ const componentProps = computed(() => {
 
   switch (decoratorValue.type) {
     case 'h':
-      return { ...base, text: props.block.text, level: decoratorValue.level ?? 2 }
+      return {
+        ...base,
+        text: props.block.text,
+        level: decoratorValue.level ?? 2,
+        placeholder: t('editor.placeholder.h'),
+      }
     case 'li':
       return {
         ...base,
         text: props.block.text,
         ordered: decoratorValue.ordered,
         marker: decoratorValue.marker,
+        placeholder: t('editor.placeholder.li'),
       }
     case 'cit':
-      return { ...base, text: props.block.text, source: decoratorValue.source }
+      return {
+        ...base,
+        text: props.block.text,
+        source: decoratorValue.source,
+        placeholder: t('editor.placeholder.cit'),
+      }
     case 'c':
-      return { ...base, code: props.block.text, language: decoratorValue.language }
+      return {
+        ...base,
+        code: props.block.text,
+        language: decoratorValue.language,
+        placeholder: t('editor.placeholder.c'),
+      }
     case 'p':
     default:
-      return { ...base, text: props.block.text, align: decoratorValue.align || 'left' }
+      return {
+        ...base,
+        text: props.block.text,
+        align: decoratorValue.align || 'left',
+        placeholder: t('editor.placeholder.p'),
+      }
   }
 })
 </script>

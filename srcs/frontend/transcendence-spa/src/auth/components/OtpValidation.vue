@@ -1,9 +1,12 @@
 <script setup lang="ts">
   import { ref } from 'vue'
+  import { useI18n } from 'vue-i18n'
   import { httpClient,  HttpError } from '../auth.api'
   import Toast from '@/app/components/Toast.vue'
   import Input from '@/app/components/Input.vue'
   import Button from '@/app/components/Button.vue'
+
+  const { t } = useI18n()
 
   const otp = ref('')
   const loggedInSuccess = ref(false)
@@ -35,7 +38,7 @@
       }, 1000)
     } catch (error) {
       errorFlag.value = true
-      message.value = error instanceof Error ? error.message : typeof error === 'string' ? error : 'Something went wrong'
+      message.value = error instanceof Error ? error.message : typeof error === 'string' ? error : t('common.somethingWentWrong')
       loggedInSuccess.value = false
       if (error instanceof HttpError) {
         if (error.status === 400) {
@@ -53,7 +56,7 @@
 
 <template>
   <div class="otp-confirm" v-if="!loggedInSuccess">
-      <h1>OTP Confirmation</h1>
+      <h1>{{ $t('auth.otp.title') }}</h1>
       <div class="otp-confirm__body">
         <Toast
           v-model="errorFlag"
@@ -63,8 +66,8 @@
           fluid
         />
         <form @submit.prevent="handleOtpConfirmation">
-          <Input label="Enter OTP" type="text" v-model="otp" required />
-          <Button type="submit">Confirm OTP</Button>
+          <Input :label="$t('auth.otp.codeLabel')" type="text" v-model="otp" required />
+          <Button type="submit">{{ $t('auth.otp.submit') }}</Button>
         </form>
       </div>
     </div>
@@ -73,7 +76,7 @@
       <Toast
         v-model="loggedInSuccess"
         type="good"
-        message="Login successful! Redirecting to the home page..."
+        :message="$t('auth.otp.success')"
         fluid
       />
     </div>

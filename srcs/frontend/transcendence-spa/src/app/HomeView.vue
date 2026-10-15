@@ -21,16 +21,15 @@ const router = useRouter()
       <section class="home-hero">
         <div class="home-hero__badge">
           <Icon name="Sparkles" :size="16" />
-          <span>New</span>
+          <span>{{ $t('home.badge') }}</span>
         </div>
-        <h1 class="home-hero__title">Welcome to Trans Edit</h1>
+        <h1 class="home-hero__title">{{ $t('home.title') }}</h1>
         <p class="home-hero__subtitle">
-          A collaborative document editor built for teams. Create, edit, and share documents in
-          real-time with your team members.
+          {{ $t('home.subtitle') }}
         </p>
         <div class="home-hero__actions">
-          <Button @click="router.push('/register')">Get Started</Button>
-          <Button @click="router.push('/login')">Login</Button>
+          <Button @click="router.push('/register')">{{ $t('home.getStarted') }}</Button>
+          <Button @click="router.push('/login')">{{ $t('home.login') }}</Button>
         </div>
       </section>
     </template>

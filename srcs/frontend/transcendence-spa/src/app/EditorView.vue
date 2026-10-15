@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import Editor from '@/app/components/Editor.vue'
 import Button from '@/app/components/Button.vue'
 import Icon from '@/app/components/Icon.vue'
@@ -14,9 +15,10 @@ import ShareModal from '@/app/components/ShareModal.vue'
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const { t } = useI18n()
 
 const provider = ref<EditorDataProvider | null>(null)
-const documentTitle = ref<string>('Untitled Document')
+const documentTitle = ref<string>(t('common.untitledDocument'))
 const titleEl = ref<HTMLElement | null>(null)
 const documentId = ref<string | null>(null)
 const userPermission = ref<'owner' | 'editor' | 'viewer'>('viewer')
@@ -85,7 +87,7 @@ async function onTitleBlur() {
   if (!isTitleEditable.value || !titleEl.value) return
   let newTitle = (titleEl.value.innerText || '').trim()
   if (!newTitle) {
-    newTitle = documentTitle.value || 'Untitled Document'
+    newTitle = documentTitle.value || t('common.untitledDocument')
     titleEl.value.innerText = newTitle
   }
   if (newTitle !== documentTitle.value) {
@@ -127,8 +129,8 @@ async function loadEditor(idParam?: string) {
   if (!id) {
     // Route /editor called -> create new document and open room automatically
     try {
-      const defaultBlocks = [createBlock('h', 'Untitled document'), createBlock('p', '')]
-      const newDoc = await createDocument('Untitled document', defaultBlocks)
+      const defaultBlocks = [createBlock('h', t('common.untitledDocumentLower')), createBlock('p', '')]
+      const newDoc = await createDocument(t('common.untitledDocumentLower'), defaultBlocks)
       if (newDoc && newDoc.id) {
         if (newDoc.permission) userPermission.value = newDoc.permission
         await router.replace(`/editor/${newDoc.id}`)
@@ -195,7 +197,7 @@ onBeforeUnmount(() => {
           :class="{ 'editor-view__title--editable': isTitleEditable }"
           :contenteditable="isTitleEditable"
           spellcheck="false"
-          :title="isTitleEditable ? 'Click to rename document' : undefined"
+          :title="isTitleEditable ? $t('editor.clickToRename') : undefined"
           @blur="onTitleBlur"
           @keydown="onTitleKeydown"
         >
@@ -205,19 +207,19 @@ onBeforeUnmount(() => {
           <span class="status-badge" :class="`status-badge--${connectionStatus}`">
             {{
               connectionStatus === 'connected'
-                ? 'Multiuser Room Live'
+                ? $t('editor.statusConnected')
                 : connectionStatus === 'connecting'
-                  ? 'Connecting to Room...'
-                  : 'Disconnected'
+                  ? $t('editor.statusConnecting')
+                  : $t('editor.statusDisconnected')
             }}
           </span>
           <span
             v-if="documentId"
             class="doc-id-badge"
           >
-            Room: {{ documentId.slice(0, 8) }}...
+            {{ $t('editor.roomLabel') }} {{ documentId.slice(0, 8) }}...
           </span>
-          <span v-if="userPermission" class="permission-badge"> Role: {{ userPermission }} </span>
+          <span v-if="userPermission" class="permission-badge"> {{ $t('editor.roleLabel') }} {{ userPermission }} </span>
         </div>
       </div>
 
@@ -226,9 +228,9 @@ onBeforeUnmount(() => {
           <template #icon>
             <Icon name="Share" :size="16" />
           </template>
-          Share
+          {{ $t('editor.share') }}
         </Button>
-        <Button variant="outlined" size="small" @click="handleCreateNew"> + New Document </Button>
+        <Button variant="outlined" size="small" @click="handleCreateNew"> {{ $t('editor.newDocument') }} </Button>
       </div>
     </div>
 
@@ -239,7 +241,7 @@ onBeforeUnmount(() => {
       {{ errorMessage }}
     </div>
 
-    <div v-if="isLoading" class="editor-view__loading">Initializing document room...</div>
+    <div v-if="isLoading" class="editor-view__loading">{{ $t('editor.initializing') }}</div>
 
     <Editor
       v-else-if="provider"

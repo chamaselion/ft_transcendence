@@ -15,7 +15,7 @@
         variant="flat"
         size="small"
         square
-        :title="`Add ${blockTypeLabels[type]}`"
+        :title="$t('editor.addBlock', { type: blockTypeLabel(type) })"
         @click="$emit('add', type)"
       >
         <template #icon>
@@ -37,7 +37,7 @@
           size="small"
           square
           :disabled="deleteDisabled"
-          :title="`Align ${align === 'center' ? 'middle' : align === 'justify' ? 'block' : align}`"
+          :title="$t(alignTitleKeys[align])"
           @click="$emit('update:decorator', { ...activeDecorator, align })"
         >
           <template #icon>
@@ -55,7 +55,7 @@
           size="small"
           square
           :disabled="deleteDisabled"
-          :title="`Heading ${lvl}`"
+          :title="$t('editor.headingLevel', { level: lvl })"
           @click="$emit('update:decorator', { ...activeDecorator, level: lvl })"
         >
           <template #icon>
@@ -71,7 +71,7 @@
           size="small"
           square
           :disabled="deleteDisabled"
-          title="Unnumbered list (bullets)"
+          :title="$t('editor.listUnnumbered')"
           @click="$emit('update:decorator', { ...activeDecorator, ordered: false })"
         >
           <template #icon>
@@ -83,7 +83,7 @@
           size="small"
           square
           :disabled="deleteDisabled"
-          title="Numbered list"
+          :title="$t('editor.listNumbered')"
           @click="$emit('update:decorator', { ...activeDecorator, ordered: true })"
         >
           <template #icon>
@@ -94,7 +94,7 @@
 
       <!-- Code: Language selector -->
       <div v-else-if="activeDecorator.type === 'c'" class="editor-nav__group editor-nav__group--formatting">
-        <span class="editor-nav__label">Lang:</span>
+        <span class="editor-nav__label">{{ $t('editor.languageLabel') }}</span>
         <select
           class="editor-nav__select"
           :disabled="deleteDisabled"
@@ -117,7 +117,7 @@
         color="alert"
         size="small"
         square
-        title="Delete active block"
+        :title="$t('editor.deleteBlock')"
         :disabled="!activeBlockId || deleteDisabled"
         @click="$emit('delete')"
       >
@@ -131,10 +131,10 @@
 
 <script lang="ts" setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import Button from '@/app/components/Button.vue'
 import Icon, { type IconName } from '@/app/components/Icon.vue'
 import {
-  blockTypeLabels,
   blockTypes,
   parseDecorator,
   type Block,
@@ -164,6 +164,25 @@ const emit = defineEmits<{
   delete: []
   'update:decorator': [decorator: BlockDecorator]
 }>()
+
+const { t } = useI18n()
+
+const blockTypeKeys = {
+  p: 'editor.blockType.p',
+  li: 'editor.blockType.li',
+  h: 'editor.blockType.h',
+  cit: 'editor.blockType.cit',
+  c: 'editor.blockType.c',
+} as const
+
+const blockTypeLabel = (type: BlockType) => t(blockTypeKeys[type])
+
+const alignTitleKeys = {
+  left: 'editor.alignLeft',
+  center: 'editor.alignCenter',
+  right: 'editor.alignRight',
+  justify: 'editor.alignJustify',
+} as const
 
 const activeDecorator = computed(() =>
   props.activeBlock ? parseDecorator(props.activeBlock.decorator) : null,

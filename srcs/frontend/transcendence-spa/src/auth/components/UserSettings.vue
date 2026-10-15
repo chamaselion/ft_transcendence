@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { httpClient, HttpError } from '../auth.api'
 import Button from '@/app/components/Button.vue'
 import Card from '@/app/components/Card.vue'
@@ -12,6 +13,7 @@ import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
 const authStore = useAuthStore()
+const { t } = useI18n()
 
 const res = ref<Root | null>(null)
 const user = ref<User | null>(null)
@@ -33,7 +35,7 @@ const updateSuccessMessage = ref('')
 const loggedIn = computed(() => res.value?.loggedIn === true)
 const status = computed(() => (loggedIn.value ? 'good' : 'warn'))
 const statusLabel = computed(() =>
-  loggedIn.value ? 'You are logged in' : 'You are not logged in',
+  loggedIn.value ? t('settings.statusLoggedIn') : t('settings.statusLoggedOut'),
 )
 
 const roleLabel = computed(() => {
@@ -57,7 +59,7 @@ async function loadProfile() {
     if (!(error instanceof HttpError) || error.status !== 401) {
       failed.value = true
       errorFlag.value = true
-      message.value = error instanceof Error ? error.message : 'Something went wrong'
+      message.value = error instanceof Error ? error.message : t('common.somethingWentWrong')
     }
   } finally {
     pending.value = false
@@ -79,7 +81,7 @@ async function updateUserDetails(email: string | undefined, login: string | unde
     console.error('Error updating user details:', error)
     errorFlag.value = true
     message.value =
-      error instanceof Error ? error.message : 'Something went wrong while updating user details'
+      error instanceof Error ? error.message : t('settings.updateError')
   }
 }
 
@@ -99,14 +101,14 @@ async function confirmUpdateDetails() {
     console.log('OTP confirmed successfully:', response)
     displayOTP.value = false
     confirmationID.value = ''
-    updateSuccessMessage.value = 'Your details have been updated successfully.'
+    updateSuccessMessage.value = t('settings.updateSuccess')
     updateSuccess.value = true
     loadProfile()
   } catch (error) {
     console.error('Error confirming OTP:', error)
     errorFlag.value = true
     message.value =
-      error instanceof Error ? error.message : 'Something went wrong while confirming OTP'
+      error instanceof Error ? error.message : t('settings.confirmError')
   }
   finally{
     otpCode.value = '';
@@ -119,8 +121,8 @@ onMounted(loadProfile)
 <template>
   <div class="user-settings">
     <header class="user-settings__header">
-      <h1 class="user-settings__title">User Settings</h1>
-      <p class="user-settings__subtitle">Your account details and session status.</p>
+      <h1 class="user-settings__title">{{ $t('settings.title') }}</h1>
+      <p class="user-settings__subtitle">{{ $t('settings.subtitle') }}</p>
     </header>
 
     <Toast
@@ -142,15 +144,15 @@ onMounted(loadProfile)
     />
 
     <Card v-if="pending" class="user-settings__card">
-      <p class="skeleton__caption">Loading your profile…</p>
+      <p class="skeleton__caption">{{ $t('settings.loading') }}</p>
     </Card>
 
     <Card v-else-if="failed" class="user-settings__card">
       <div class="state">
         <span class="state__badge state__badge--alert" aria-hidden="true">!</span>
-        <p class="state__title">We couldn't load your profile</p>
-        <p class="state__text">Something went wrong while contacting the server.</p>
-        <Button variant="elevated" color="primary" @click="loadProfile">Try again</Button>
+        <p class="state__title">{{ $t('settings.loadFailedTitle') }}</p>
+        <p class="state__text">{{ $t('settings.loadFailedText') }}</p>
+        <Button variant="elevated" color="primary" @click="loadProfile">{{ $t('settings.tryAgain') }}</Button>
       </div>
     </Card>
 
@@ -164,33 +166,33 @@ onMounted(loadProfile)
 
       <dl v-if="user" class="profile__details">
         <div class="profile__id-detail">
-          <span class="profile__detail-label">User ID</span>
+          <span class="profile__detail-label">{{ $t('settings.userId') }}</span>
           <p id="userID" class="profile__detail-value">{{ user.id }}</p>
         </div>
 
         <div class="profile__detail">
           <form @submit.prevent="updateUserDetails(email, login)">
-            <Input label="Email" v-model="email" type="text" />
-            <Input label="Username" v-model="login" type="text" />
+            <Input :label="$t('settings.emailLabel')" v-model="email" type="text" />
+            <Input :label="$t('settings.usernameLabel')" v-model="login" type="text" />
             <Button
               v-if="(isChanged(user.email, email) || isChanged(user.login, login)) && !displayOTP"
               variant="elevated"
               type="submit"
             >
-              Update Settings
+              {{ $t('settings.update') }}
             </Button>
           </form>
         </div>
 
         <div v-if="displayOTP" class="profile__detail">
           <form @submit.prevent="confirmUpdateDetails">
-            <Input label="OTP Code" v-model="otpCode" type="text" />
+            <Input :label="$t('settings.otpCodeLabel')" v-model="otpCode" type="text" />
             <Button
               v-if="confirmationID"
               variant="elevated"
               type="submit"
             >
-              Confirm OTP
+              {{ $t('settings.confirmOtp') }}
             </Button>
           </form>
         </div>
@@ -207,9 +209,9 @@ onMounted(loadProfile)
     <Card v-else class="user-settings__card">
       <div class="state">
         <span class="state__badge state__badge--warn" aria-hidden="true">!</span>
-        <p class="state__title">You're not logged in</p>
-        <p class="state__text">Sign in to view and manage your account settings.</p>
-        <Button variant="elevated" color="primary" @click="goToLogin">Sign in</Button>
+        <p class="state__title">{{ $t('settings.notLoggedInTitle') }}</p>
+        <p class="state__text">{{ $t('settings.notLoggedInText') }}</p>
+        <Button variant="elevated" color="primary" @click="goToLogin">{{ $t('settings.signIn') }}</Button>
       </div>
     </Card>
   </div>

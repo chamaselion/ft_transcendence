@@ -1,9 +1,12 @@
 <script setup lang="ts">
   import { ref } from 'vue'
+  import { useI18n } from 'vue-i18n'
   import { httpClient, HttpError } from '../auth.api'
   import Toast from '@/app/components/Toast.vue'
   import Input from '@/app/components/Input.vue'
   import Button from '@/app/components/Button.vue'
+
+  const { t } = useI18n()
 
   const username = ref('')
   const email = ref('')
@@ -21,7 +24,7 @@
       window.location.href = `/login?email=${email.value}&redirect=true`
       } catch (error) {
         errorFlag.value = true
-        msg.value = error instanceof Error ? error.message : typeof error === 'string' ? error : 'Something went wrong'
+        msg.value = error instanceof Error ? error.message : typeof error === 'string' ? error : t('common.somethingWentWrong')
         if (error instanceof HttpError) {
           if (error.status === 400) {
             console.log('Invalid data:', error.message)
@@ -40,8 +43,8 @@
 <template>
   <div class="register-card">
     <header class="register-card__header">
-      <h1 class="register-card__title">Register</h1>
-      <p class="register-card__subtitle">Create an account to get started.</p>
+      <h1 class="register-card__title">{{ $t('auth.register.title') }}</h1>
+      <p class="register-card__subtitle">{{ $t('auth.register.subtitle') }}</p>
     </header>
     <div class="register-card__body">
       <Toast
@@ -53,22 +56,23 @@
       />
       <form @submit.prevent="handleRegister">
         <div class="form-group">
-          <label for="username">Username:</label>
+          <label for="username">{{ $t('auth.register.usernameLabel') }}</label>
           <Input type="text" id="username" v-model="username" required />
         </div>
         <div class="form-group">
-          <label for="email">Email:</label>
+          <label for="email">{{ $t('auth.register.emailLabel') }}</label>
           <Input type="email" id="email" v-model="email" required />
         </div>
         <div class="form-group">
-          <label for="password">Password:</label>
+          <label for="password">{{ $t('auth.register.passwordLabel') }}</label>
           <Input type="password" v-model="password" required />
         </div>
-        <Button type="submit" size="large" class="register-card__submit">Register</Button>
+        <Button type="submit" size="large" class="register-card__submit">{{ $t('auth.register.submit') }}</Button>
       </form>
     </div>
     <p class="register-card__footer">
-      Already have an account? <router-link to="/login">Login here</router-link>
+      {{ $t('auth.register.footerText') }}
+      <router-link to="/login">{{ $t('auth.register.footerLink') }}</router-link>
     </p>
   </div>
 </template>

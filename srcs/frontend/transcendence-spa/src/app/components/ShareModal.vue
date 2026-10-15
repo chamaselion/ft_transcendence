@@ -1,34 +1,34 @@
 <template>
   <Modal
     :model-value="modelValue"
-    title="Share Document"
+    :title="$t('share.title')"
     size="default"
     @update:model-value="$emit('update:modelValue', $event)"
   >
     <div class="share-modal">
       <!-- Add new collaborator section -->
       <section v-if="isOwner" class="share-modal__section">
-        <h3 class="share-modal__section-title">Invite Collaborator</h3>
+        <h3 class="share-modal__section-title">{{ $t('share.inviteTitle') }}</h3>
         <form class="share-modal__form" @submit.prevent="handleShare">
           <div class="share-modal__inputs">
             <Input
               v-model="email"
               type="email"
-              placeholder="Enter user email (e.g. bob@example.com)"
-              label="Collaborator Email"
+              :placeholder="$t('share.emailPlaceholder')"
+              :label="$t('share.emailLabel')"
               :disabled="loading"
               required
             />
 
             <label class="share-modal__select-label">
-              <span class="share-modal__label-text">Permission</span>
+              <span class="share-modal__label-text">{{ $t('share.permission') }}</span>
               <select
                 v-model="permission"
                 class="share-modal__select"
                 :disabled="loading"
               >
-                <option value="editor">Editor (Can edit and write)</option>
-                <option value="viewer">Viewer (Read-only)</option>
+                <option value="editor">{{ $t('share.permissionEditorLong') }}</option>
+                <option value="viewer">{{ $t('share.permissionViewerLong') }}</option>
               </select>
             </label>
           </div>
@@ -41,7 +41,7 @@
               :loading="loading"
               :disabled="!email.trim() || loading"
             >
-              Add Collaborator
+              {{ $t('share.addCollaborator') }}
             </Button>
           </div>
         </form>
@@ -56,20 +56,20 @@
 
       <section v-else class="share-modal__section">
         <p class="share-modal__hint">
-          Only the document owner can manage shares and invite new collaborators.
+          {{ $t('share.ownerOnly') }}
         </p>
       </section>
 
       <!-- Existing collaborators section -->
       <section class="share-modal__section">
-        <h3 class="share-modal__section-title">People with Access</h3>
+        <h3 class="share-modal__section-title">{{ $t('share.peopleWithAccess') }}</h3>
 
         <div v-if="loadingShares" class="share-modal__muted">
-          Loading collaborators...
+          {{ $t('share.loading') }}
         </div>
 
         <div v-else-if="shares.length === 0" class="share-modal__muted">
-          No collaborators shared yet. Invite someone using their email above.
+          {{ $t('share.empty') }}
         </div>
 
         <ul v-else class="share-modal__list">
@@ -87,8 +87,8 @@
                 :disabled="loading"
                 @change="handleUpdatePermission(share.userId, ($event.target as HTMLSelectElement).value as 'viewer' | 'editor')"
               >
-                <option value="editor">Editor</option>
-                <option value="viewer">Viewer</option>
+                <option value="editor">{{ $t('share.permissionEditor') }}</option>
+                <option value="viewer">{{ $t('share.permissionViewer') }}</option>
               </select>
               <span v-else class="share-modal__badge">
                 {{ share.permission }}
@@ -99,11 +99,11 @@
                 variant="outlined"
                 color="alert"
                 size="x-small"
-                title="Revoke access"
+                :title="$t('share.revokeAccess')"
                 :disabled="loading"
                 @click="handleRevoke(share.userId)"
               >
-                Remove
+                {{ $t('common.remove') }}
               </Button>
             </div>
           </li>
@@ -115,7 +115,7 @@
         <div class="share-modal__link-row">
           <Input
             :model-value="shareUrl"
-            label="Room Link"
+            :label="$t('share.roomLink')"
             readonly
           />
           <Button
@@ -123,7 +123,7 @@
             size="small"
             @click="handleCopyLink"
           >
-            {{ copied ? 'Copied!' : 'Copy Link' }}
+            {{ copied ? $t('share.copied') : $t('share.copyLink') }}
           </Button>
         </div>
       </section>
@@ -133,6 +133,7 @@
 
 <script lang="ts" setup>
 import { ref, computed, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import Modal from '@/app/components/Modal.vue'
 import Button from '@/app/components/Button.vue'
 import Input from '@/app/components/Input.vue'
@@ -168,6 +169,13 @@ const error = ref<string | null>(null)
 const successMessage = ref<string | null>(null)
 const copied = ref(false)
 
+const { t } = useI18n()
+
+const permissionLabelKeys = {
+  editor: 'share.permissionEditor',
+  viewer: 'share.permissionViewer',
+} as const
+
 const shareUrl = computed(() => {
   if (typeof window === 'undefined') return ''
   return `${window.location.origin}/editor/${props.documentId}`
@@ -193,11 +201,14 @@ async function handleShare() {
 
   try {
     await createShare(props.documentId, email.value.trim(), permission.value)
-    successMessage.value = `Access granted to ${email.value.trim()} as ${permission.value}.`
+    successMessage.value = t('share.accessGranted', {
+      email: email.value.trim(),
+      permission: t(permissionLabelKeys[permission.value]),
+    })
     email.value = ''
     await fetchShares()
   } catch (err) {
-    error.value = err instanceof Error ? err.message : 'Failed to share document'
+    error.value = err instanceof Error ? err.message : t('share.failedShare')
   } finally {
     loading.value = false
   }
@@ -212,7 +223,7 @@ async function handleUpdatePermission(userId: string, newPermission: 'viewer' | 
     await updateShare(props.documentId, userId, newPermission)
     await fetchShares()
   } catch (err) {
-    error.value = err instanceof Error ? err.message : 'Failed to update share'
+    error.value = err instanceof Error ? err.message : t('share.failedUpdate')
   } finally {
     loading.value = false
   }
@@ -227,7 +238,7 @@ async function handleRevoke(userId: string) {
     await deleteShare(props.documentId, userId)
     await fetchShares()
   } catch (err) {
-    error.value = err instanceof Error ? err.message : 'Failed to revoke share'
+    error.value = err instanceof Error ? err.message : t('share.failedRevoke')
   } finally {
     loading.value = false
   }

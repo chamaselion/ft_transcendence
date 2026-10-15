@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { validateOAuthCallback } from '@/auth/oauth'
 import { httpClient, HttpError } from '@/auth/auth.api'
 import { useAuthStore } from '@/stores/auth'
@@ -10,6 +11,7 @@ import Button from '@/app/components/Button.vue'
 const authStore = useAuthStore()
 const route = useRoute()
 const router = useRouter()
+const { t } = useI18n()
 const loading = ref(true)
 const errorMessage = ref('')
 const canRetrySession = ref(false)
@@ -29,8 +31,7 @@ async function loadSession() {
     authStore.setStoreToApiResponse(response)
     await router.replace('/settings')
   } catch {
-    errorMessage.value =
-      'Sign-in completed, but your session could not be loaded. Retry loading your session or start again.'
+    errorMessage.value = t('auth.callback.invalidSession')
     canRetrySession.value = true
   } finally {
     loading.value = false
@@ -57,20 +58,19 @@ onMounted(async () => {
   } catch (error) {
     if (error instanceof HttpError) {
       if (error.status === 409) {
-        errorMessage.value =
-          'An account conflict requires explicit linking. Sign in and link the provider from settings.'
+        errorMessage.value = t('auth.callback.accountConflict')
       } else if (error.status === 501) {
-        errorMessage.value = 'This sign-in provider is not configured.'
+        errorMessage.value = t('auth.callback.providerNotConfigured')
       } else if (error.status === 400 || error.status === 401) {
-        errorMessage.value = 'Sign-in could not be verified. Please start again.'
+        errorMessage.value = t('auth.callback.notVerified')
       } else {
-        errorMessage.value = 'Unable to finish sign-in. Please start again.'
+        errorMessage.value = t('auth.callback.unable')
       }
     } else if (error instanceof TypeError) {
-      errorMessage.value = 'A network error interrupted sign-in. Please start again.'
+      errorMessage.value = t('auth.callback.network')
     } else {
       errorMessage.value =
-        error instanceof Error ? error.message : 'Unable to finish sign-in. Please start again.'
+        error instanceof Error ? error.message : t('auth.callback.unable')
     }
   } finally {
     loading.value = false
@@ -85,18 +85,18 @@ onMounted(async () => {
   >
     <section class="callback-card">
       <template v-if="loading">
-        <h1>Completing sign-in</h1>
-        <p role="status">Please wait while we verify your account.</p>
+        <h1>{{ $t('auth.callback.completingTitle') }}</h1>
+        <p role="status">{{ $t('auth.callback.completingText') }}</p>
       </template>
       <template v-else-if="errorMessage">
-        <h1>Unable to finish sign-in</h1>
+        <h1>{{ $t('auth.callback.errorTitle') }}</h1>
         <p role="alert">{{ errorMessage }}</p>
         <Button
           v-if="canRetrySession"
           @click="loadSession"
-          >Retry loading session</Button
+          >{{ $t('auth.callback.retry') }}</Button
         >
-        <RouterLink to="/login">Back to login</RouterLink>
+        <RouterLink to="/login">{{ $t('auth.callback.backToLogin') }}</RouterLink>
       </template>
     </section>
   </main>

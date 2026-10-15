@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { httpClient, HttpError } from '../auth.api'
 import OtpValidation from './OtpValidation.vue'
 import Toast from '@/app/components/Toast.vue'
 import Input from '@/app/components/Input.vue'
 import Button from '@/app/components/Button.vue'
 import OAuth from './OAuth.vue'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   email?: string | null
@@ -51,7 +54,7 @@ const handleLogin = async () => {
         ? error.message
         : typeof error === 'string'
           ? error
-          : 'Something went wrong'
+          : t('common.somethingWentWrong')
     if (error instanceof HttpError) {
       if (error.status === 400) {
         console.log(error.message)
@@ -76,8 +79,8 @@ const handleLogin = async () => {
     <Toast
       v-model="registerRedirectFlag"
       type="info"
-      message="Registered successfully!"
-      hint="Please login to receive an OTP validation code."
+      :message="$t('auth.login.registeredToast')"
+      :hint="$t('auth.login.registeredHint')"
       :duration="8000"
       fluid
     />
@@ -88,8 +91,8 @@ const handleLogin = async () => {
     v-if="!otpConfirmationRequired"
   >
     <header class="login-card__header">
-      <h1 class="login-card__title">Login</h1>
-      <p class="login-card__subtitle">Sign in to continue to your account.</p>
+      <h1 class="login-card__title">{{ $t('auth.login.title') }}</h1>
+      <p class="login-card__subtitle">{{ $t('auth.login.subtitle') }}</p>
     </header>
     <div class="login-card__body">
       <Toast
@@ -102,13 +105,13 @@ const handleLogin = async () => {
       <OAuth />
       <form @submit.prevent="handleLogin">
         <Input
-          label="E-mail"
+          :label="$t('auth.login.emailLabel')"
           type="email"
           v-model="email"
           required
         />
         <Input
-          label="Password"
+          :label="$t('auth.login.passwordLabel')"
           type="password"
           v-model="password"
           required
@@ -119,7 +122,7 @@ const handleLogin = async () => {
           class="login-card__submit"
           :loading="isSubmitting"
         >
-          {{ isSubmitting ? 'Signing in' : 'Login' }}
+          {{ isSubmitting ? $t('auth.login.submitting') : $t('auth.login.submit') }}
         </Button>
       </form>
     </div>
@@ -127,7 +130,8 @@ const handleLogin = async () => {
       v-if="!registerRedirectFlag"
       class="login-card__footer"
     >
-      Don't have an account? <router-link to="/register">Register here</router-link>
+      {{ $t('auth.login.footerText') }}
+      <router-link to="/register">{{ $t('auth.login.footerLink') }}</router-link>
     </p>
   </div>
 

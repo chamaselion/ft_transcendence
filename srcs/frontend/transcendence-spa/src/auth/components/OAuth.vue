@@ -34,17 +34,14 @@ function hideExplainer() {
         @mouseleave="hideExplainer"
         class="oauth-btn github"
       >
-        Sign In with <Icon name="Github" />
+        {{ $t('auth.oauth.signInWith') }} <Icon name="Github" />
       </Button>
       <div
         class="provider-explainer"
         id="gh-provider-explainer"
       >
         <p>
-          By signing in with GitHub, you can use your existing GitHub account to access our
-          services. This allows for a seamless login experience and eliminates the need to create a
-          new account. Your GitHub credentials will not be shared with us, and we will only request
-          the necessary permissions to authenticate your identity.
+          {{ $t('auth.oauth.githubExplainer') }}
         </p>
       </div>
     </div>
@@ -55,17 +52,14 @@ function hideExplainer() {
         @mouseleave="hideExplainer"
         class="oauth-btn"
       >
-        Sign In with <Icon name="FortyTwo" />
+        {{ $t('auth.oauth.signInWith') }} <Icon name="FortyTwo" />
       </Button>
       <div
         class="provider-explainer"
         id="42-provider-explainer"
       >
         <p>
-          By signing in with 42, you can use your existing 42 account to access our services. This
-          allows for a seamless login experience and eliminates the need to create a new account.
-          Your 42 credentials will not be shared with us, and we will only request the necessary
-          permissions to authenticate your identity.
+          {{ $t('auth.oauth.fortyTwoExplainer') }}
         </p>
       </div>
     </div>

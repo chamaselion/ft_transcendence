@@ -56,14 +56,6 @@ export interface EditorDataProvider {
 
 export const blockTypes: BlockType[] = ['p', 'li', 'h', 'cit', 'c']
 
-export const blockTypeLabels: Record<BlockType, string> = {
-  p: 'Paragraph',
-  li: 'List',
-  h: 'Heading',
-  cit: 'Citation',
-  c: 'Code',
-}
-
 export function defaultDecorator(type: BlockType): BlockDecorator {
   switch (type) {
     case 'h':
