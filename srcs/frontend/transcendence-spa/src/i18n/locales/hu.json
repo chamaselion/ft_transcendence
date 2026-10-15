@@ -21,6 +21,15 @@
     "light": "Világos",
     "language": "Nyelv"
   },
+  "routes": {
+    "home": "Főoldal",
+    "login": "Bejelentkezés",
+    "register": "Regisztráció",
+    "editor": "Szerkesztő",
+    "settings": "Beállítások",
+    "componentCatalogue": "Komponenskatalógus",
+    "oauthCallback": "Bejelentkezés"
+  },
   "auth": {
     "login": {
       "title": "Bejelentkezés",

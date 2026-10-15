@@ -21,6 +21,15 @@
     "light": "Light",
     "language": "Language"
   },
+  "routes": {
+    "home": "Home",
+    "login": "Login",
+    "register": "Register",
+    "editor": "Editor",
+    "settings": "Settings",
+    "componentCatalogue": "Component Catalogue",
+    "oauthCallback": "Signing in"
+  },
   "auth": {
     "login": {
       "title": "Login",

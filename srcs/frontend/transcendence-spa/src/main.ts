@@ -18,5 +18,7 @@ app.use(router)
 app.use(i18n)
 
 initI18n().finally(() => {
+  const { titleKey } = router.currentRoute.value.meta
+  if (titleKey) document.title = i18n.global.t(titleKey)
   app.mount('#app')
 })

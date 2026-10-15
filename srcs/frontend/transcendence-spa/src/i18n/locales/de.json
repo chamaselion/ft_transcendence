@@ -21,6 +21,15 @@
     "light": "Hell",
     "language": "Sprache"
   },
+  "routes": {
+    "home": "Startseite",
+    "login": "Anmelden",
+    "register": "Registrieren",
+    "editor": "Editor",
+    "settings": "Einstellungen",
+    "componentCatalogue": "Komponentenkatalog",
+    "oauthCallback": "Anmeldung"
+  },
   "auth": {
     "login": {
       "title": "Anmelden",
