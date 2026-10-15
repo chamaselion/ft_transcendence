@@ -1,5 +1,8 @@
 {
   "common": {
     "appName": "Transcendence Editor"
+  },
+  "nav": {
+    "language": "Nyelv"
   }
 }

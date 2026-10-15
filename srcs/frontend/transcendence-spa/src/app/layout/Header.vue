@@ -3,6 +3,7 @@ import { useRoute } from 'vue-router'
 import { useTheme } from '@/app/layout/useTheme'
 // import UserIcon from '@/app/layout/UserIcon.vue'
 import Icon from '@/app/components/Icon.vue'
+import LanguageSwitcher from '@/app/layout/LanguageSwitcher.vue'
 import { useAuthStore } from '@/stores/auth'
 
 const { currentTheme, toggleTheme } = useTheme()
@@ -68,6 +69,8 @@ const isActive = (path: string) =>
         <Icon :name="currentTheme === 'light' ? 'Moon' : 'Sun'" :size="18" />
         <span>{{ currentTheme === 'light' ? 'Dark' : 'Light' }}</span>
       </button>
+
+      <LanguageSwitcher />
     </nav>
     <!-- <UserIcon :user="currentUser" /> -->
   </header>
