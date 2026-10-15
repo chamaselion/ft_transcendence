@@ -177,11 +177,7 @@
     "deletedToast": "\"{title}\" wurde gelöscht.",
     "deleteFailed": "Dokument konnte nicht gelöscht werden.",
     "timeUnknown": "Unbekannt",
-    "timeJustNow": "Gerade eben",
-    "timeYesterday": "Gestern",
-    "timeMinutesAgo": "vor 1 Minute | vor {count} Minuten",
-    "timeHoursAgo": "vor 1 Stunde | vor {count} Stunden",
-    "timeDaysAgo": "vor 1 Tag | vor {count} Tagen"
+    "timeJustNow": "Gerade eben"
   },
   "share": {
     "title": "Dokument teilen",

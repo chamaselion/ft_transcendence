@@ -177,11 +177,7 @@
     "deletedToast": "\"{title}\" törölve.",
     "deleteFailed": "Nem sikerült törölni a dokumentumot.",
     "timeUnknown": "Ismeretlen",
-    "timeJustNow": "Épp most",
-    "timeYesterday": "Tegnap",
-    "timeMinutesAgo": "1 perccel ezelőtt | {count} perccel ezelőtt",
-    "timeHoursAgo": "1 órával ezelőtt | {count} órával ezelőtt",
-    "timeDaysAgo": "1 nappal ezelőtt | {count} nappal ezelőtt"
+    "timeJustNow": "Épp most"
   },
   "share": {
     "title": "Dokumentum megosztása",

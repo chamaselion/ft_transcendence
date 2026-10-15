@@ -177,11 +177,7 @@
     "deletedToast": "\"{title}\" has been deleted.",
     "deleteFailed": "Failed to delete document.",
     "timeUnknown": "Unknown",
-    "timeJustNow": "Just now",
-    "timeYesterday": "Yesterday",
-    "timeMinutesAgo": "1 minute ago | {count} minutes ago",
-    "timeHoursAgo": "1 hour ago | {count} hours ago",
-    "timeDaysAgo": "1 day ago | {count} days ago"
+    "timeJustNow": "Just now"
   },
   "share": {
     "title": "Share Document",

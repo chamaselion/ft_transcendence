@@ -10,7 +10,7 @@ import ShareModal from '@/app/components/ShareModal.vue'
 import { listDocuments, deleteDocument, type DocumentData } from '@/app/editor/document.api'
 
 const router = useRouter()
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 // Document list & pagination state
 const documents = ref<DocumentData[]>([])
@@ -183,31 +183,28 @@ async function confirmDelete() {
 }
 
 function formatRelativeTime(dateString: string): string {
-  if (!dateString) return 'Unknown'
+  if (!dateString) return t('documents.timeUnknown')
   const date = new Date(dateString)
   if (isNaN(date.getTime())) return dateString
 
   const now = new Date()
   const diffSec = Math.floor((now.getTime() - date.getTime()) / 1000)
 
-  if (diffSec < 45) return 'Just now'
-  if (diffSec < 90) return '1 minute ago'
+  if (diffSec < 45) return t('documents.timeJustNow')
+
+  const relative = new Intl.RelativeTimeFormat(locale.value, { numeric: 'auto' })
+
   if (diffSec < 3600) {
-    const mins = Math.floor(diffSec / 60)
-    return `${mins} minutes ago`
+    return relative.format(-Math.round(diffSec / 60), 'minute')
   }
-  if (diffSec < 7200) return '1 hour ago'
   if (diffSec < 86400) {
-    const hours = Math.floor(diffSec / 3600)
-    return `${hours} hours ago`
+    return relative.format(-Math.round(diffSec / 3600), 'hour')
   }
-  if (diffSec < 172800) return 'Yesterday'
   if (diffSec < 604800) {
-    const days = Math.floor(diffSec / 86400)
-    return `${days} days ago`
+    return relative.format(-Math.round(diffSec / 86400), 'day')
   }
 
-  return date.toLocaleDateString(undefined, {
+  return date.toLocaleDateString(locale.value, {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
@@ -218,7 +215,7 @@ function formatFullDate(dateString: string): string {
   if (!dateString) return ''
   const date = new Date(dateString)
   if (isNaN(date.getTime())) return dateString
-  return date.toLocaleString(undefined, {
+  return date.toLocaleString(locale.value, {
     dateStyle: 'medium',
     timeStyle: 'short',
   })
@@ -239,7 +236,7 @@ onBeforeUnmount(() => {
     <div class="directory__header">
       <div class="directory__title-group">
         <h2 class="directory__title">{{ $t('documents.title') }}</h2>
-        <span class="directory__count">{{ totalDocuments }}</span>
+        <span class="directory__count">{{ $n(totalDocuments) }}</span>
       </div>
 
       <div class="directory__header-actions">
