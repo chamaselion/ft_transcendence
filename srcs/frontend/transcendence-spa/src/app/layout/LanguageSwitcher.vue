@@ -201,6 +201,8 @@ onBeforeUnmount(() => {
 
 @media (max-width: 768px) {
   .language-switcher__trigger {
+    min-width: 38px;
+    min-height: 38px;
     padding: 8px;
   }
 }

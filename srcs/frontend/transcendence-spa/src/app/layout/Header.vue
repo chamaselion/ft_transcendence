@@ -25,12 +25,22 @@ const isActive = (path: string) =>
         to="/"
         class="header__link"
         :class="{ 'header__link--active': isActive('/') }"
-      >{{ $t('nav.home') }}</router-link>
+        :title="$t('nav.home')"
+        :aria-label="$t('nav.home')"
+      >
+        <Icon name="Home" :size="18" />
+        <span class="header__label">{{ $t('nav.home') }}</span>
+      </router-link>
       <router-link
         to="/editor"
         class="header__link"
         :class="{ 'header__link--active': isActive('/editor') }"
-      >{{ $t('nav.editor') }}</router-link>
+        :title="$t('nav.editor')"
+        :aria-label="$t('nav.editor')"
+      >
+        <Icon name="Pencil" :size="18" />
+        <span class="header__label">{{ $t('nav.editor') }}</span>
+      </router-link>
     </nav>
 
     <span class="header__spacer" />
@@ -41,13 +51,20 @@ const isActive = (path: string) =>
           to="/register"
           class="header__link"
           :class="{ 'header__link--active': isActive('/register') }"
-        >{{ $t('nav.register') }}</router-link>
+          :title="$t('nav.register')"
+          :aria-label="$t('nav.register')"
+        >
+          <Icon name="UserPlus" :size="18" />
+          <span class="header__label">{{ $t('nav.register') }}</span>
+        </router-link>
         <router-link
           to="/login"
           class="header__link header__link--primary"
+          :title="$t('nav.login')"
+          :aria-label="$t('nav.login')"
         >
           <Icon name="Login" :size="18" />
-          <span>{{ $t('nav.login') }}</span>
+          <span class="header__label">{{ $t('nav.login') }}</span>
         </router-link>
       </template>
 
@@ -55,19 +72,21 @@ const isActive = (path: string) =>
         v-else
         class="header__link header__link--logout"
         :title="$t('nav.logoutTitle')"
+        :aria-label="$t('nav.logout')"
         @click.prevent="authStore.logout"
       >
         <Icon name="Logout" :size="18" />
-        <span>{{ $t('nav.logout') }}</span>
+        <span class="header__label">{{ $t('nav.logout') }}</span>
       </button>
 
       <button
         class="header__link header__link--ghost"
         :title="currentTheme === 'light' ? $t('nav.switchToDark') : $t('nav.switchToLight')"
+        :aria-label="currentTheme === 'light' ? $t('nav.switchToDark') : $t('nav.switchToLight')"
         @click="toggleTheme"
       >
         <Icon :name="currentTheme === 'light' ? 'Moon' : 'Sun'" :size="18" />
-        <span>{{ currentTheme === 'light' ? $t('nav.dark') : $t('nav.light') }}</span>
+        <span class="header__label">{{ currentTheme === 'light' ? $t('nav.dark') : $t('nav.light') }}</span>
       </button>
 
       <LanguageSwitcher />
@@ -127,6 +146,10 @@ const isActive = (path: string) =>
     flex-shrink: 0;
   }
 
+  .header__label {
+    white-space: nowrap;
+  }
+
   .header__link:hover {
     background-color: color-mix(in srgb, var(--text-primary) 8%, transparent);
     color: var(--text-primary);
@@ -165,5 +188,27 @@ const isActive = (path: string) =>
     background-color: color-mix(in srgb, var(--color-alert) 12%, transparent);
     border-color: var(--color-alert);
     color: var(--color-alert-hover);
+  }
+
+  @media (max-width: 768px) {
+    .header {
+      gap: 4px;
+      padding: 8px 12px;
+    }
+
+    .header__nav {
+      gap: 2px;
+    }
+
+    .header__link {
+      justify-content: center;
+      min-width: 38px;
+      min-height: 38px;
+      padding: 8px;
+    }
+
+    .header__label {
+      display: none;
+    }
   }
 </style>
