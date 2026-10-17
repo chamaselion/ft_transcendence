@@ -8,14 +8,22 @@ export const LOCALE_NAMES: Record<AppLocale, string> = {
   hu: 'Magyar',
 }
 
+export const LOCALE_FLAGS: Record<AppLocale, string> = {
+  en: '🇬🇧',
+  de: '🇩🇪',
+  hu: '🇭🇺',
+}
+
 export interface LocaleOption {
   code: AppLocale
   label: string
+  flag: string
 }
 
 const availableLocales: LocaleOption[] = SUPPORTED_LOCALES.map((code) => ({
   code,
   label: LOCALE_NAMES[code],
+  flag: LOCALE_FLAGS[code],
 }))
 
 export function useLocale() {
