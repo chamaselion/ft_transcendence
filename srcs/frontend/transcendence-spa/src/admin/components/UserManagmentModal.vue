@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { computed, ref, onMounted, watch } from 'vue'
 import { httpClient, HttpError } from '@/auth/auth.api'
 import type { UserDetailed } from '@/auth/types/user'
 import Button from '@/app/components/Button.vue'
 import Input from '@/app/components/Input.vue'
+import Modal from '@/app/components/Modal.vue'
 import Toast from '@/app/components/Toast.vue'
 
 const username = ref('')
@@ -12,6 +13,10 @@ const toastMessage = ref('')
 const toastVisible = ref(false)
 
 const user = ref<UserDetailed | null>(null)
+
+const confirmingDelete = ref(false)
+const deleteConfirmationName = ref('')
+const deleting = ref(false)
 
 // User readable ISO date formatting
 const formatDate = (value: string) => {
@@ -35,6 +40,23 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'close'): void
 }>()
+
+const canConfirmDelete = computed(
+  () => user.value !== null && deleteConfirmationName.value.trim() === user.value.login,
+)
+
+const openDeleteConfirmation = () => {
+  deleteConfirmationName.value = ''
+  confirmingDelete.value = true
+}
+
+const closeDeleteConfirmation = () => {
+  confirmingDelete.value = false
+}
+
+watch(confirmingDelete, (open) => {
+  if (!open) deleteConfirmationName.value = ''
+})
 
 const revokeAdmin = async () => {
   if (!user.value) {
@@ -69,16 +91,17 @@ const promoteToAdmin = async () => {
 }
 
 const deleteUser = async () => {
-  if (!user.value) {
-    showError(null, 'User data is not loaded yet.')
-    return
-  }
+  if (!user.value || deleting.value || !canConfirmDelete.value) return
+  deleting.value = true
   toastVisible.value = false
   try {
     await httpClient.delete(`/api/users/${user.value.id}`)
     emit('close')
   } catch (error) {
+    closeDeleteConfirmation()
     showError(error, 'Failed to delete user. Please try again.')
+  } finally {
+    deleting.value = false
   }
 }
 
@@ -109,8 +132,13 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="manage-user-modal">
-    <h1>Manage Users here</h1>
+  <Modal
+    :model-value="true"
+    title="Manage User"
+    :close-on-overlay="!confirmingDelete"
+    :close-on-esc="!confirmingDelete"
+    @update:model-value="emit('close')"
+  >
     <Toast
       v-model="toastVisible"
       class="management-error"
@@ -120,11 +148,6 @@ onMounted(async () => {
       fluid
       role="alert"
     />
-    <span
-      class="close-button"
-      @click="$emit('close')"
-      >X</span
-    >
     <div
       class="user-management-content"
       v-if="user"
@@ -150,7 +173,12 @@ onMounted(async () => {
         @click="revokeAdmin()"
         >Revoke Admin</Button
       >
-      <Button @click="deleteUser()">Delete User</Button>
+      <Button
+        color="alert"
+        variant="outlined"
+        @click="openDeleteConfirmation"
+        >Delete User</Button
+      >
       <Input
         type="text"
         v-model="username"
@@ -158,37 +186,54 @@ onMounted(async () => {
       />
       <Button @click="updateUsername">Update Username</Button>
     </div>
-  </div>
+
+    <Modal
+      v-model="confirmingDelete"
+      title="Delete User"
+      size="small"
+      :close-on-overlay="!deleting"
+      :close-on-esc="!deleting"
+    >
+      <div class="delete-confirmation">
+        <p>
+          Permanently delete
+          <strong>{{ user?.login }}</strong
+          >?
+        </p>
+        <p class="delete-confirmation__warning">
+          This account and all associated data will be deleted. This action cannot be undone.
+        </p>
+        <Input
+          v-model="deleteConfirmationName"
+          :label="`Type “${user?.login ?? ''}” to confirm`"
+          type="text"
+          placeholder="Enter the username"
+          :disabled="deleting"
+        />
+      </div>
+      <template #footer>
+        <Button
+          variant="outlined"
+          color="default"
+          :disabled="deleting"
+          @click="closeDeleteConfirmation"
+        >
+          Cancel
+        </Button>
+        <Button
+          color="alert"
+          :loading="deleting"
+          :disabled="!canConfirmDelete"
+          @click="deleteUser"
+        >
+          Delete User
+        </Button>
+      </template>
+    </Modal>
+  </Modal>
 </template>
 
 <style scoped>
-.manage-user-modal {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  z-index: 1000;
-  box-sizing: border-box;
-  width: min(520px, calc(100% - 32px));
-  max-height: calc(100dvh - 32px);
-  overflow-y: auto;
-  transform: translate(-50%, -50%);
-  padding: 20px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 12px;
-  background-color: var(--bg-surface);
-  color: var(--text-primary);
-  box-shadow: var(--shadow-md);
-}
-
-.manage-user-modal h1 {
-  margin: 0 0 20px;
-  padding: 0 40px 16px 0;
-  border-bottom: 1px solid var(--border-subtle);
-  font-size: 18px;
-  font-weight: 600;
-  line-height: 1.5;
-}
-
 .user-management-content {
   display: flex;
   flex-direction: column;
@@ -240,26 +285,19 @@ onMounted(async () => {
   overflow-wrap: anywhere;
 }
 
-.close-button {
-  position: absolute;
-  top: 16px;
-  right: 20px;
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  color: var(--text-secondary);
-  cursor: pointer;
-  font-size: 18px;
-  line-height: 1;
-  transition:
-    background-color 0.2s,
-    color 0.2s;
+.delete-confirmation {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
-.close-button:hover {
-  background-color: var(--bg-subtle);
-  color: var(--text-primary);
+.delete-confirmation p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.delete-confirmation__warning {
+  color: var(--text-secondary);
 }
 </style>

@@ -304,6 +304,17 @@ onMounted(loadProfile)
         </div>
       </dl>
 
+      <!-- Admin panel entry point: uncomment to expose it only to admins.
+      <Button
+        v-if="authStore.isAdmin()"
+        variant="outlined"
+        color="primary"
+        @click="router.push('/admin')"
+      >
+        Go to Admin Panel
+      </Button>
+      -->
+
       <Button
         v-if="!deletionConfirmationID"
         color="alert"
