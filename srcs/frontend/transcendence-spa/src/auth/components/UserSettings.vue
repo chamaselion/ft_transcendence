@@ -9,6 +9,7 @@ import Toast from '@/app/components/Toast.vue'
 import type { Root, User } from '../types/user'
 import type { OtpConfirmationResponse } from '../types/auth.types'
 import { useAuthStore } from '@/stores/auth'
+import UserIcon from '@/app/components/UserIcon.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -27,14 +28,16 @@ const otpCode = ref('')
 const displayOTP = ref(false)
 const confirmationID = ref('')
 
+const deletionConfirmationID = ref('')
+const deletionCode = ref('')
+const deleting = ref(false)
+
 const updateSuccess = ref(false)
 const updateSuccessMessage = ref('')
 
 const loggedIn = computed(() => res.value?.loggedIn === true)
 const status = computed(() => (loggedIn.value ? 'good' : 'warn'))
-const statusLabel = computed(() =>
-  loggedIn.value ? 'You are logged in' : 'You are not logged in',
-)
+const statusLabel = computed(() => (loggedIn.value ? 'You are logged in' : 'You are not logged in'))
 
 const roleLabel = computed(() => {
   const role = user.value?.role
@@ -107,10 +110,59 @@ async function confirmUpdateDetails() {
     errorFlag.value = true
     message.value =
       error instanceof Error ? error.message : 'Something went wrong while confirming OTP'
+  } finally {
+    otpCode.value = ''
   }
-  finally{
-    otpCode.value = '';
+}
+
+async function changeAvatar() {
+  // NOTE: Placeholder for avatar change functionality
+  console.log('Change avatar clicked')
+}
+
+async function requestDeletion() {
+  if (deleting.value) return
+  deleting.value = true
+  errorFlag.value = false
+  try {
+    const response = await httpClient.post<{ confirmationId: string }>(
+      'me/data-deletion/request',
+      {},
+    )
+    deletionConfirmationID.value = response.confirmationId
+    deletionCode.value = ''
+  } catch (error) {
+    message.value = error instanceof Error ? error.message : 'Failed to request account deletion.'
+    errorFlag.value = true
+  } finally {
+    deleting.value = false
   }
+}
+
+async function confirmDeletion() {
+  if (deleting.value || !deletionConfirmationID.value || !deletionCode.value.trim()) return
+  deleting.value = true
+  errorFlag.value = false
+  try {
+    await httpClient.post('me/data-deletion/confirm', {
+      confirmationId: deletionConfirmationID.value,
+      code: deletionCode.value.trim(),
+    })
+    authStore.invalidate()
+    res.value = { loggedIn: false }
+    user.value = null
+    await router.replace('/login')
+  } catch (error) {
+    message.value = error instanceof Error ? error.message : 'Failed to delete your account.'
+    errorFlag.value = true
+  } finally {
+    deleting.value = false
+  }
+}
+
+function cancelDeletion() {
+  deletionConfirmationID.value = ''
+  deletionCode.value = ''
 }
 
 onMounted(loadProfile)
@@ -141,37 +193,86 @@ onMounted(loadProfile)
       class="user-settings__toast"
     />
 
-    <Card v-if="pending" class="user-settings__card">
+    <Card
+      v-if="pending"
+      class="user-settings__card"
+    >
       <p class="skeleton__caption">Loading your profile…</p>
     </Card>
 
-    <Card v-else-if="failed" class="user-settings__card">
+    <Card
+      v-else-if="failed"
+      class="user-settings__card"
+    >
       <div class="state">
-        <span class="state__badge state__badge--alert" aria-hidden="true">!</span>
+        <span
+          class="state__badge state__badge--alert"
+          aria-hidden="true"
+          >!</span
+        >
         <p class="state__title">We couldn't load your profile</p>
         <p class="state__text">Something went wrong while contacting the server.</p>
-        <Button variant="elevated" color="primary" @click="loadProfile">Try again</Button>
+        <Button
+          variant="elevated"
+          color="primary"
+          @click="loadProfile"
+          >Try again</Button
+        >
       </div>
     </Card>
 
-    <Card v-else-if="loggedIn" class="user-settings__card">
+    <Card
+      v-else-if="loggedIn"
+      class="user-settings__card"
+    >
       <div class="profile__identity">
-        <div class="profile__meta">
-          <span class="profile__login">{{ user?.login }}</span>
-          <span v-if="roleLabel" class="profile__role">{{ roleLabel }}</span>
+        <div
+          class="profile__meta"
+          style="width: 100%"
+        >
+          <div
+            style="display: flex; align-items: center; justify-content: space-between; width: 100%"
+          >
+            <span class="profile__login">{{ user?.login }}</span>
+            <div class="profile__avatar">
+              <UserIcon
+                class="profile__avatar-icon"
+                avatar-url="https://thispersondoesnotexist.com/random-person.jpeg"
+                size="large"
+                @click="changeAvatar"
+              />
+              <span
+                class="profile__avatar-overlay"
+                aria-hidden="true"
+                >+</span
+              >
+            </div>
+          </div>
+          <span
+            v-if="roleLabel"
+            class="profile__role"
+            :class="`profile__role--${user?.role}`"
+            >{{ roleLabel }}</span
+          >
         </div>
       </div>
 
-      <dl v-if="user" class="profile__details">
-        <div class="profile__id-detail">
-          <span class="profile__detail-label">User ID</span>
-          <p id="userID" class="profile__detail-value">{{ user.id }}</p>
-        </div>
-
+      <dl
+        v-if="user"
+        class="profile__details"
+      >
         <div class="profile__detail">
           <form @submit.prevent="updateUserDetails(email, login)">
-            <Input label="Email" v-model="email" type="text" />
-            <Input label="Username" v-model="login" type="text" />
+            <Input
+              label="Email"
+              v-model="email"
+              type="text"
+            />
+            <Input
+              label="Username"
+              v-model="login"
+              type="text"
+            />
             <Button
               v-if="(isChanged(user.email, email) || isChanged(user.login, login)) && !displayOTP"
               variant="elevated"
@@ -182,9 +283,16 @@ onMounted(loadProfile)
           </form>
         </div>
 
-        <div v-if="displayOTP" class="profile__detail">
+        <div
+          v-if="displayOTP"
+          class="profile__detail"
+        >
           <form @submit.prevent="confirmUpdateDetails">
-            <Input label="OTP Code" v-model="otpCode" type="text" />
+            <Input
+              label="OTP Code"
+              v-model="otpCode"
+              type="text"
+            />
             <Button
               v-if="confirmationID"
               variant="elevated"
@@ -196,20 +304,90 @@ onMounted(loadProfile)
         </div>
       </dl>
 
+      <!-- Admin panel entry point: uncomment to expose it only to admins.
+      <Button
+        v-if="authStore.isAdmin()"
+        variant="outlined"
+        color="primary"
+        @click="router.push('/admin')"
+      >
+        Go to Admin Panel
+      </Button>
+      -->
+
+      <Button
+        v-if="!deletionConfirmationID"
+        color="alert"
+        variant="outlined"
+        :loading="deleting"
+        @click="requestDeletion"
+      >
+        Delete account
+      </Button>
+      <form
+        v-else
+        @submit.prevent="confirmDeletion"
+      >
+        <p class="state__text">
+          Enter the code sent to your email to permanently delete your account.
+        </p>
+        <Input
+          v-model="deletionCode"
+          label="Deletion confirmation code"
+          type="text"
+          :disabled="deleting"
+        />
+        <Button
+          type="submit"
+          color="alert"
+          :loading="deleting"
+          :disabled="!deletionCode.trim()"
+        >
+          Confirm deletion
+        </Button>
+        <Button
+          variant="outlined"
+          color="default"
+          :disabled="deleting"
+          @click="cancelDeletion"
+        >
+          Cancel
+        </Button>
+      </form>
+
       <template #footer>
-        <div class="status" :class="`status--${status}`" role="status">
-          <span class="status__dot" aria-hidden="true" />
+        <div
+          class="status"
+          :class="`status--${status}`"
+          role="status"
+        >
+          <span
+            class="status__dot"
+            aria-hidden="true"
+          />
           <span class="status__text">{{ statusLabel }}</span>
         </div>
       </template>
     </Card>
 
-    <Card v-else class="user-settings__card">
+    <Card
+      v-else
+      class="user-settings__card"
+    >
       <div class="state">
-        <span class="state__badge state__badge--warn" aria-hidden="true">!</span>
+        <span
+          class="state__badge state__badge--warn"
+          aria-hidden="true"
+          >!</span
+        >
         <p class="state__title">You're not logged in</p>
         <p class="state__text">Sign in to view and manage your account settings.</p>
-        <Button variant="elevated" color="primary" @click="goToLogin">Sign in</Button>
+        <Button
+          variant="elevated"
+          color="primary"
+          @click="goToLogin"
+          >Sign in</Button
+        >
       </div>
     </Card>
   </div>
@@ -218,7 +396,7 @@ onMounted(loadProfile)
 <style lang="css" scoped>
 form {
   display: grid;
-  gap:8px;
+  gap: 8px;
 }
 
 .user-settings {
@@ -274,6 +452,41 @@ form {
   min-width: 0;
 }
 
+.profile__avatar {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+.profile__avatar-icon {
+  transition: filter 180ms ease;
+}
+
+.profile__avatar-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgb(0 0 0 / 25%);
+  color: #fff;
+  font-size: 28px;
+  line-height: 1;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease;
+}
+
+.profile__avatar:hover .profile__avatar-icon {
+  filter: blur(2px);
+}
+
+.profile__avatar:hover .profile__avatar-overlay {
+  opacity: 1;
+}
+
 .profile__login {
   font-size: 18px;
   font-weight: 600;
@@ -290,6 +503,11 @@ form {
   font-weight: 600;
   letter-spacing: 0.02em;
   text-transform: uppercase;
+}
+
+.profile__role--admin {
+  background-color: color-mix(in srgb, var(--color-alert) 12%, transparent);
+  color: var(--color-alert);
 }
 
 .profile__details {
