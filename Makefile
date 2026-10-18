@@ -6,10 +6,13 @@ COMPOSE_FILE := docker-compose.yaml
 all: up
 
 up:
-	$(COMPOSE) -f $(COMPOSE_FILE) up --build -d
+	$(COMPOSE) -f $(COMPOSE_FILE) up --build
 
 down:
 	$(COMPOSE) -f $(COMPOSE_FILE) down
+
+clean:
+	$(COMPOSE) -f $(COMPOSE_FILE) down -v --remove-orphans
 
 clear:
 	$(COMPOSE) -f $(COMPOSE_FILE) down -v --rmi all --remove-orphans
