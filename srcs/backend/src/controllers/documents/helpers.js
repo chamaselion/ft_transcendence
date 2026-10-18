@@ -1,7 +1,7 @@
 const sequelize = require('../../db');
 const { validateUuid } = require('../auth/validation');
 const { pick } = require('../../utils/pick');
-const { stripTags } = require('./sanitize');
+const { sanitizeText, sanitizeContent } = require('./sanitize');
 const { resolvePermission } = require('./permissions');
 
 const PUBLIC_ATTRS = ['id', 'title', 'content', 'createdAt', 'updatedAt'];
@@ -29,26 +29,6 @@ const readId = (req, res) => {
   return result.value;
 };
 
-const sanitizeContent = (content) => {
-  if (typeof content !== 'string') return content;
-  try {
-    const parsed = JSON.parse(content);
-    // Block documents are stored as a JSON array; sanitize each block's text
-    // field individually so the HTML sanitizer never runs over serialized JSON.
-    if (!Array.isArray(parsed)) return stripTags(content);
-    return JSON.stringify(
-      parsed.map((block) =>
-        block && typeof block === 'object'
-          ? { ...block, text: typeof block.text === 'string' ? stripTags(block.text) : block.text }
-          : block,
-      ),
-    );
-  } catch {
-    // Legacy plain-text content.
-    return stripTags(content);
-  }
-};
-
 const readDocumentFields = ({ title, content }) => {
   if (title !== undefined && !isNonEmptyString(title)) {
     return { ok: false, error: 'title must be a non-empty string' };
@@ -57,7 +37,7 @@ const readDocumentFields = ({ title, content }) => {
     return { ok: false, error: 'content must be a string' };
   }
 
-  const sanitizedTitle = title !== undefined ? stripTags(title.trim()) : undefined;
+  const sanitizedTitle = title !== undefined ? sanitizeText(title.trim()) : undefined;
   const sanitizedContent = content !== undefined ? sanitizeContent(content) : undefined;
   if (sanitizedTitle !== undefined && !isNonEmptyString(sanitizedTitle)) {
     return { ok: false, error: 'title must be a non-empty string' };

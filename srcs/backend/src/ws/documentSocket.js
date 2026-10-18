@@ -6,7 +6,7 @@ const { requireEnv } = require('../config');
 const sequelize = require('../db');
 const { getTokenFromCookie, isSessionActive } = require('../controllers/auth/helpers');
 const { validateUuid } = require('../controllers/auth/validation');
-const { stripTags } = require('../controllers/documents/sanitize');
+const { sanitizeText, sanitizeContent } = require('../controllers/documents/sanitize');
 const { resolvePermission, atLeast } = require('../controllers/documents/permissions');
 
 const parseDocBlocks = (content) => {
@@ -325,7 +325,7 @@ const attachDocumentSocket = (
         blocks = [
           {
             id: crypto.randomUUID(),
-            text: legacyText,
+            text: sanitizeText(legacyText),
             decorator: JSON.stringify({ type: 'p' }),
             lockedBy: null,
           },
@@ -371,7 +371,7 @@ const attachDocumentSocket = (
         const doc = await resolveModel().findByPk(ws.documentId);
         if (!doc) return sendError(ws, 'Document not found');
 
-        const sanitizedContent = stripTags(msg.content);
+        const sanitizedContent = sanitizeContent(msg.content);
 
         doc.content = sanitizedContent;
         await doc.save();
@@ -408,7 +408,7 @@ const attachDocumentSocket = (
         const target = blocks.find((b) => b && b.id === msg.blockId);
         if (!target) return sendError(ws, 'Block not found');
 
-        const sanitizedText = msg.text !== undefined ? stripTags(String(msg.text)) : target.text;
+        const sanitizedText = msg.text !== undefined ? sanitizeText(String(msg.text)) : target.text;
         target.text = sanitizedText;
         if (msg.decorator !== undefined && typeof msg.decorator === 'string') {
           target.decorator = msg.decorator;
@@ -447,7 +447,7 @@ const attachDocumentSocket = (
         typeof msg.block.id === 'string' && msg.block.id
           ? msg.block.id
           : (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()));
-      const sanitizedText = stripTags(String(msg.block.text ?? ''));
+      const sanitizedText = sanitizeText(String(msg.block.text ?? ''));
       const decorator = typeof msg.block.decorator === 'string' ? msg.block.decorator : JSON.stringify({ type: 'p' });
       const newBlock = {
         id: blockId,
@@ -620,7 +620,7 @@ const attachDocumentSocket = (
         const doc = await resolveModel().findByPk(ws.documentId);
         if (!doc) return sendError(ws, 'Document not found');
 
-        const sanitizedTitle = stripTags(msg.title.trim());
+        const sanitizedTitle = sanitizeText(msg.title.trim());
         doc.title = sanitizedTitle;
         await doc.save();
 
