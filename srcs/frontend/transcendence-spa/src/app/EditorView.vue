@@ -240,7 +240,10 @@ onBeforeUnmount(() => {
                   : 'Disconnected'
             }}
           </span>
-          <span v-if="documentId" class="doc-id-badge">
+          <span
+            v-if="documentId"
+            class="doc-id-badge"
+          >
             Room: {{ documentId.slice(0, 8) }}...
           </span>
           <span v-if="userPermission" class="permission-badge"> Role: {{ userPermission }} </span>
@@ -275,7 +278,10 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <div v-if="errorMessage" class="editor-view__error">
+    <div
+      v-if="errorMessage"
+      class="editor-view__error"
+    >
       {{ errorMessage }}
     </div>
 
@@ -286,6 +292,7 @@ onBeforeUnmount(() => {
       :provider="provider"
       :scrollable="false"
       nav-position="top"
+      :filename="documentTitle"
       @error="errorMessage = $event"
     />
 

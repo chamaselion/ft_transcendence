@@ -28,6 +28,19 @@
 <script lang="ts" setup>
 import { onBeforeUnmount, watch } from 'vue'
 
+let openModalCount = 0
+
+const setBodyLocked = (locked: boolean) => {
+  if (locked) {
+    openModalCount += 1
+    document.body.style.overflow = 'hidden'
+    return
+  }
+
+  openModalCount = Math.max(0, openModalCount - 1)
+  if (openModalCount === 0) document.body.style.overflow = ''
+}
+
 const props = withDefaults(defineProps<{
   modelValue: boolean
   title?: string
@@ -48,22 +61,28 @@ const onKeydown = (event: KeyboardEvent) => {
   if (event.key === 'Escape' && props.closeOnEsc) close()
 }
 
-watch(
-  () => props.modelValue,
-  (open) => {
-    if (open) {
-      document.addEventListener('keydown', onKeydown)
-      document.body.style.overflow = 'hidden'
-    } else {
-      document.removeEventListener('keydown', onKeydown)
-      document.body.style.overflow = ''
-    }
+let isOpen = false
+
+const syncOpenState = (open: boolean) => {
+  if (open === isOpen) return
+  isOpen = open
+
+  if (open) {
+    document.addEventListener('keydown', onKeydown)
+    setBodyLocked(true)
+  } else {
+    document.removeEventListener('keydown', onKeydown)
+    setBodyLocked(false)
   }
-)
+}
+
+watch(() => props.modelValue, syncOpenState, { immediate: true })
 
 onBeforeUnmount(() => {
+  if (!isOpen) return
   document.removeEventListener('keydown', onKeydown)
-  document.body.style.overflow = ''
+  setBodyLocked(false)
+  isOpen = false
 })
 </script>
 

@@ -1,5 +1,9 @@
 <template>
-  <div class="editor" :class="[`editor--nav-${navPosition}`]">
+  <Button @click="onGeneratePdf">Generate PDF</Button>
+  <div
+    class="editor"
+    :class="[`editor--nav-${navPosition}`]"
+  >
     <!-- Nav toolbar (can be positioned on top, left or bottom) -->
     <EditorNav
       v-if="navPosition !== 'bottom'"
@@ -17,19 +21,40 @@
       class="editor__content"
       :class="{ 'editor__content--scrollable': scrollable }"
     >
-      <EditorBlock
-        v-for="block in store.blocks"
-        :key="block.id"
-        :block="block"
-        :active="block.id === store.activeBlockId && !store.isLockedByOther(block)"
-        :locked="store.isLockedByOther(block)"
-        @focus="onFocus(block)"
-        @blur="onBlur(block)"
-        @update:text="onUpdateText(block, $event)"
-        @update:decorator="onUpdateDecorator(block, parseDecorator($event))"
-      />
-
-      <p v-if="store.blocks.length === 0" class="editor__empty">
+      <Html2Pdf
+        ref="pdfRef"
+        :filename="filename"
+        render-mode="text"
+        style="width: 100%"
+        pdf-format="a4"
+        pdf-orientation="portrait"
+        :pdf-content-width="pdfContentWidth"
+        :html-to-pdf-options="pdfOptions"
+        :styling="pdfStyling"
+        :manual-pagination="false"
+        :paginate-elements-by-height="usablePageHeightPx"
+      >
+        <template #pdf-content>
+          <div class="pdf-content">
+            <EditorBlock
+              v-for="block in store.blocks"
+              :key="block.id"
+              data-pdf-split="avoid"
+              :block="block"
+              :active="block.id === store.activeBlockId && !store.isLockedByOther(block)"
+              :locked="store.isLockedByOther(block)"
+              @focus="onFocus(block)"
+              @blur="onBlur(block)"
+              @update:text="onUpdateText(block, $event)"
+              @update:decorator="onUpdateDecorator(block, parseDecorator($event))"
+            />
+          </div>
+        </template>
+      </Html2Pdf>
+      <p
+        v-if="store.blocks.length === 0"
+        class="editor__empty"
+      >
         This document is empty. Add a block from the toolbar.
       </p>
     </div>
@@ -49,10 +74,11 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, onBeforeUnmount, onMounted, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, onMounted, watch, nextTick } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
 import EditorBlock from '@/app/components/EditorBlock.vue'
 import EditorNav from '@/app/components/EditorNav.vue'
+import Button from '@/app/components/Button.vue'
 import { useEditorStore } from '@/stores/editor'
 import { isStandardText } from '@/app/editor/useEditable'
 import { translateBlocks, backTranslateBlock } from '@/app/editor/translation.api'
@@ -66,12 +92,233 @@ import {
   type BlockType,
   type EditorDataProvider,
 } from '@/app/editor/types'
+import { Html2Pdf, type Html2PdfOptions, type PdfStylingOptions } from 'vue-pdf-export'
+import 'vue-pdf-export/style.css'
+
+const pdfRef = ref<InstanceType<typeof Html2Pdf> | null>(null)
+
+const pdfPageMm = { width: 210, height: 297 }
+const pdfMarginsMm = { top: 20, right: 20, bottom: 20, left: 20 }
+const cssPixelsPerMm = 96 / 25.4
+// Match the measured content width to the PDF body so pagination uses a 1:1 CSS scale.
+const pdfContentWidth = `${(pdfPageMm.width - pdfMarginsMm.left - pdfMarginsMm.right) * cssPixelsPerMm}px`
+const usablePageHeightPx =
+  (pdfPageMm.height - pdfMarginsMm.top - pdfMarginsMm.bottom) * cssPixelsPerMm
+const pdfOptions: Html2PdfOptions = {
+  margin: [pdfMarginsMm.top, pdfMarginsMm.left, pdfMarginsMm.bottom, pdfMarginsMm.right],
+  jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+}
+
+// Improved one consistend styling for PDF export, overriding the default styles of the editor and
+// its components.
+const pdfStyling: PdfStylingOptions = {
+  theme: 'light',
+  pageBackground: '#ffffff',
+  bodyBackground: '#fff',
+  cssText: `
+    [data-vue-pdf-export-staging] {
+      width: ${pdfContentWidth} !important;
+    }
+
+    .pdf-content {
+      font-family: Helvetica, Arial, sans-serif;
+      font-size: 11pt;
+      line-height: 1.45;
+      color: #202833;
+      background: #fff !important;
+      padding: 0 !important;
+      word-spacing: normal !important;
+      text-align: left;
+    }
+
+    .pdf-content,
+    .pdf-content * {
+      box-sizing: border-box;
+      text-shadow: none !important;
+      box-shadow: none !important;
+    }
+
+    .pdf-content .editor-block {
+      padding: 0 !important;
+      margin: 0 0 10pt !important;
+      border: 0 !important;
+      border-radius: 0 !important;
+      background: transparent !important;
+    }
+
+    .pdf-content [contenteditable] {
+      outline: none !important;
+      opacity: 1 !important;
+      min-height: 0 !important;
+    }
+
+    .pdf-content [data-placeholder]::before {
+      content: none !important;
+    }
+
+    .pdf-content .editor-block__lock,
+    .pdf-content .code__language-select {
+      display: none !important;
+    }
+
+    .pdf-content .paragraph,
+    .pdf-content .heading,
+    .pdf-content .list,
+    .pdf-content .citation {
+      font-family: Helvetica, Arial, sans-serif !important;
+      color: #202833 !important;
+      background: transparent !important;
+      opacity: 1 !important;
+    }
+
+    .pdf-content .paragraph,
+    .pdf-content .list,
+    .pdf-content .citation {
+      font-size: 11pt !important;
+      line-height: 1.45 !important;
+    }
+
+    .pdf-content .paragraph {
+      margin: 0 !important;
+    }
+
+    .pdf-content .paragraph,
+    .pdf-content li,
+    .pdf-content .citation__text {
+      word-spacing: normal !important;
+      white-space: pre-wrap !important;
+      overflow-wrap: anywhere;
+      orphans: 3;
+      widows: 3;
+    }
+
+    .pdf-content .heading {
+      font-weight: 700 !important;
+      line-height: 1.2 !important;
+      margin: 16pt 0 0 !important;
+      letter-spacing: normal !important;
+      text-transform: none !important;
+      break-after: avoid;
+      page-break-after: avoid;
+      overflow-wrap: anywhere;
+    }
+
+    .pdf-content .editor-block:first-child .heading { margin-top: 0 !important; }
+    .pdf-content h1.heading {
+      font-size: 24pt !important;
+      color: #172b4d !important;
+      padding-bottom: 10pt;
+      border-bottom: 2pt solid #334e75;
+    }
+    .pdf-content h2.heading {
+      font-size: 17pt !important;
+      color: #243e63 !important;
+      padding-bottom: 6pt;
+      border-bottom: 0.5pt solid #cbd5e1;
+    }
+    .pdf-content h3.heading { font-size: 13pt !important; }
+    .pdf-content h4.heading { font-size: 12pt !important; }
+    .pdf-content h5.heading,
+    .pdf-content h6.heading { font-size: 11pt !important; }
+    .pdf-content h6.heading { font-style: italic; }
+
+    .pdf-content .list {
+      margin: 0 !important;
+      padding: 0 0 0 18pt !important;
+    }
+
+    .pdf-content .list li {
+      line-height: 1.45 !important;
+      margin: 0 0 4pt !important;
+      padding-left: 3pt;
+    }
+
+    .pdf-content .list li::marker {
+      color: #334e75;
+      font-weight: 700;
+    }
+
+    .pdf-content .citation {
+      display: block !important;
+      margin: 4pt 0 !important;
+      padding: 12pt 14pt !important;
+      background: #fff !important;
+      border-left: 3pt solid #64748b;
+      border-radius: 0 !important;
+      font-family: Times, 'Times New Roman', serif !important;
+      font-size: 12pt !important;
+      font-style: italic;
+    }
+
+    .pdf-content .citation__stripe { display: none !important; }
+    .pdf-content .citation__source {
+      margin-top: 6pt !important;
+      font-size: 9pt !important;
+      color: #526071 !important;
+      font-family: Helvetica, Arial, sans-serif !important;
+      font-style: normal;
+    }
+
+    .pdf-content .code {
+      margin: 4pt 0 !important;
+      padding: 10pt 12pt !important;
+      background: #fff !important;
+      color: #202833 !important;
+      border: 0.5pt solid #cbd5e1 !important;
+      border-radius: 0 !important;
+      overflow: visible !important;
+    }
+
+    .pdf-content .code__header {
+      display: block !important;
+      margin: 0 0 8pt !important;
+      padding: 0 0 6pt !important;
+      background: transparent !important;
+      border: 0 !important;
+      border-bottom: 0.5pt solid #cbd5e1 !important;
+      font-family: Helvetica, Arial, sans-serif !important;
+      font-size: 8pt !important;
+      font-weight: 700;
+      line-height: 1.2 !important;
+      color: #526071 !important;
+      text-transform: uppercase;
+      letter-spacing: 0.5pt;
+    }
+
+    .pdf-content .code__export-language,
+    .pdf-content .code__language {
+      display: inline !important;
+      color: #526071 !important;
+    }
+    .pdf-content .code__pre,
+    .pdf-content .code__content {
+      font-family: Courier, 'Courier New', monospace !important;
+      font-size: 9pt !important;
+      line-height: 1.4 !important;
+      color: #202833 !important;
+      background: transparent !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      white-space: pre-wrap !important;
+      overflow-wrap: anywhere !important;
+      overflow: visible !important;
+      tab-size: 4;
+    }
+  `,
+}
+
+const onGeneratePdf = async () => {
+  store.setActive('')
+  await nextTick()
+  await pdfRef.value?.generatePdf()
+}
 
 const props = withDefaults(
   defineProps<{
     provider: EditorDataProvider
     scrollable?: boolean
     navPosition?: 'top' | 'left' | 'bottom'
+    filename?: string
   }>(),
   {
     scrollable: false,
@@ -89,6 +336,8 @@ const isDeleteDisabled = computed(() => {
   if (!store.activeBlock) return true
   return store.isLockedByOther(store.activeBlock)
 })
+
+const filename = computed(() => props.filename)
 
 const EDIT_DEBOUNCE_MS = 2000
 const LOCK_TIMEOUT_MS = 5000
@@ -433,7 +682,11 @@ const onFocus = async (block: Block) => {
   }
 
   const previousId = store.activeBlockId
-  if (previousId && previousId !== block.id && !store.isLockedByOther({ id: previousId } as Block)) {
+  if (
+    previousId &&
+    previousId !== block.id &&
+    !store.isLockedByOther({ id: previousId } as Block)
+  ) {
     flushPendingEdit()
     clearLockTimers()
     store.unlock(previousId)
@@ -464,12 +717,19 @@ const onBlur = async (block: Block) => {
 </script>
 
 <style lang="css" scoped>
+.pdf-content {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 14px 24px;
+  background-color: var(--bg-app);
+  word-spacing: 0.4em;
+}
+
 .editor {
   display: flex;
   flex-direction: column;
   align-items: stretch;
   width: 100%;
-  max-width: 860px;
   margin: 0 auto;
 }
 
@@ -495,6 +755,15 @@ const onBlur = async (block: Block) => {
   min-width: 0;
   width: 100%;
   padding: 16px 8px;
+  box-sizing: border-box;
+}
+
+/* Widen only the live editor; export clones retain the fixed PDF body width. */
+.editor__content
+  :deep(
+    .content-wrapper:not([data-vue-pdf-export-staging]):not([data-vue-pdf-export-text-snapshot])
+  ) {
+  width: 100% !important;
 }
 
 /* Expands naturally with site by default, or scrollable when scrollable prop is active */

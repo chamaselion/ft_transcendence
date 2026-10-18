@@ -12,6 +12,7 @@
         </option>
       </select>
       <span v-else class="code__language">{{ language }}</span>
+      <span v-if="isEditable" class="code__export-language">{{ language }}</span>
       <slot name="header" />
     </figcaption>
     <pre class="code__pre"><code
@@ -115,6 +116,10 @@ const style = computed(() => ({
 </script>
 
 <style lang="css" scoped>
+.code__export-language {
+  display: none;
+}
+
 .code {
   margin: 0;
   border-radius: 8px;
@@ -166,7 +171,8 @@ const style = computed(() => ({
 .code__content {
   font-family: inherit;
   font-size: inherit;
-  white-space: pre;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
   outline: none;
 }
 
