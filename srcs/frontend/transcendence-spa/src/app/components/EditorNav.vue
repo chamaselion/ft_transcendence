@@ -211,7 +211,7 @@ onBeforeUnmount(() => window.removeEventListener('scroll', onScroll))
   padding: 6px 10px;
   border: 1px solid var(--border-subtle);
   border-radius: 10px;
-  background-color: var(--bg-surface);
+  background-color: color-mix(in srgb, var(--bg-header) 88%, transparent);
   box-shadow: var(--shadow-sm);
   transition:
     box-shadow 0.2s ease,
@@ -220,7 +220,7 @@ onBeforeUnmount(() => window.removeEventListener('scroll', onScroll))
 }
 
 .editor-nav--top {
-  top: 12px;
+  top: calc(var(--header-height) + 5px);
   flex-direction: row;
   justify-content: flex-start;
   width: auto;

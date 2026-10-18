@@ -86,6 +86,7 @@ const style = computed(() => ({
   margin: 0 0 0.5em;
   font-weight: 700;
   line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
 .heading--editable {
