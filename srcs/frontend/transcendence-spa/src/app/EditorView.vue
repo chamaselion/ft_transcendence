@@ -227,19 +227,19 @@ onBeforeUnmount(() => {
           <template #icon>
             <Icon name="Share" :size="16" />
           </template>
-          <span class="btn--lable"">Share</span>
+          <span class="btn--lable">Share</span>
         </Button>
         <Button variant="outlined" size="small" @click="handleCreateNew">
           <template #icon>
             <Icon name="Plus" />
           </template>
-          <span class="btn--lable"">New Document</span>
-          </Button>
+          <span class="btn--lable">New Document</span>
+        </Button>
         <Button variant="outlined" size="small" @click="editorElement?.onGeneratePdf()">
           <template #icon>
             <Icon name="FilePDF" />
           </template>
-          <span class="btn--lable"">Generate PDF</span>
+          <span class="btn--lable">Generate PDF</span>
         </Button>
       </div>
     </div>

@@ -42,6 +42,7 @@
               :block="block"
               :active="block.id === store.activeBlockId && !store.isLockedByOther(block)"
               :locked="store.isLockedByOther(block)"
+              :export-mode="isExporting"
               @focus="onFocus(block)"
               @blur="onBlur(block)"
               @update:text="onUpdateText(block, $event)"
@@ -77,7 +78,6 @@ import { computed, onBeforeUnmount, ref, onMounted, watch, nextTick } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
 import EditorBlock from '@/app/components/EditorBlock.vue'
 import EditorNav from '@/app/components/EditorNav.vue'
-import Button from '@/app/components/Button.vue'
 import { useEditorStore } from '@/stores/editor'
 import { isStandardText } from '@/app/editor/useEditable'
 import {
@@ -93,6 +93,7 @@ import { Html2Pdf, type Html2PdfOptions, type PdfStylingOptions } from 'vue-pdf-
 import 'vue-pdf-export/style.css'
 
 const pdfRef = ref<InstanceType<typeof Html2Pdf> | null>(null)
+const isExporting = ref(false)
 
 const pdfPageMm = { width: 210, height: 297 }
 const pdfMarginsMm = { top: 20, right: 20, bottom: 20, left: 20 }
@@ -235,6 +236,26 @@ const pdfStyling: PdfStylingOptions = {
       font-weight: 700;
     }
 
+    .pdf-content .list--export {
+      list-style: none !important;
+      padding: 0 0 0 18pt !important;
+    }
+
+    .pdf-content .list--export .list__item {
+      padding-left: 0 !important;
+      text-indent: -18pt !important;
+    }
+
+    .pdf-content .list--export .list__marker {
+      display: inline-block !important;
+      width: 18pt !important;
+      padding-right: 4pt !important;
+      text-indent: 0 !important;
+      text-align: right !important;
+      font-weight: 700;
+      color: #334e75;
+    }
+
     .pdf-content .citation {
       display: block !important;
       margin: 4pt 0 !important;
@@ -306,8 +327,13 @@ const pdfStyling: PdfStylingOptions = {
 
 const onGeneratePdf = async () => {
   store.setActive('')
+  isExporting.value = true
   await nextTick()
-  await pdfRef.value?.generatePdf()
+  try {
+    await pdfRef.value?.generatePdf()
+  } finally {
+    isExporting.value = false
+  }
 }
 
 const props = withDefaults(

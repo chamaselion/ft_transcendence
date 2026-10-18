@@ -35,6 +35,7 @@ const props = defineProps<{
   block: Block
   active?: boolean
   locked?: boolean
+  exportMode?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -74,6 +75,7 @@ const componentProps = computed(() => {
         text: props.block.text,
         ordered: decoratorValue.ordered,
         marker: decoratorValue.marker,
+        exportMode: props.exportMode,
       }
     case 'cit':
       return { ...base, text: props.block.text, source: decoratorValue.source }
