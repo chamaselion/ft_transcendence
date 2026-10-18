@@ -7,7 +7,12 @@ RUN apk add --no-cache openssl \
         -days 365 \
         -keyout /etc/nginx/certs/nginx.key \
         -out /etc/nginx/certs/nginx.crt \
-        -subj "/C=DE/ST=BW/L=Heilbronn/O=ft_transcendence/CN=localhost"
+        -subj "/C=DE/ST=BW/L=Heilbronn/O=ft_transcendence/CN=localhost" \
+    && openssl req -x509 -nodes -newkey rsa:2048 \
+        -days 365 \
+        -keyout /etc/nginx/certs/s3.key \
+        -out /etc/nginx/certs/s3.crt \
+        -subj "/C=DE/ST=BW/L=Heilbronn/O=ft_transcendence/CN=s3.localhost"
 
 # Reverse-proxy + static-serving config.
 COPY conf/nginx.conf /etc/nginx/nginx.conf
