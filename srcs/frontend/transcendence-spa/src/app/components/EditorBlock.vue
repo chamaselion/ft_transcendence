@@ -94,6 +94,7 @@ const componentProps = computed(() => {
   padding: 4px 12px;
   border-left: 3px solid transparent;
   border-radius: 6px;
+  overflow-wrap: anywhere;
   transition:
     background-color 0.15s ease,
     border-color 0.15s ease;
