@@ -20,6 +20,11 @@ module.exports = (sequelize) => {
         allowNull: false,
         field: "icon_url",
       },
+      isActive: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: true,
+        field: "is_active",
+      }
     },
     {
       tableName: "user_icons",
