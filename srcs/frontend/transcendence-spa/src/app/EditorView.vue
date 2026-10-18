@@ -9,6 +9,7 @@ import type { EditorDataProvider } from '@/app/editor/types'
 import { createBlock } from '@/app/editor/types'
 import { useAuthStore } from '@/stores/auth'
 import { createDocument, getDocument, updateDocumentTitle } from '@/app/editor/document.api'
+import { insertPlainText } from '@/app/editor/plainTextPaste'
 import ShareModal from '@/app/components/ShareModal.vue'
 
 const route = useRoute()
@@ -102,6 +103,16 @@ async function onTitleBlur() {
       }
     }
   }
+}
+
+function onTitlePaste(e: ClipboardEvent) {
+  if (!isTitleEditable.value || !titleEl.value) {
+    e.preventDefault()
+    return
+  }
+
+  e.preventDefault()
+  insertPlainText(titleEl.value, e.clipboardData?.getData('text/plain') ?? '', false)
 }
 
 function onTitleKeydown(e: KeyboardEvent) {
@@ -198,6 +209,7 @@ onBeforeUnmount(() => {
           spellcheck="false"
           :title="isTitleEditable ? 'Click to rename document' : undefined"
           @blur="onTitleBlur"
+          @paste="onTitlePaste"
           @keydown="onTitleKeydown"
         >
           {{ documentTitle }}

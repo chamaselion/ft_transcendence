@@ -46,6 +46,7 @@
               @focus="onFocus(block)"
               @blur="onBlur(block)"
               @update:text="onUpdateText(block, $event)"
+              @insert-blocks="onInsertBlocks(block, $event)"
               @update:decorator="onUpdateDecorator(block, parseDecorator($event))"
             />
           </div>
@@ -79,9 +80,10 @@ import { onBeforeRouteLeave } from 'vue-router'
 import EditorBlock from '@/app/components/EditorBlock.vue'
 import EditorNav from '@/app/components/EditorNav.vue'
 import { useEditorStore } from '@/stores/editor'
-import { isStandardText } from '@/app/editor/useEditable'
+import { isStandardText, type EditableInsertEvent } from '@/app/editor/useEditable'
 import {
   createBlock,
+  defaultDecorator,
   parseDecorator,
   serializeDecorator,
   type Block,
@@ -167,6 +169,7 @@ const pdfStyling: PdfStylingOptions = {
       color: #202833 !important;
       background: transparent !important;
       opacity: 1 !important;
+      border-radius: 0 !important;
     }
 
     .pdf-content .paragraph,
@@ -544,6 +547,86 @@ const onAdd = async (type: BlockType) => {
   })
   await props.provider.sendBlockLock?.(block.id)
   resetLockTimeout(block.id)
+}
+
+function focusBlock(blockId: string, position: 'start' | 'end' = 'start') {
+  nextTick(() => {
+    const root = document.querySelector<HTMLElement>(`[data-block-id="${blockId}"]`)
+    const target = root?.querySelector<HTMLElement>('[contenteditable="true"]')
+    if (!target) return
+
+    target.focus()
+    const range = document.createRange()
+    range.selectNodeContents(target)
+    range.collapse(position === 'start')
+    const selection = window.getSelection()
+    selection?.removeAllRanges()
+    selection?.addRange(range)
+  })
+}
+
+const onInsertBlocks = async (block: Block, event: EditableInsertEvent) => {
+  if (store.isLockedByOther(block)) return
+
+  if (block.lockedBy !== store.clientId) {
+    const lockSuccess = await props.provider.sendBlockLock?.(block.id)
+    if (lockSuccess === false) return
+    store.lock(block.id)
+  }
+
+  // The split/paste payload is authoritative; drop any debounced edit.
+  if (pendingEditBlockId === block.id) {
+    if (editDebounceTimer) {
+      clearTimeout(editDebounceTimer)
+      editDebounceTimer = null
+    }
+    pendingEditBlockId = null
+    pendingEditText = null
+    pendingEditDecorator = null
+  }
+
+  store.updateBlockText(block.id, event.currentText)
+  await props.provider.sendEdit({
+    blockId: block.id,
+    text: event.currentText,
+    decorator: block.decorator,
+  })
+
+  clearLockTimers()
+  store.unlock(block.id)
+  await props.provider.sendBlockUnlock?.(block.id)
+
+  let afterBlockId: string = block.id
+  let firstCreated: Block | null = null
+
+  for (const spec of event.blocks) {
+    const newBlock = createBlock(spec.type, spec.text)
+    if (spec.type === 'li') {
+      newBlock.decorator = serializeDecorator({
+        ...defaultDecorator('li'),
+        ordered: Boolean(spec.ordered),
+      })
+    }
+
+    store.insertBlock(newBlock, afterBlockId)
+    await props.provider.sendBlockCreate({
+      block: newBlock,
+      afterBlockId,
+      type: spec.type,
+      text: newBlock.text,
+      decorator: newBlock.decorator,
+    })
+    afterBlockId = newBlock.id
+    if (!firstCreated) firstCreated = newBlock
+  }
+
+  if (!firstCreated) return
+
+  store.setActive(firstCreated.id)
+  store.lock(firstCreated.id)
+  await props.provider.sendBlockLock?.(firstCreated.id)
+  resetLockTimeout(firstCreated.id)
+  focusBlock(firstCreated.id, 'start')
 }
 
 const onDelete = async () => {

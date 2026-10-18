@@ -42,7 +42,7 @@
 
 <script lang="ts" setup>
 import { computed, ref, type ComponentPublicInstance } from 'vue'
-import { useEditable } from '@/app/editor/useEditable'
+import { useEditable, type EditableInsertEvent } from '@/app/editor/useEditable'
 
 const props = withDefaults(
   defineProps<{
@@ -77,6 +77,7 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   'update:text': [value: string]
+  'insert-blocks': [event: EditableInsertEvent]
   focus: []
   blur: []
 }>()
@@ -98,6 +99,7 @@ const { attributes, onInput, onFocus, onBlur, onKeydown, onPaste } = useEditable
   emit,
   {
     multiline: true,
+    pasteMode: 'list',
     write: (el, text) => {
       el.replaceChildren()
       text.split('\n').forEach((line) => {
