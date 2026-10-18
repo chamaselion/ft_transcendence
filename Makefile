@@ -15,6 +15,9 @@ up:
 down:
 	$(COMPOSE) -f $(COMPOSE_FILE) down
 
+build:
+	$(COMPOSE) -f $(COMPOSE_FILE) build
+
 clear:
 	$(COMPOSE) -f $(COMPOSE_FILE) down -v --rmi all --remove-orphans
 
@@ -26,5 +29,8 @@ down-prod:
 
 clear-prod:
 	$(COMPOSE) -f $(COMPOSE_PROD_FILE) down -v --rmi all --remove-orphans
+
+build-prod:
+	$(COMPOSE) -f $(COMPOSE_PROD_FILE) build
 
 clear_all: clear clear-prod
