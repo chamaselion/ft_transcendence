@@ -105,6 +105,7 @@ const style = computed(() => ({
 .list {
   margin: 0;
   padding-left: 1.5em;
+  overflow-wrap: anywhere;
 }
 
 .list--editable {

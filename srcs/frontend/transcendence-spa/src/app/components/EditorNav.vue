@@ -223,7 +223,7 @@ onBeforeUnmount(() => window.removeEventListener('scroll', onScroll))
   top: 12px;
   flex-direction: row;
   justify-content: flex-start;
-  width: 100%;
+  width: auto;
   margin-bottom: 8px;
 }
 
@@ -236,7 +236,7 @@ onBeforeUnmount(() => window.removeEventListener('scroll', onScroll))
 .editor-nav--bottom {
   bottom: 12px;
   flex-direction: row;
-  width: 100%;
+  width: auto;
   margin-top: 8px;
 }
 

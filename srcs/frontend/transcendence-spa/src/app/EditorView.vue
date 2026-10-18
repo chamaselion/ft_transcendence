@@ -27,6 +27,7 @@ const showShareModal = ref(false)
 const connectionStatus = ref<'connecting' | 'connected' | 'disconnected'>('connecting')
 const errorMessage = ref<string | null>(null)
 const isLoading = ref<boolean>(true)
+const editorElement = ref<typeof Editor | null>(null);
 
 function openRoom(docId: string, initialTitle?: string) {
   if (initialTitle) documentTitle.value = initialTitle
@@ -202,22 +203,22 @@ onBeforeUnmount(() => {
           {{ documentTitle }}
         </h1>
         <div class="editor-view__badges">
-          <span class="status-badge" :class="`status-badge--${connectionStatus}`">
+          <span class="status-badge" :class="`status-badge--${connectionStatus}`" title="Connection status">
             {{
               connectionStatus === 'connected'
-                ? 'Multiuser Room Live'
+                ? '🟢'
                 : connectionStatus === 'connecting'
-                  ? 'Connecting to Room...'
-                  : 'Disconnected'
+                  ? '🟡'
+                  : '🔴'
             }}
           </span>
-          <span
+          <!-- <span
             v-if="documentId"
             class="doc-id-badge"
           >
             Room: {{ documentId.slice(0, 8) }}...
-          </span>
-          <span v-if="userPermission" class="permission-badge"> Role: {{ userPermission }} </span>
+          </span> -->
+          <span v-if="userPermission" class="permission-badge" title="Your Role">{{ userPermission }} </span>
         </div>
       </div>
 
@@ -226,9 +227,20 @@ onBeforeUnmount(() => {
           <template #icon>
             <Icon name="Share" :size="16" />
           </template>
-          Share
+          <span class="btn--lable"">Share</span>
         </Button>
-        <Button variant="outlined" size="small" @click="handleCreateNew"> + New Document </Button>
+        <Button variant="outlined" size="small" @click="handleCreateNew">
+          <template #icon>
+            <Icon name="Plus" />
+          </template>
+          <span class="btn--lable"">New Document</span>
+          </Button>
+        <Button variant="outlined" size="small" @click="editorElement?.onGeneratePdf()">
+          <template #icon>
+            <Icon name="FilePDF" />
+          </template>
+          <span class="btn--lable"">Generate PDF</span>
+        </Button>
       </div>
     </div>
 
@@ -248,6 +260,7 @@ onBeforeUnmount(() => {
       nav-position="top"
       :filename="documentTitle"
       @error="errorMessage = $event"
+      ref="editorElement"
     />
 
     <!-- Share Modal for inviting collaborators and managing access -->
@@ -380,5 +393,12 @@ onBeforeUnmount(() => {
   text-align: center;
   color: var(--text-muted);
   font-style: italic;
+}
+
+.btn--lable { display:block;}
+
+
+@media (max-width: 768px) {
+  .btn--lable { display: none;}
 }
 </style>

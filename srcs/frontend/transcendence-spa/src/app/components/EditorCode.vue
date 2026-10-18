@@ -123,6 +123,7 @@ const style = computed(() => ({
 .code {
   margin: 0;
   border-radius: 8px;
+  overflow-wrap: anywhere;
   overflow: hidden;
 }
 

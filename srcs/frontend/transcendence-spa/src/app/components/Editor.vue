@@ -1,5 +1,4 @@
 <template>
-  <Button @click="onGeneratePdf">Generate PDF</Button>
   <div
     class="editor"
     :class="[`editor--nav-${navPosition}`]"
@@ -652,6 +651,11 @@ const onBlur = async (block: Block) => {
     await props.provider.sendBlockUnlock?.(block.id)
   }
 }
+
+defineExpose({
+  onGeneratePdf
+})
+
 </script>
 
 <style lang="css" scoped>

@@ -44,7 +44,7 @@ const props = withDefaults(
   }>(),
   {
     text: '',
-    source: '',
+    source: 'A random source',
     editable: false,
     locked: false,
     placeholder: 'Quote',

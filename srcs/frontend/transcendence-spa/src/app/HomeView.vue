@@ -29,7 +29,7 @@ const router = useRouter()
           real-time with your team members.
         </p>
         <div class="home-hero__actions">
-          <Button @click="router.push('/register')">Get Started</Button>
+          <Button @click="router.push('/register')">Register</Button>
           <Button @click="router.push('/login')">Login</Button>
         </div>
       </section>

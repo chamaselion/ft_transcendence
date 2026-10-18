@@ -8,4 +8,11 @@ import Header from '@/app/layout/Header.vue'
   <RouterView />
 </template>
 
-<style scoped></style>
+<style scoped>
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden; /* Disables window-level scrolling */
+}
+</style>
