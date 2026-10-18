@@ -2,7 +2,7 @@ COMPOSE := docker compose
 COMPOSE_FILE := docker-compose.yaml
 COMPOSE_PROD_FILE := docker-compose.prod.yaml
 
-.PHONY: all up dev down clear build prod down-prod clear-prod
+.PHONY: all up dev down clear build build-prod prod down-prod clear-prod
 
 all: up
 
