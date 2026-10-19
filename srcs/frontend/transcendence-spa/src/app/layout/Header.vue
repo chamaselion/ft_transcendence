@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useRoute } from 'vue-router'
 import { useTheme } from '@/app/layout/useTheme'
-// import UserIcon from '@/app/layout/UserIcon.vue'
+import UserIcon from '@/app/components/UserIcon.vue'
 import Icon from '@/app/components/Icon.vue'
 import LanguageSwitcher from '@/app/layout/LanguageSwitcher.vue'
 import { useAuthStore } from '@/stores/auth'
@@ -9,13 +9,12 @@ import { useAuthStore } from '@/stores/auth'
 const { currentTheme, toggleTheme } = useTheme()
 const route = useRoute()
 const authStore = useAuthStore()
-// const currentUser = {
-//   avatarUrl: 'https://thispersondoesnotexist.com/random-person.jpeg',
-//   name: 'John Doe'
-// };
+const currentUser = {
+  avatarUrl: 'https://thispersondoesnotexist.com/random-person.jpeg',
+  name: 'John Doe',
+}
 
-const isActive = (path: string) =>
-  path === '/' ? route.path === '/' : route.path.startsWith(path)
+const isActive = (path: string) => (path === '/' ? route.path === '/' : route.path.startsWith(path))
 </script>
 
 <template>
@@ -91,124 +90,138 @@ const isActive = (path: string) =>
 
       <LanguageSwitcher />
     </nav>
-    <!-- <UserIcon :user="currentUser" /> -->
+    <router-link
+      v-if="authStore.isAuthenticated"
+      to="/profile"
+    >
+      <UserIcon :avatar-url="currentUser.avatarUrl" />
+    </router-link>
+    <router-link
+      v-else
+      to="/login"
+    >
+      <UserIcon avatar-url="/user-default-avatar.png" />
+    </router-link>
   </header>
 </template>
 
 <style scoped>
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 24px;
+  background-color: color-mix(in srgb, var(--bg-header) 88%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border-default);
+  box-shadow: var(--shadow-sm);
+}
+
+.header__nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.header__spacer {
+  flex: 1;
+}
+
+/* Neutral pill shared by nav links and icon buttons */
+.header__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 14px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background-color: transparent;
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.4;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.header__link :deep(.icon) {
+  flex-shrink: 0;
+}
+
+.header__label {
+  white-space: nowrap;
+}
+
+.header__link:hover {
+  background-color: color-mix(in srgb, var(--text-primary) 8%, transparent);
+  color: var(--text-primary);
+}
+
+.header__link:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.header__link--active {
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Main call to action while logged out */
+.header__link--primary {
+  background-color: var(--color-primary);
+  color: var(--color-primary-contrast);
+  box-shadow: var(--shadow-md);
+}
+
+.header__link--primary:hover {
+  background-color: var(--color-primary-hover);
+  color: var(--color-primary-contrast);
+}
+
+/* Destructive action, deliberately not a nav link */
+.header__link--logout {
+  border-color: color-mix(in srgb, var(--color-alert) 45%, transparent);
+  color: var(--color-alert);
+}
+
+.header__link--logout:hover {
+  background-color: color-mix(in srgb, var(--color-alert) 12%, transparent);
+  border-color: var(--color-alert);
+  color: var(--color-alert-hover);
+}
+
+@media (max-width: 768px) {
   .header {
-    position: sticky;
-    top: 0;
-    z-index: 20;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 24px;
-    background-color: color-mix(in srgb, var(--bg-header) 88%, transparent);
-    backdrop-filter: blur(10px);
-    border-bottom: 1px solid var(--border-default);
-    box-shadow: var(--shadow-sm);
+    gap: 4px;
+    padding: 8px 12px;
   }
 
   .header__nav {
-    display: flex;
-    align-items: center;
-    gap: 4px;
+    gap: 2px;
   }
 
-  .header__spacer {
-    flex: 1;
-  }
-
-  /* Neutral pill shared by nav links and icon buttons */
   .header__link {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    margin: 0;
-    padding: 8px 14px;
-    border: 1px solid transparent;
-    border-radius: 8px;
-    background-color: transparent;
-    color: var(--text-secondary);
-    font-family: inherit;
-    font-size: 15px;
-    font-weight: 500;
-    line-height: 1.4;
-    text-decoration: none;
-    white-space: nowrap;
-    cursor: pointer;
-    transition: background-color 0.2s ease, color 0.2s ease,
-      border-color 0.2s ease, box-shadow 0.2s ease;
-  }
-
-  .header__link :deep(.icon) {
-    flex-shrink: 0;
+    justify-content: center;
+    min-width: 38px;
+    min-height: 38px;
+    padding: 8px;
   }
 
   .header__label {
-    white-space: nowrap;
+    display: none;
   }
-
-  .header__link:hover {
-    background-color: color-mix(in srgb, var(--text-primary) 8%, transparent);
-    color: var(--text-primary);
-  }
-
-  .header__link:focus-visible {
-    outline: 2px solid var(--color-primary);
-    outline-offset: 2px;
-  }
-
-  .header__link--active {
-    background-color: var(--bg-surface);
-    color: var(--text-primary);
-    box-shadow: var(--shadow-sm);
-  }
-
-  /* Main call to action while logged out */
-  .header__link--primary {
-    background-color: var(--color-primary);
-    color: var(--color-primary-contrast);
-    box-shadow: var(--shadow-md);
-  }
-
-  .header__link--primary:hover {
-    background-color: var(--color-primary-hover);
-    color: var(--color-primary-contrast);
-  }
-
-  /* Destructive action, deliberately not a nav link */
-  .header__link--logout {
-    border-color: color-mix(in srgb, var(--color-alert) 45%, transparent);
-    color: var(--color-alert);
-  }
-
-  .header__link--logout:hover {
-    background-color: color-mix(in srgb, var(--color-alert) 12%, transparent);
-    border-color: var(--color-alert);
-    color: var(--color-alert-hover);
-  }
-
-  @media (max-width: 768px) {
-    .header {
-      gap: 4px;
-      padding: 8px 12px;
-    }
-
-    .header__nav {
-      gap: 2px;
-    }
-
-    .header__link {
-      justify-content: center;
-      min-width: 38px;
-      min-height: 38px;
-      padding: 8px;
-    }
-
-    .header__label {
-      display: none;
-    }
-  }
+}
 </style>

@@ -1,3 +1,4 @@
+import { useAuthStore } from '@/stores/auth'
 import { createRouter, createWebHistory } from 'vue-router'
 import { i18n } from '@/i18n'
 
@@ -51,16 +52,20 @@ const router = createRouter({
       meta: { titleKey: routeTitles.register },
     },
     {
-      path: '/settings',
-      name: 'settings',
-      component: () => import('@/auth/views/SettingsView.vue'),
-      meta: { titleKey: routeTitles.settings },
-    },
-    {
       name: 'oauth-callback',
       path: '/auth/oauth/:provider/callback',
       component: () => import('@/auth/views/OAuthCallbackView.vue'),
       meta: { titleKey: routeTitles.oauthCallback },
+    },
+    {
+      path: '/profile',
+      name: 'Profile',
+      component: () => import('@/app/ProfileView.vue'),
+    },
+    {
+      path: '/admin',
+      name: 'Admin',
+      component: () => import('@/app/AdminView.vue'),
     },
   ],
 })
@@ -68,6 +73,16 @@ const router = createRouter({
 router.afterEach((to) => {
   const titleKey = to.meta.titleKey ?? 'common.appName'
   document.title = i18n.global.t(titleKey)
+})
+
+router.beforeEach(async (to) => {
+  const authStore = useAuthStore()
+
+  if (to.name === 'Admin') {
+    if (authStore.isAdmin()) return true
+    else return { name: 'home' }
+  }
+  return true
 })
 
 export default router
