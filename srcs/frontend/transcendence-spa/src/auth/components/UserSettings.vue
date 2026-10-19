@@ -8,7 +8,7 @@ import Icon from '@/app/components/Icon.vue'
 import Input from '@/app/components/Input.vue'
 import Toast from '@/app/components/Toast.vue'
 import type { Root, User } from '../types/user'
-import type { OtpConfirmationResponse, GdprDataRequestResponse } from '../types/auth.types'
+import type { OtpConfirmationResponse } from '../types/auth.types'
 import { useAuthStore } from '@/stores/auth'
 import UserIcon from '@/app/components/UserIcon.vue'
 
@@ -236,7 +236,6 @@ onMounted(loadProfile)
       class="user-settings__toast"
     />
 
-    <Card v-if="pending" class="user-settings__card">
     <Card
       v-if="pending"
       class="user-settings__card"
