@@ -4,23 +4,10 @@ const sequelize = require('../../db');
 const { ensureSession, getTokenFromCookie, isSessionActive } = require('../auth/helpers');
 const { checkAndConsumeExportQuota } = require('./exportQuota');
 const { recordGdprAuditEvent } = require('./audit');
+const { buildGdprExportData, buildGdprExportCsv } = require('./exportData');
 const { createGdprNotificationService } = require('../../services/gdprNotificationService');
 
 const gdprNotificationService = createGdprNotificationService();
-
-const neutralizeCsvFormula = (value) => {
-  const text = value === null || value === undefined ? '' : String(value);
-  return /^\s*[=+\-@\t]/.test(text) ? `'${text}` : text;
-};
-
-const escapeCsvValue = (value) => {
-  if (value === null || value === undefined) return '';
-  const normalized = neutralizeCsvFormula(value).replace(/\r\n|\n|\r/g, '\\n');
-  const escaped = normalized.replace(/"/g, '""');
-  return `"${escaped}"`;
-};
-
-const toCsvRow = (fields) => fields.map((field) => escapeCsvValue(field)).join(',');
 
 const createDataExportCsvHandler = ({ userModel, tokenLib = jwt, secret = requireEnv('JWT_SECRET') } = {}) => {
   const resolvedUserModel = userModel || sequelize.models.user;
@@ -76,16 +63,17 @@ const createDataExportCsvHandler = ({ userModel, tokenLib = jwt, secret = requir
         });
       }
 
-      res.setHeader('X-RateLimit-Limit', String(quotaResult.limit));
       res.setHeader('X-RateLimit-Remaining', String(quotaResult.remaining));
       res.setHeader('X-RateLimit-Reset', String(Math.floor(quotaResult.resetAt / 1000)));
 
       const user = await resolvedUserModel.findByPk(payload.id, {
-        attributes: ['id', 'login', 'email', 'createdAt', 'updatedAt'],
+        attributes: ['id', 'login', 'email', 'role', 'createdAt', 'updatedAt'],
       });
 
       if (!user) return res.status(401).json({ error: 'Unauthorized' });
       await ensureSession({ token, user });
+
+      const exportData = await buildGdprExportData(user);
 
       const exportReference = `export-${user.id}-${Date.now()}`;
       const fileTimestamp = Date.now();
@@ -95,15 +83,8 @@ const createDataExportCsvHandler = ({ userModel, tokenLib = jwt, secret = requir
       res.setHeader('Content-Disposition', `attachment; filename="user-data-${user.id}-${fileTimestamp}.csv"`);
       res.setHeader('Cache-Control', 'no-store');
 
-      const exportDate = new Date().toISOString();
-
       res.write('\uFEFF');
-      res.write(toCsvRow(['section', 'field', 'value']) + '\n');
-      res.write(toCsvRow(['meta', 'exportDate', exportDate]) + '\n');
-      res.write('\n');
-
-      res.write(toCsvRow(['section', 'id', 'login', 'email', 'createdAt', 'updatedAt']) + '\n');
-      res.write(toCsvRow(['user', user.id, user.login, user.email, user.createdAt, user.updatedAt]) + '\n');
+      res.write(buildGdprExportCsv(exportData));
 
       res.once('finish', () => {
         void recordGdprAuditEvent({

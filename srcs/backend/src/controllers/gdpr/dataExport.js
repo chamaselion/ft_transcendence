@@ -4,20 +4,10 @@ const sequelize = require('../../db');
 const { ensureSession, getTokenFromCookie, isSessionActive } = require('../auth/helpers');
 const { checkAndConsumeExportQuota } = require('./exportQuota');
 const { recordGdprAuditEvent } = require('./audit');
+const { buildGdprExportData } = require('./exportData');
 const { createGdprNotificationService } = require('../../services/gdprNotificationService');
 
 const gdprNotificationService = createGdprNotificationService();
-
-const buildExportPayload = (user) => ({
-  exportDate: new Date().toISOString(),
-  userData: {
-    id: user.id,
-    login: user.login,
-    email: user.email,
-    createdAt: user.createdAt,
-    updatedAt: user.updatedAt,
-  },
-});
 
 const createDataExportHandler = ({ userModel, tokenLib = jwt, secret = requireEnv('JWT_SECRET') } = {}) => {
   const resolvedUserModel = userModel || sequelize.models.user;
@@ -73,13 +63,13 @@ const createDataExportHandler = ({ userModel, tokenLib = jwt, secret = requireEn
         });
       }
 
-      res.setHeader('X-RateLimit-Limit', String(quotaResult.limit));
+          attributes: ['id', 'login', 'email', 'role', 'createdAt', 'updatedAt'],
       res.setHeader('X-RateLimit-Remaining', String(quotaResult.remaining));
       res.setHeader('X-RateLimit-Reset', String(Math.floor(quotaResult.resetAt / 1000)));
 
       const user = await resolvedUserModel.findByPk(payload.id, {
         attributes: ['id', 'login', 'email', 'createdAt', 'updatedAt'],
-      });
+        const exportData = await buildGdprExportData(user);
 
       if (!user) return res.status(401).json({ error: 'Unauthorized' });
       await ensureSession({ token, user });
@@ -93,12 +83,6 @@ const createDataExportHandler = ({ userModel, tokenLib = jwt, secret = requireEn
       res.setHeader('Content-Disposition', `attachment; filename="user-data-${user.id}-${Date.now()}.json"`);
       res.setHeader('Cache-Control', 'no-store');
 
-      // Stream the JSON response to minimize memory pressure and avoid creating a temp file.
-      res.write('{' );
-      res.write('"exportDate":' + JSON.stringify(exportData.exportDate) + ',');
-      res.write('"userData":' + JSON.stringify(exportData.userData));
-
-      res.write('}');
       res.once('finish', () => {
         void recordGdprAuditEvent({
           userId: user.id,
@@ -120,7 +104,7 @@ const createDataExportHandler = ({ userModel, tokenLib = jwt, secret = requireEn
           console.error(`[AUTH] Data export notification error: ${err.message}`);
         });
       });
-      return res.end();
+      return res.json(exportData);
     } catch (err) {
       console.error(`[AUTH] Data export error: ${err.message}`);
       return res.status(500).json({ error: 'Internal server error' });
