@@ -34,6 +34,31 @@ const unescapeHtml = (value) => {
   return value.replace(/&(?:amp|lt|gt|quot|#x27|#39);/g, (entity) => HTML_UNESCAPE[entity]);
 };
 
+const DOCUMENT_TITLE_MAX_LENGTH = 255;
+const EDITOR_BLOCK_MAX_LENGTH = 5000;
+
+const textLength = (value) => unescapeHtml(value).length;
+
+const validateTextLength = (value, maxLength) =>
+  typeof value !== 'string' || textLength(value) <= maxLength;
+
+const validateContentLength = (content) => {
+  if (typeof content !== 'string') return true;
+  try {
+    const parsed = JSON.parse(content);
+    if (Array.isArray(parsed)) {
+      return parsed.every(
+        (block) =>
+          !(block && typeof block === 'object' && typeof block.text === 'string') ||
+          validateTextLength(block.text, EDITOR_BLOCK_MAX_LENGTH),
+      );
+    }
+  } catch {
+    // Legacy plain-text content is checked below.
+  }
+  return validateTextLength(content, EDITOR_BLOCK_MAX_LENGTH);
+};
+
 // Canonicalize a single text field. Non-strings are returned untouched so
 // callers can keep using their existing 'undefined'/type checks upstream.
 const sanitizeText = (value) => {
@@ -61,4 +86,13 @@ const sanitizeContent = (content) => {
   }
 };
 
-module.exports = { escapeHtml, unescapeHtml, sanitizeText, sanitizeContent };
+module.exports = {
+  DOCUMENT_TITLE_MAX_LENGTH,
+  EDITOR_BLOCK_MAX_LENGTH,
+  escapeHtml,
+  unescapeHtml,
+  sanitizeText,
+  sanitizeContent,
+  validateTextLength,
+  validateContentLength,
+};

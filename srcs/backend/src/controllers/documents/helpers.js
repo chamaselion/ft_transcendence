@@ -1,7 +1,13 @@
 const sequelize = require('../../db');
 const { validateUuid } = require('../auth/validation');
 const { pick } = require('../../utils/pick');
-const { sanitizeText, sanitizeContent } = require('./sanitize');
+const {
+  DOCUMENT_TITLE_MAX_LENGTH,
+  sanitizeText,
+  sanitizeContent,
+  validateTextLength,
+  validateContentLength,
+} = require('./sanitize');
 const { resolvePermission } = require('./permissions');
 
 const PUBLIC_ATTRS = ['id', 'title', 'content', 'createdAt', 'updatedAt'];
@@ -33,8 +39,14 @@ const readDocumentFields = ({ title, content }) => {
   if (title !== undefined && !isNonEmptyString(title)) {
     return { ok: false, error: 'title must be a non-empty string' };
   }
+  if (title !== undefined && !validateTextLength(title.trim(), DOCUMENT_TITLE_MAX_LENGTH)) {
+    return { ok: false, error: `title must be at most ${DOCUMENT_TITLE_MAX_LENGTH} characters long` };
+  }
   if (content !== undefined && typeof content !== 'string') {
     return { ok: false, error: 'content must be a string' };
+  }
+  if (content !== undefined && !validateContentLength(content)) {
+    return { ok: false, error: 'content blocks must be at most 5000 characters long' };
   }
 
   const sanitizedTitle = title !== undefined ? sanitizeText(title.trim()) : undefined;
