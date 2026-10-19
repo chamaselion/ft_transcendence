@@ -63,18 +63,18 @@ const createDataExportHandler = ({ userModel, tokenLib = jwt, secret = requireEn
         });
       }
 
-          attributes: ['id', 'login', 'email', 'role', 'createdAt', 'updatedAt'],
       res.setHeader('X-RateLimit-Remaining', String(quotaResult.remaining));
       res.setHeader('X-RateLimit-Reset', String(Math.floor(quotaResult.resetAt / 1000)));
 
       const user = await resolvedUserModel.findByPk(payload.id, {
-        attributes: ['id', 'login', 'email', 'createdAt', 'updatedAt'],
-        const exportData = await buildGdprExportData(user);
+        attributes: ['id', 'login', 'email', 'role', 'createdAt', 'updatedAt'],
+      });
 
       if (!user) return res.status(401).json({ error: 'Unauthorized' });
       await ensureSession({ token, user });
 
-      const exportData = buildExportPayload(user);
+      const exportData = await buildGdprExportData(user);
+
       const exportReference = `export-${user.id}-${Date.now()}`;
 
       // Set headers for secure download
@@ -104,6 +104,7 @@ const createDataExportHandler = ({ userModel, tokenLib = jwt, secret = requireEn
           console.error(`[AUTH] Data export notification error: ${err.message}`);
         });
       });
+
       return res.json(exportData);
     } catch (err) {
       console.error(`[AUTH] Data export error: ${err.message}`);
