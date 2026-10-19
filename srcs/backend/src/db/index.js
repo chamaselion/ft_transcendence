@@ -33,7 +33,6 @@ const modelDefiners = [
   require("./models/one-time-challenge"),
   require("./models/document"),
   require("./models/document-share"),
-  require("./models/user-icons"),
 ];
 
 for (const modelDefiner of modelDefiners) {

@@ -115,9 +115,53 @@ async function confirmUpdateDetails() {
   }
 }
 
-async function changeAvatar() {
-  // NOTE: Placeholder for avatar change functionality
-  console.log('Change avatar clicked')
+const avatarInput = ref<HTMLInputElement | null>(null)
+const avatarPending = ref(false)
+
+async function changeAvatar(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file || avatarPending.value) return
+  avatarPending.value = true
+  errorFlag.value = false
+  try {
+    if (file.size > 2 * 1024 * 1024) throw new Error('Icon must be at most 2 MiB')
+    const body = new FormData()
+    body.append('icon', file)
+    const response = await httpClient.request<{ avatarUrl: string }>('me/icon', {
+      method: 'PUT', body,
+    })
+    if (user.value) {
+      user.value.avatarUrl = response.avatarUrl
+      authStore.setUser({ ...user.value })
+    }
+    updateSuccessMessage.value = 'Your profile icon has been updated.'
+    updateSuccess.value = true
+  } catch (error) {
+    message.value = error instanceof Error ? error.message : 'Failed to upload icon'
+    errorFlag.value = true
+  } finally {
+    input.value = ''
+    avatarPending.value = false
+  }
+}
+
+async function removeAvatar() {
+  if (avatarPending.value) return
+  avatarPending.value = true
+  errorFlag.value = false
+  try {
+    await httpClient.delete('me/icon')
+    if (user.value) {
+      user.value.avatarUrl = null
+      authStore.setUser({ ...user.value })
+    }
+  } catch (error) {
+    message.value = error instanceof Error ? error.message : 'Failed to remove icon'
+    errorFlag.value = true
+  } finally {
+    avatarPending.value = false
+  }
 }
 
 async function requestDeletion() {
@@ -235,12 +279,28 @@ onMounted(loadProfile)
           >
             <span class="profile__login">{{ user?.login }}</span>
             <div class="profile__avatar">
-              <UserIcon
-                class="profile__avatar-icon"
-                avatar-url="https://thispersondoesnotexist.com/random-person.jpeg"
-                size="large"
-                @click="changeAvatar"
+              <input
+                ref="avatarInput"
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                hidden
+                :disabled="avatarPending"
+                @change="changeAvatar"
               />
+              <button
+                type="button"
+                class="profile__avatar-button"
+                aria-label="Change profile icon"
+                :disabled="avatarPending"
+                @click="avatarInput?.click()"
+              >
+                <UserIcon
+                  class="profile__avatar-icon"
+                  :avatar-url="user?.avatarUrl ?? undefined"
+                  :name="user?.login"
+                  size="large"
+                />
+              </button>
               <span
                 class="profile__avatar-overlay"
                 aria-hidden="true"
@@ -248,6 +308,10 @@ onMounted(loadProfile)
               >
             </div>
           </div>
+          <p>JPEG, PNG or WebP, up to 2 MiB.</p>
+          <Button v-if="user?.avatarUrl" :disabled="avatarPending" @click="removeAvatar">
+            Remove profile icon
+          </Button>
           <span
             v-if="roleLabel"
             class="profile__role"
@@ -462,6 +526,18 @@ form {
 
 .profile__avatar-icon {
   transition: filter 180ms ease;
+}
+
+.profile__avatar-button {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.profile__avatar-button:disabled {
+  cursor: wait;
+  opacity: 0.6;
 }
 
 .profile__avatar-overlay {

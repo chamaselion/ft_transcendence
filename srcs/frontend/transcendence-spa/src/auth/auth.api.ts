@@ -71,11 +71,13 @@ export class HttpClient {
       ...DEFAULT_HEADERS,
       ...(config.headers ?? {}),
     }
+    const isFormData = config.body instanceof FormData
+    if (isFormData) delete headers['Content-Type']
 
     const response = await fetch(buildUrl(path, this.baseUrl, config.query), {
       method: config.method ?? 'GET',
       headers,
-      body: config.body ? JSON.stringify(config.body) : undefined,
+      body: isFormData ? config.body as FormData : config.body ? JSON.stringify(config.body) : undefined,
       signal: config.signal,
     })
     if (!response.ok) {

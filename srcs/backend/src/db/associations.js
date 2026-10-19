@@ -1,7 +1,6 @@
 function applyAssociations(sequelize) {
   const {
     user,
-    userIcons,
     userOauthAccount,
     oauthStateIntent,
     authSession,
@@ -53,19 +52,6 @@ function applyAssociations(sequelize) {
     documentShare.belongsTo(user, { as: "user", foreignKey: shareUserKey });
   }
 
-  if (userIcons) {
-    user.hasMany(userIcons, {
-      as: "icons",
-      foreignKey: "userId",
-      onDelete: "CASCADE",
-    });
-
-    userIcons.belongsTo(user, {
-      as: "user",
-      foreignKey: "userId",
-      onDelete: "CASCADE",
-    });
-  }
 }
 
 module.exports = { applyAssociations };

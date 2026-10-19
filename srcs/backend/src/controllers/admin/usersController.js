@@ -4,6 +4,7 @@ const { purgeSessionsForUser } = require('../auth/helpers');
 const { validateEmail, validateLogin, validateUuid } = require('../auth/validation');
 const { pick } = require('../../utils/pick');
 const { parseListQuery, likePattern, paginationOf } = require('../../utils/listQuery');
+const { deleteUserIcon, iconKey } = require('../../services/userIconService');
 
 
 const ALLOWED_ROLES = ['admin', 'user'];
@@ -161,6 +162,8 @@ const createUsersController = ({ userModel } = {}) => {
       const { gdprExportQuota, gdprAuditEvent } = sequelize.models;
 
       await sequelize.transaction(async (dbTransaction) => {
+        await users.findByPk(user.id, { transaction: dbTransaction, lock: dbTransaction.LOCK.UPDATE });
+        await deleteUserIcon(iconKey(user.id));
         if (gdprExportQuota) {
           await gdprExportQuota.destroy({
             where: { userId: user.id },
