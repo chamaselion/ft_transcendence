@@ -54,6 +54,7 @@ services:
     image: rustfs/rustfs:1.0.2
     volumes:
       - obj-storage:/data
+      - ./srcs/rustfs/config.toml:/config.toml:ro
     environment:
       - RUSTFS_ADDRESS=0.0.0.0:9000
       - RUSTFS_CONSOLE_ADDRESS=0.0.0.0:9001
