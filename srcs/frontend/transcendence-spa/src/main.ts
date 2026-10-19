@@ -11,13 +11,12 @@ async function bootstrap() {
   app.use(createPinia())
   const authStore = useAuthStore()
   await authStore.checkForAuthentication()
+  await initI18n()
   app.use(router)
   app.use(i18n)
-  initI18n().finally(() => {
-    const { titleKey } = router.currentRoute.value.meta
-    if (titleKey) document.title = i18n.global.t(titleKey)
-    app.mount('#app')
-  })
+  await router.isReady()
+  const { titleKey } = router.currentRoute.value.meta
+  if (titleKey) document.title = i18n.global.t(titleKey)
   app.mount('#app')
 }
 

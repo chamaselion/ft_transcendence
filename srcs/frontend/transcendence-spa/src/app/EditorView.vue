@@ -87,7 +87,7 @@ async function onTitleBlur() {
   if (!isTitleEditable.value || !titleEl.value) return
   let newTitle = (titleEl.value.innerText || '').trim()
   if (!newTitle) {
-    newTitle = documentTitle.value || t('common.untitledDocument')
+    newTitle = documentTitle.value || 'Untitled Document' // Title has to remain english
     titleEl.value.innerText = newTitle
   }
   if (newTitle !== documentTitle.value) {

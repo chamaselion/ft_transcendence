@@ -312,7 +312,7 @@ onBeforeUnmount(() => {
     <!-- Error message banner -->
     <div v-if="errorMessage" class="directory__error">
       <span>{{ errorMessage }}</span>
-      <Button variant="outlined" size="x-small" @click="fetchDocuments">{{ $t('documents.retry') }}</Button>
+      <Button variant="outlined" size="x-small" @click="fetchDocuments">{{ $t('common.retry') }}</Button>
     </div>
 
     <!-- Loading skeleton / state -->
