@@ -1,0 +1,12 @@
+# Never ship the host's node_modules into the image - it would overwrite the
+# dependencies installed by `npm ci` with whatever lies on the developer's
+# machine (possibly built for a different OS/Node version). The image
+# installs its own.
+transcendence-spa/node_modules
+transcendence-spa/dist
+npm-debug.log*
+
+# Not needed at build time, and secrets have no business in an image layer.
+.env
+.env.*
+.git
