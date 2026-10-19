@@ -16,21 +16,11 @@
       @focus="!locked && $emit('focus')"
       @blur="$emit('blur')"
     />
-    <div
+    <FoldableTextPreview
       v-if="isForeignLanguage && canonicalText && decorator.type !== 'c' && decorator.type !== 'cit'"
-      class="editor-block__canonical-preview"
-      :title="`Canonical English: ${canonicalText}`"
-    >
-      <span class="canonical-label">EN:</span>
-      <span class="canonical-text">{{ canonicalText }}</span>
-      <span
-        class="canonical-status"
-        :class="isDirty ? 'canonical-status--draft' : 'canonical-status--synced'"
-        :title="isDirty ? 'Pending back-translation on blur' : 'Synchronized with database'"
-      >
-        {{ isDirty ? 'Draft' : 'Synced' }}
-      </span>
-    </div>
+      :text="canonicalText"
+      :is-dirty="isDirty"
+    />
     <span v-if="locked" class="editor-block__lock" title="This block is locked by another user">
       Locked
     </span>
@@ -44,6 +34,7 @@ import EditorHeading from '@/app/components/EditorHeading.vue'
 import EditorList from '@/app/components/EditorList.vue'
 import EditorCitation from '@/app/components/EditorCitation.vue'
 import EditorCode from '@/app/components/EditorCode.vue'
+import FoldableTextPreview from '@/app/components/FoldableTextPreview.vue'
 import { parseDecorator, serializeDecorator, type Block, type BlockType } from '@/app/editor/types'
 import { useEditorStore } from '@/stores/editor'
 
@@ -152,46 +143,4 @@ const componentProps = computed(() => {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
-.editor-block__canonical-preview {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 4px;
-  padding: 2px 8px;
-  background-color: var(--bg-subtle, rgba(0, 0, 0, 0.04));
-  border-radius: 4px;
-  font-size: 0.72rem;
-  color: var(--text-muted, #64748b);
-  user-select: none;
-}
-
-.canonical-label {
-  font-weight: 700;
-  color: var(--text-secondary, #475569);
-}
-
-.canonical-text {
-  flex: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-style: italic;
-}
-
-.canonical-status {
-  padding: 1px 5px;
-  border-radius: 9999px;
-  font-size: 0.65rem;
-  font-weight: 600;
-}
-
-.canonical-status--synced {
-  background-color: color-mix(in srgb, var(--color-success, #22c55e) 15%, transparent);
-  color: var(--color-success, #22c55e);
-}
-
-.canonical-status--draft {
-  background-color: color-mix(in srgb, var(--color-warn, #eab308) 15%, transparent);
-  color: var(--color-warn, #eab308);
-}
 </style>
