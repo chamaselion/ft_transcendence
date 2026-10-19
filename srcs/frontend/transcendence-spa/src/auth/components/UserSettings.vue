@@ -10,6 +10,7 @@ import type { Root, User } from '../types/user'
 import type { OtpConfirmationResponse } from '../types/auth.types'
 import { useAuthStore } from '@/stores/auth'
 import UserIcon from '@/app/components/UserIcon.vue'
+import { validateEmail, validateLogin, validateOtpCode } from '@/utils/validation'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -31,6 +32,23 @@ const confirmationID = ref('')
 const deletionConfirmationID = ref('')
 const deletionCode = ref('')
 const deleting = ref(false)
+const errors = ref({ email: '', login: '', otp: '', deletion: '' })
+
+function validateEmailField() {
+  errors.value.email = validateEmail(email.value ?? '').error ?? ''
+}
+
+function validateLoginField() {
+  errors.value.login = validateLogin(login.value ?? '').error ?? ''
+}
+
+function validateOtpField() {
+  errors.value.otp = validateOtpCode(otpCode.value, 'OTP code').error ?? ''
+}
+
+function validateDeletionField() {
+  errors.value.deletion = validateOtpCode(deletionCode.value, 'Deletion code').error ?? ''
+}
 
 const updateSuccess = ref(false)
 const updateSuccessMessage = ref('')
@@ -74,8 +92,17 @@ function isChanged(current: string | undefined, input: string | undefined): bool
 }
 
 async function updateUserDetails(email: string | undefined, login: string | undefined) {
+  const emailResult = validateEmail(email ?? '')
+  const loginResult = validateLogin(login ?? '')
+  errors.value.email = emailResult.error ?? ''
+  errors.value.login = loginResult.error ?? ''
+  if (emailResult.error || loginResult.error) return
+
   try {
-    const response = await httpClient.patch<OtpConfirmationResponse>('me', { email, login })
+    const response = await httpClient.patch<OtpConfirmationResponse>('me', {
+      email: emailResult.value,
+      login: loginResult.value,
+    })
     confirmationID.value = response.confirmationId
     displayOTP.value = true
   } catch (error) {
@@ -92,11 +119,15 @@ async function confirmUpdateDetails() {
     return
   }
 
+  const codeResult = validateOtpCode(otpCode.value, 'OTP code')
+  errors.value.otp = codeResult.error ?? ''
+  if (codeResult.error) return
+
   try {
     const response = await httpClient.post<OtpConfirmationResponse>('me/update/confirm', {
       confirmationId: confirmationID.value,
       email: email.value,
-      code: otpCode.value,
+      code: codeResult.value,
     })
 
     console.log('OTP confirmed successfully:', response)
@@ -140,13 +171,16 @@ async function requestDeletion() {
 }
 
 async function confirmDeletion() {
-  if (deleting.value || !deletionConfirmationID.value || !deletionCode.value.trim()) return
+  if (deleting.value || !deletionConfirmationID.value) return
+  const codeResult = validateOtpCode(deletionCode.value, 'Deletion code')
+  errors.value.deletion = codeResult.error ?? ''
+  if (codeResult.error) return
   deleting.value = true
   errorFlag.value = false
   try {
     await httpClient.post('me/data-deletion/confirm', {
       confirmationId: deletionConfirmationID.value,
-      code: deletionCode.value.trim(),
+      code: codeResult.value,
     })
     authStore.invalidate()
     res.value = { loggedIn: false }
@@ -163,6 +197,7 @@ async function confirmDeletion() {
 function cancelDeletion() {
   deletionConfirmationID.value = ''
   deletionCode.value = ''
+  errors.value.deletion = ''
 }
 
 onMounted(loadProfile)
@@ -266,12 +301,16 @@ onMounted(loadProfile)
             <Input
               label="Email"
               v-model="email"
-              type="text"
+              type="email"
+              :error="errors.email"
+              @blur="validateEmailField"
             />
             <Input
               label="Username"
               v-model="login"
               type="text"
+              :error="errors.login"
+              @blur="validateLoginField"
             />
             <Button
               v-if="(isChanged(user.email, email) || isChanged(user.login, login)) && !displayOTP"
@@ -292,6 +331,8 @@ onMounted(loadProfile)
               label="OTP Code"
               v-model="otpCode"
               type="text"
+              :error="errors.otp"
+              @blur="validateOtpField"
             />
             <Button
               v-if="confirmationID"
@@ -336,12 +377,14 @@ onMounted(loadProfile)
           label="Deletion confirmation code"
           type="text"
           :disabled="deleting"
+          :error="errors.deletion"
+          @blur="validateDeletionField"
         />
         <Button
           type="submit"
           color="alert"
           :loading="deleting"
-          :disabled="!deletionCode.trim()"
+          :disabled="deleting || !deletionCode.trim()"
         >
           Confirm deletion
         </Button>

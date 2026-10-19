@@ -6,8 +6,16 @@ import Button from '@/app/components/Button.vue'
 import Input from '@/app/components/Input.vue'
 import Modal from '@/app/components/Modal.vue'
 import Toast from '@/app/components/Toast.vue'
+import { validateLogin } from '@/utils/validation'
 
 const username = ref('')
+const usernameError = ref('')
+
+const validateUsername = () => {
+  const result = validateLogin(username.value)
+  usernameError.value = result.error ?? ''
+  return result
+}
 
 const toastMessage = ref('')
 const toastVisible = ref(false)
@@ -44,6 +52,11 @@ const emit = defineEmits<{
 const canConfirmDelete = computed(
   () => user.value !== null && deleteConfirmationName.value.trim() === user.value.login,
 )
+
+const deleteConfirmationError = computed(() => {
+  if (!deleteConfirmationName.value.trim()) return ''
+  return canConfirmDelete.value ? '' : `Type “${user.value?.login ?? ''}” exactly to confirm.`
+})
 
 const openDeleteConfirmation = () => {
   deleteConfirmationName.value = ''
@@ -110,10 +123,12 @@ const updateUsername = async () => {
     showError(null, 'User data is not loaded yet.')
     return
   }
+  const result = validateUsername()
+  if (result.error) return
   toastVisible.value = false
   try {
     await httpClient.patch(`/api/users/${user.value.id}`, {
-      login: username.value,
+      login: result.value,
     })
     emit('close')
   } catch (error) {
@@ -183,6 +198,8 @@ onMounted(async () => {
         type="text"
         v-model="username"
         placeholder="Update Username"
+        :error="usernameError"
+        @blur="validateUsername"
       />
       <Button @click="updateUsername">Update Username</Button>
     </div>
@@ -209,6 +226,7 @@ onMounted(async () => {
           type="text"
           placeholder="Enter the username"
           :disabled="deleting"
+          :error="deleteConfirmationError"
         />
       </div>
       <template #footer>

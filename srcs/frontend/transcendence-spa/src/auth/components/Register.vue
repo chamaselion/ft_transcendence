@@ -4,18 +4,39 @@
   import Toast from '@/app/components/Toast.vue'
   import Input from '@/app/components/Input.vue'
   import Button from '@/app/components/Button.vue'
+  import { validateEmail, validateLogin, validatePassword } from '@/utils/validation'
 
   const username = ref('')
   const email = ref('')
   const password = ref('')
   const errorFlag = ref(false)
   const msg = ref('')
+  const errors = ref({ username: '', email: '', password: '' })
+
+  const validateField = (field: 'username' | 'email' | 'password') => {
+    const result =
+      field === 'username'
+        ? validateLogin(username.value)
+        : field === 'email'
+          ? validateEmail(email.value)
+          : validatePassword(password.value)
+    errors.value[field] = result.error ?? ''
+    return result
+  }
+
+  const validateForm = () => {
+    const usernameResult = validateField('username')
+    const emailResult = validateField('email')
+    const passwordResult = validateField('password')
+    return !usernameResult.error && !emailResult.error && !passwordResult.error
+  }
 
   const handleRegister = async () => {
+    if (!validateForm()) return
     try {
-      const response = await httpClient.post('register', {
-        login: username.value,
-        email: email.value,
+      await httpClient.post('register', {
+        login: username.value.trim(),
+        email: email.value.trim(),
         password: password.value
       })
       window.location.href = `/login?email=${email.value}&redirect=true`
@@ -54,15 +75,35 @@
       <form @submit.prevent="handleRegister">
         <div class="form-group">
           <label for="username">Username:</label>
-          <Input type="text" id="username" v-model="username" required />
+          <Input
+            type="text"
+            id="username"
+            v-model="username"
+            required
+            :error="errors.username"
+            @blur="validateField('username')"
+          />
         </div>
         <div class="form-group">
           <label for="email">Email:</label>
-          <Input type="email" id="email" v-model="email" required />
+          <Input
+            type="email"
+            id="email"
+            v-model="email"
+            required
+            :error="errors.email"
+            @blur="validateField('email')"
+          />
         </div>
         <div class="form-group">
           <label for="password">Password:</label>
-          <Input type="password" v-model="password" required />
+          <Input
+            type="password"
+            v-model="password"
+            required
+            :error="errors.password"
+            @blur="validateField('password')"
+          />
         </div>
         <Button type="submit" size="large" class="register-card__submit">Register</Button>
       </form>

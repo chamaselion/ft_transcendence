@@ -2,6 +2,7 @@
   <label class="input" :class="{ 'input--disabled': disabled }">
     <span v-if="label" class="input__label">{{ label }}</span>
     <input
+      v-bind="$attrs"
       class="input__field"
       :class="{ 'input__field--error': !!error }"
       :type="type"
@@ -16,6 +17,8 @@
 </template>
 
 <script lang="ts" setup>
+defineOptions({ inheritAttrs: false })
+
 withDefaults(defineProps<{
   modelValue?: string | number
   label?: string

@@ -13,6 +13,7 @@ import EditorHeading from '@/app/components/EditorHeading.vue'
 import EditorList from '@/app/components/EditorList.vue'
 import EditorHyperlink from '@/app/components/EditorHyperlink.vue'
 import Icon, { type IconName } from '@/app/components/Icon.vue'
+import { validateLogin } from '@/utils/validation'
 
 const iconList: { name: IconName; description: string }[] = [
   { name: 'H1', description: 'Heading 1 — Primary section heading' },
@@ -32,6 +33,11 @@ const headings = [1, 2, 3, 4, 5, 6] as const
 const toastTypes = ['info', 'good', 'warn', 'alert'] as const
 
 const inputValue = ref('')
+const inputError = ref('')
+
+const validateCatalogueInput = () => {
+  inputError.value = validateLogin(inputValue.value).error ?? ''
+}
 const modalOpen = ref(false)
 const toastOpen = ref(false)
 const toastType = ref<(typeof toastTypes)[number]>('good')
@@ -100,7 +106,14 @@ const toastType = ref<(typeof toastTypes)[number]>('good')
     <section class="catalogue__section">
       <h2 class="catalogue__heading">Input</h2>
       <div class="catalogue__grid">
-        <Input v-model="inputValue" label="Username" placeholder="Enter your username" hint="This is a hint" />
+        <Input
+          v-model="inputValue"
+          label="Username"
+          placeholder="Enter your username"
+          hint="This is a hint"
+          :error="inputError"
+          @blur="validateCatalogueInput"
+        />
         <Input model-value="you@example.com" label="Email" type="email" />
         <Input model-value="bad input" label="Password" type="password" error="Password is too short" />
         <Input model-value="Disabled" label="Disabled" disabled />

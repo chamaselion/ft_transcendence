@@ -6,6 +6,7 @@ import Toast from '@/app/components/Toast.vue'
 import Input from '@/app/components/Input.vue'
 import Button from '@/app/components/Button.vue'
 import OAuth from './OAuth.vue'
+import { validateEmail, validatePassword } from '@/utils/validation'
 
 const props = defineProps<{
   email?: string | null
@@ -32,14 +33,27 @@ const challengeID = ref('')
 const registerRedirectFlag = ref(Boolean(props.isRegisterRedirect))
 const otpConfirmationRequired = ref(false)
 const isSubmitting = ref(false)
+const errors = ref({ email: '', password: '' })
+
+const validateField = (field: 'email' | 'password') => {
+  const result = field === 'email' ? validateEmail(email.value) : validatePassword(password.value)
+  errors.value[field] = result.error ?? ''
+  return result
+}
+
+const validateForm = () => {
+  const emailResult = validateField('email')
+  const passwordResult = validateField('password')
+  return !emailResult.error && !passwordResult.error
+}
 
 const handleLogin = async () => {
-  if (isSubmitting.value) return
+  if (isSubmitting.value || !validateForm()) return
   isSubmitting.value = true
   errorFlag.value = false
   try {
     const data = await httpClient.post<LoginResponse>('login', {
-      email: email.value,
+      email: email.value.trim(),
       password: password.value,
     })
     challengeID.value = data.challengeId
@@ -106,12 +120,16 @@ const handleLogin = async () => {
           type="email"
           v-model="email"
           required
+          :error="errors.email"
+          @blur="validateField('email')"
         />
         <Input
           label="Password"
           type="password"
           v-model="password"
           required
+          :error="errors.password"
+          @blur="validateField('password')"
         />
         <Button
           type="submit"

@@ -10,6 +10,8 @@ import { createBlock } from '@/app/editor/types'
 import { useAuthStore } from '@/stores/auth'
 import { createDocument, getDocument, updateDocumentTitle } from '@/app/editor/document.api'
 import { insertPlainText } from '@/app/editor/plainTextPaste'
+import { DOCUMENT_TITLE_MAX_LENGTH } from '@/utils/validation'
+import { truncateTitle } from '@/utils/title'
 import ShareModal from '@/app/components/ShareModal.vue'
 
 const route = useRoute()
@@ -18,6 +20,7 @@ const authStore = useAuthStore()
 
 const provider = ref<EditorDataProvider | null>(null)
 const documentTitle = ref<string>('Untitled Document')
+const displayTitle = computed(() => truncateTitle(documentTitle.value))
 const titleEl = ref<HTMLElement | null>(null)
 const documentId = ref<string | null>(null)
 const userPermission = ref<'owner' | 'editor' | 'viewer'>('viewer')
@@ -27,6 +30,7 @@ const isTitleEditable = computed(
 const showShareModal = ref(false)
 const connectionStatus = ref<'connecting' | 'connected' | 'disconnected'>('connecting')
 const errorMessage = ref<string | null>(null)
+const titleError = ref('')
 const isLoading = ref<boolean>(true)
 const editorElement = ref<typeof Editor | null>(null);
 
@@ -57,7 +61,7 @@ function openRoom(docId: string, initialTitle?: string) {
     if (e.title) {
       documentTitle.value = e.title
       if (titleEl.value && document.activeElement !== titleEl.value) {
-        titleEl.value.innerText = e.title
+        titleEl.value.innerText = truncateTitle(e.title)
       }
     }
     if (e.permission) userPermission.value = e.permission
@@ -68,7 +72,7 @@ function openRoom(docId: string, initialTitle?: string) {
     if (e.title) {
       documentTitle.value = e.title
       if (titleEl.value && document.activeElement !== titleEl.value) {
-        titleEl.value.innerText = e.title
+        titleEl.value.innerText = truncateTitle(e.title)
       }
     }
   }
@@ -88,8 +92,14 @@ async function onTitleBlur() {
   let newTitle = (titleEl.value.innerText || '').trim()
   if (!newTitle) {
     newTitle = documentTitle.value || 'Untitled Document'
-    titleEl.value.innerText = newTitle
   }
+  if (newTitle.length > DOCUMENT_TITLE_MAX_LENGTH) {
+    newTitle = newTitle.slice(0, DOCUMENT_TITLE_MAX_LENGTH)
+    titleError.value = `Title must be at most ${DOCUMENT_TITLE_MAX_LENGTH} characters long.`
+  } else {
+    titleError.value = ''
+  }
+  titleEl.value.innerText = truncateTitle(newTitle)
   if (newTitle !== documentTitle.value) {
     documentTitle.value = newTitle
     if (provider.value?.sendTitleUpdate) {
@@ -105,6 +115,12 @@ async function onTitleBlur() {
   }
 }
 
+function onTitleFocus() {
+  if (!isTitleEditable.value || !titleEl.value) return
+  titleEl.value.innerText = documentTitle.value
+  titleError.value = ''
+}
+
 function onTitlePaste(e: ClipboardEvent) {
   if (!isTitleEditable.value || !titleEl.value) {
     e.preventDefault()
@@ -112,17 +128,37 @@ function onTitlePaste(e: ClipboardEvent) {
   }
 
   e.preventDefault()
-  insertPlainText(titleEl.value, e.clipboardData?.getData('text/plain') ?? '', false)
+  const currentLength = titleEl.value.innerText.length
+  const remaining = Math.max(0, DOCUMENT_TITLE_MAX_LENGTH - currentLength)
+  const text = e.clipboardData?.getData('text/plain') ?? ''
+  if (text.length > remaining) {
+    titleError.value = `Title must be at most ${DOCUMENT_TITLE_MAX_LENGTH} characters long.`
+  } else {
+    titleError.value = ''
+  }
+  insertPlainText(titleEl.value, text.slice(0, remaining), false)
 }
 
 function onTitleKeydown(e: KeyboardEvent) {
+  if (
+    e.key.length === 1 &&
+    !e.ctrlKey &&
+    !e.metaKey &&
+    !e.altKey &&
+    (titleEl.value?.innerText.length ?? 0) >= DOCUMENT_TITLE_MAX_LENGTH
+  ) {
+    e.preventDefault()
+    titleError.value = `Title must be at most ${DOCUMENT_TITLE_MAX_LENGTH} characters long.`
+    return
+  }
+
   if (e.key === 'Enter') {
     e.preventDefault()
     titleEl.value?.blur()
   } else if (e.key === 'Escape') {
     e.preventDefault()
     if (titleEl.value) {
-      titleEl.value.innerText = documentTitle.value
+      titleEl.value.innerText = truncateTitle(documentTitle.value)
     }
     titleEl.value?.blur()
   }
@@ -208,12 +244,14 @@ onBeforeUnmount(() => {
           :contenteditable="isTitleEditable"
           spellcheck="false"
           :title="isTitleEditable ? 'Click to rename document' : undefined"
+          @focus="onTitleFocus"
           @blur="onTitleBlur"
           @paste="onTitlePaste"
           @keydown="onTitleKeydown"
         >
-          {{ documentTitle }}
+          {{ displayTitle }}
         </h1>
+        <span v-if="titleError" class="editor-view__title-error">{{ titleError }}</span>
         <div class="editor-view__badges">
           <span class="status-badge" :class="`status-badge--${connectionStatus}`" title="Connection status">
             {{
@@ -315,6 +353,11 @@ onBeforeUnmount(() => {
   font-size: 1.5rem;
   font-weight: 700;
   color: var(--text-base);
+}
+
+.editor-view__title-error {
+  color: var(--color-alert, #ef4444);
+  font-size: 0.8rem;
 }
 
 .editor-view__title--editable {

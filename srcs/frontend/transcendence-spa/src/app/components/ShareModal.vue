@@ -18,6 +18,8 @@
               label="Collaborator Email"
               :disabled="loading"
               required
+              :error="emailError"
+              @blur="validateCollaboratorEmail"
             />
 
             <label class="share-modal__select-label">
@@ -143,6 +145,7 @@ import {
   deleteShare,
   type ShareData,
 } from '@/app/editor/document.api'
+import { validateEmail } from '@/utils/validation'
 
 const props = withDefaults(
   defineProps<{
@@ -165,6 +168,13 @@ const permission = ref<'viewer' | 'editor'>('editor')
 const loading = ref(false)
 const loadingShares = ref(false)
 const error = ref<string | null>(null)
+const emailError = ref('')
+
+const validateCollaboratorEmail = () => {
+  const result = validateEmail(email.value, 'Collaborator email')
+  emailError.value = result.error ?? ''
+  return result
+}
 const successMessage = ref<string | null>(null)
 const copied = ref(false)
 
@@ -186,15 +196,18 @@ async function fetchShares() {
 }
 
 async function handleShare() {
-  if (!email.value.trim() || !props.documentId) return
+  if (!props.documentId) return
+  const result = validateCollaboratorEmail()
+  if (result.error) return
   loading.value = true
   error.value = null
   successMessage.value = null
 
   try {
-    await createShare(props.documentId, email.value.trim(), permission.value)
-    successMessage.value = `Access granted to ${email.value.trim()} as ${permission.value}.`
+    await createShare(props.documentId, result.value, permission.value)
+    successMessage.value = `Access granted to ${result.value} as ${permission.value}.`
     email.value = ''
+    emailError.value = ''
     await fetchShares()
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Failed to share document'

@@ -7,6 +7,8 @@ import Modal from '@/app/components/Modal.vue'
 import Toast from '@/app/components/Toast.vue'
 import ShareModal from '@/app/components/ShareModal.vue'
 import { listDocuments, deleteDocument, type DocumentData } from '@/app/editor/document.api'
+import { validateSearchQuery } from '@/utils/validation'
+import { truncateTitle } from '@/utils/title'
 
 const router = useRouter()
 
@@ -15,6 +17,7 @@ const documents = ref<DocumentData[]>([])
 const loading = ref(false)
 const errorMessage = ref<string | null>(null)
 const searchQuery = ref('')
+const searchError = ref('')
 const selectedScope = ref<'all' | 'own' | 'shared'>('all')
 
 const pageSize = ref<number>(10)
@@ -68,6 +71,13 @@ async function fetchDocuments() {
 }
 
 function onSearchInput() {
+  const result = validateSearchQuery(searchQuery.value)
+  searchError.value = result.error ?? ''
+  if (result.error) {
+    clearTimeout(debounceTimer)
+    return
+  }
+
   clearTimeout(debounceTimer)
   debounceTimer = setTimeout(() => {
     currentPage.value = 1
@@ -77,6 +87,7 @@ function onSearchInput() {
 
 function clearSearch() {
   searchQuery.value = ''
+  searchError.value = ''
   currentPage.value = 1
   fetchDocuments()
 }
@@ -259,8 +270,10 @@ onBeforeUnmount(() => {
           type="text"
           class="directory__search-input"
           placeholder="Search documents by title..."
+          maxlength="100"
           @input="onSearchInput"
         />
+        <span v-if="searchError" class="directory__field-error">{{ searchError }}</span>
         <button
           v-if="searchQuery"
           type="button"
@@ -377,7 +390,7 @@ onBeforeUnmount(() => {
                 </div>
                 <div class="directory__doc-text">
                   <span class="directory__doc-title" :title="doc.title || 'Untitled Document'">
-                    {{ doc.title || 'Untitled Document' }}
+                    {{ truncateTitle(doc.title || 'Untitled Document') }}
                   </span>
                   <span class="directory__doc-id">ID: {{ doc.id.slice(0, 8) }}...</span>
                 </div>
@@ -787,6 +800,12 @@ onBeforeUnmount(() => {
 }
 
 /* Error State */
+.directory__field-error {
+  color: var(--color-alert, #ef4444);
+  font-size: 0.8rem;
+  margin-top: 4px;
+}
+
 .directory__error {
   display: flex;
   align-items: center;

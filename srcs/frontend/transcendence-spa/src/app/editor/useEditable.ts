@@ -1,6 +1,7 @@
 import { computed, onMounted, watch, type Ref } from 'vue'
 import { insertPlainText, placeCaretAtEnd } from '@/app/editor/plainTextPaste'
 import { parseClipboardText } from '@/app/editor/clipboardText'
+import { EDITOR_BLOCK_MAX_LENGTH } from '@/utils/validation'
 
 export interface EditableInsertBlock {
   type: 'p' | 'li'
@@ -27,6 +28,8 @@ interface EditableOptions {
   multiline?: boolean
   /** How pasted multi-line content should be interpreted. */
   pasteMode?: 'paragraph' | 'list' | 'text'
+  /** Maximum number of plain-text characters allowed in the block. */
+  maxLength?: number
   /** Custom serializer used to seed the element on mount. */
   write?: (el: HTMLElement, text: string) => void
   /** Custom parser used to read the element back on input. */
@@ -67,6 +70,11 @@ export function useEditable(
     contenteditable: editable(),
     spellcheck: editable(),
   }))
+
+  const maxLength = options.maxLength ?? EDITOR_BLOCK_MAX_LENGTH
+
+  const clamp = (value: string): string =>
+    value.length > maxLength ? value.slice(0, maxLength) : value
 
   const readValue = (el: HTMLElement): string => {
     if (options.read) return options.read(el)
@@ -149,7 +157,16 @@ export function useEditable(
     if (!editable()) return
     const el = element.value
     if (!el) return
-    emit('update:text', readValue(el))
+
+    const value = readValue(el)
+    const clamped = clamp(value)
+    if (clamped !== value) {
+      write(clamped)
+      emit('update:text', clamped)
+      placeCaretAtEnd(el)
+      return
+    }
+    emit('update:text', clamped)
   }
 
   const onFocus = () => {
@@ -175,9 +192,17 @@ export function useEditable(
     ) {
       const el = element.value
       if (!el) return
-      if (isStandardText(readValue(el))) {
+      const current = readValue(el)
+      if (isStandardText(current)) {
         el.innerText = ''
         emit('update:text', '')
+      } else {
+        const selection = window.getSelection()
+        const selectedLength = selection?.toString().length ?? 0
+        if (current.length - selectedLength >= maxLength) {
+          event.preventDefault()
+          return
+        }
       }
     }
 
@@ -199,8 +224,8 @@ export function useEditable(
       const { before, after } = splitAtSelection(el, current)
       write(before)
       emit('insert-blocks', {
-        currentText: before,
-        blocks: [{ type: 'p', text: after }],
+        currentText: clamp(before),
+        blocks: [{ type: 'p', text: clamp(after) }],
       })
     }
   }
@@ -231,7 +256,8 @@ export function useEditable(
 
     if (pasteMode === 'text') {
       if (standard) write('')
-      insertPlainText(el, plainText, true)
+      const remaining = Math.max(0, maxLength - before.length - after.length)
+      insertPlainText(el, plainText.slice(0, remaining), true)
       return
     }
 
@@ -239,7 +265,8 @@ export function useEditable(
 
     if (parsed.kind === 'single') {
       if (standard) write('')
-      insertPlainText(el, parsed.lines[0] ?? plainText, options.multiline ?? false)
+      const remaining = Math.max(0, maxLength - before.length - after.length)
+      insertPlainText(el, (parsed.lines[0] ?? plainText).slice(0, remaining), options.multiline ?? false)
       return
     }
 
@@ -249,7 +276,7 @@ export function useEditable(
 
       const prefix = before && !before.endsWith('\n') ? '\n' : ''
       const suffix = after && !after.startsWith('\n') ? '\n' : ''
-      const next = `${before}${prefix}${items.join('\n')}${suffix}${after}`
+      const next = clamp(`${before}${prefix}${items.join('\n')}${suffix}${after}`)
       write(next)
       emit('update:text', next)
       el.focus()
@@ -258,14 +285,14 @@ export function useEditable(
     }
 
     if (parsed.kind === 'list') {
-      const next = before + after
+      const next = clamp(before + after)
       write(next)
       emit('insert-blocks', {
         currentText: next,
         blocks: [
           {
             type: 'li',
-            text: parsed.lines.join('\n'),
+            text: clamp(parsed.lines.join('\n')),
             ordered: Boolean(parsed.ordered),
           },
         ],
@@ -277,11 +304,11 @@ export function useEditable(
 
     const merged = [before + (parsed.lines[0] ?? ''), ...parsed.lines.slice(1)]
     merged[merged.length - 1] += after
-    const currentText = merged[0] ?? ''
+    const currentText = clamp(merged[0] ?? '')
     write(currentText)
     emit('insert-blocks', {
       currentText,
-      blocks: merged.slice(1).map((line) => ({ type: 'p', text: line })),
+      blocks: merged.slice(1).map((line) => ({ type: 'p', text: clamp(line) })),
     })
   }
 
