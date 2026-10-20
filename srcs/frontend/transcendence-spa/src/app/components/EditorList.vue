@@ -2,8 +2,12 @@
   <component
     :is="ordered ? 'ol' : 'ul'"
     :ref="setElement"
-    class="list"
-    :class="{ 'list--editable': isEditable, 'list--locked': locked, 'list--empty': isEmpty }"
+    class="list space-y-1 pl-[1.5em] leading-relaxed [margin:0]"
+    :class="{
+      'list--editable rounded outline-none': isEditable,
+      'list--locked cursor-not-allowed opacity-70': locked,
+      'list--empty': isEmpty,
+    }"
     :style="style"
     :data-placeholder="placeholder"
     v-bind="attributes"
@@ -101,33 +105,10 @@ const style = computed(() => ({
 }))
 </script>
 
-<style lang="css" scoped>
-.list {
-  margin: 0;
-  padding-left: 1.5em;
-}
-
-.list--editable {
-  outline: none;
-  border-radius: 4px;
-}
-
+<style scoped>
 .list--editable.list--empty:not(:focus)::before {
   content: attr(data-placeholder);
   color: var(--text-muted);
   pointer-events: none;
-}
-
-.list--locked {
-  opacity: 0.7;
-  cursor: not-allowed;
-}
-
-.list__item {
-  line-height: 1.6;
-}
-
-.list__item + .list__item {
-  margin-top: 4px;
 }
 </style>
