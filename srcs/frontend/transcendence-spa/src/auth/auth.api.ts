@@ -35,7 +35,10 @@ const DEFAULT_HEADERS: Record<string, string> = {
   'Content-Type': 'application/json',
 }
 
-const RELATIVE_URL_BASE = 'https://localhost:8443/api/auth/'
+// The SPA and the API share a single origin (nginx serves the bundle and
+// proxies /api/), so the base is derived at runtime. This keeps dev, prod,
+// and any host/port in sync without a build-time configuration.
+const RELATIVE_URL_BASE = `${window.location.origin}/api/auth/`
 
 // buildUul takes a path as required path if the path has a leading / this will
 // be treated as an absolute path and will be appended to the baseUrl if provided, otherwise it will

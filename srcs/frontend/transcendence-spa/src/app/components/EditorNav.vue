@@ -1,17 +1,18 @@
 <template>
   <div
     ref="nav"
-    class="editor-nav"
-    :class="[
-      `editor-nav--${position}`,
-      { 'editor-nav--floating': floating },
-    ]"
+    class="editor-nav sticky z-10 flex items-center rounded-[10px] border border-line-subtle bg-surface px-2.5 py-1.5 transition-[box-shadow,border-color,background-color] duration-200"
+    :class="[positionClass, floating ? 'shadow-[var(--shadow-md)]' : 'shadow-[var(--shadow-sm)]']"
   >
-    <!-- When block is active: Specific formatting options for active block + Delete button on left side -->
+    <!-- When block is active: contextual formatting and delete controls -->
     <template v-if="activeBlock && activeDecorator">
-      <div v-if="activeDecorator.type === 'p'" class="editor-nav__group editor-nav__group--formatting">
+      <div
+        v-if="activeDecorator.type === 'p'"
+        class="flex items-center gap-1"
+        :class="{ 'flex-col': position === 'left' }"
+      >
         <Button
-          v-for="align in (['left', 'center', 'right', 'justify'] as const)"
+          v-for="align in ['left', 'center', 'right', 'justify'] as const"
           :key="align"
           :variant="(activeDecorator.align || 'left') === align ? 'elevated' : 'flat'"
           size="small"
@@ -24,7 +25,7 @@
             <Icon :name="alignIcons[align]" :size="18" />
           </template>
         </Button>
-        <span class="editor-nav__divider" />
+        <span class="editor-nav__divider" :class="dividerClass" />
         <EditorElaborateDropdown
           :disabled="deleteDisabled || isElaborating"
           :loading="isElaborating"
@@ -32,10 +33,13 @@
         />
       </div>
 
-      <!-- Heading: Level 1 to 6 (Size) -->
-      <div v-else-if="activeDecorator.type === 'h'" class="editor-nav__group editor-nav__group--formatting">
+      <div
+        v-else-if="activeDecorator.type === 'h'"
+        class="flex items-center gap-1"
+        :class="{ 'flex-col': position === 'left' }"
+      >
         <Button
-          v-for="lvl in ([1, 2, 3, 4, 5, 6] as const)"
+          v-for="lvl in [1, 2, 3, 4, 5, 6] as const"
           :key="lvl"
           :variant="(activeDecorator.level ?? 2) === lvl ? 'elevated' : 'flat'"
           size="small"
@@ -45,13 +49,16 @@
           @click="$emit('update:decorator', { ...activeDecorator, level: lvl })"
         >
           <template #icon>
-            <Icon :name="(`H${lvl}` as IconName)" :size="18" />
+            <Icon :name="`H${lvl}` as IconName" :size="18" />
           </template>
         </Button>
       </div>
 
-      <!-- List: Numbered vs Unnumbered switcher -->
-      <div v-else-if="activeDecorator.type === 'li'" class="editor-nav__group editor-nav__group--formatting">
+      <div
+        v-else-if="activeDecorator.type === 'li'"
+        class="flex items-center gap-1"
+        :class="{ 'flex-col': position === 'left' }"
+      >
         <Button
           :variant="!activeDecorator.ordered ? 'elevated' : 'flat'"
           size="small"
@@ -78,11 +85,14 @@
         </Button>
       </div>
 
-      <!-- Code: Language selector -->
-      <div v-else-if="activeDecorator.type === 'c'" class="editor-nav__group editor-nav__group--formatting">
-        <span class="editor-nav__label">Lang:</span>
+      <div
+        v-else-if="activeDecorator.type === 'c'"
+        class="flex items-center gap-1"
+        :class="{ 'flex-col': position === 'left' }"
+      >
+        <span class="mr-0.5 text-[0.75rem] font-semibold text-muted">Lang:</span>
         <select
-          class="editor-nav__select"
+          class="cursor-pointer rounded-md border border-line-subtle bg-surface px-1.5 py-[3px] text-[0.75rem] font-medium text-ink outline-none transition-colors duration-150 focus:border-brand disabled:cursor-not-allowed disabled:opacity-50"
           :disabled="deleteDisabled"
           :value="activeDecorator.language || 'plaintext'"
           @change="onNavLanguageChange"
@@ -93,10 +103,9 @@
         </select>
       </div>
 
-      <span v-if="activeDecorator.type !== 'cit'" class="editor-nav__divider" />
+      <span v-if="activeDecorator.type !== 'cit'" class="editor-nav__divider" :class="dividerClass" />
 
-      <!-- Delete active block button -->
-      <div class="editor-nav__group">
+      <div class="flex items-center gap-1" :class="{ 'flex-col': position === 'left' }">
         <Button
           variant="outlined"
           color="alert"
@@ -113,13 +122,24 @@
       </div>
     </template>
 
-    <!-- Add block buttons (pushed to right side when block is active, or aligned to left when no block active) -->
+    <!-- Add block buttons: label when idle, pushed right when contextual tools are visible -->
     <div
-      class="editor-nav__group editor-nav__group--add"
-      :class="{ 'editor-nav__group--pushed': Boolean(activeBlock && activeDecorator) }"
+      class="flex items-center gap-1"
+      :class="[
+        position === 'left' ? 'flex-col' : '',
+        activeBlock && activeDecorator
+          ? position === 'left'
+            ? 'mt-auto'
+            : 'ml-auto'
+          : '',
+      ]"
     >
-      <span v-if="activeBlock && activeDecorator" class="editor-nav__divider" />
-      <span v-else class="editor-nav__label">Add:</span>
+      <span
+        v-if="activeBlock && activeDecorator"
+        class="editor-nav__divider"
+        :class="dividerClass"
+      />
+      <span v-else class="mr-0.5 text-[0.75rem] font-semibold text-muted">Add:</span>
       <Button
         v-for="type in blockTypes"
         :key="type"
@@ -182,6 +202,21 @@ const activeDecorator = computed(() =>
   props.activeBlock ? parseDecorator(props.activeBlock.decorator) : null,
 )
 
+const positionClass = computed(
+  () =>
+    ({
+      top: 'top-3 mb-2 w-full flex-row justify-start',
+      left: 'top-4 flex-col self-start',
+      bottom: 'bottom-3 mt-2 w-full flex-row',
+    })[props.position],
+)
+
+const dividerClass = computed(() =>
+  props.position === 'left'
+    ? 'my-1.5 h-px w-full bg-line-subtle'
+    : 'mx-2 h-[22px] w-px bg-line-subtle',
+)
+
 const typeIcons: Record<BlockType, IconName> = {
   p: 'Paragraph',
   li: 'List',
@@ -214,121 +249,3 @@ const onScroll = () => {
 onMounted(() => window.addEventListener('scroll', onScroll, { passive: true }))
 onBeforeUnmount(() => window.removeEventListener('scroll', onScroll))
 </script>
-
-<style lang="css" scoped>
-.editor-nav {
-  position: sticky;
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  padding: 6px 10px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 10px;
-  background-color: var(--bg-surface);
-  box-shadow: var(--shadow-sm);
-  transition:
-    box-shadow 0.2s ease,
-    border-color 0.2s ease,
-    background-color 0.2s ease;
-}
-
-.editor-nav--top {
-  top: 12px;
-  flex-direction: row;
-  justify-content: flex-start;
-  width: 100%;
-  margin-bottom: 8px;
-}
-
-.editor-nav--left {
-  top: 16px;
-  flex-direction: column;
-  align-self: start;
-}
-
-.editor-nav--bottom {
-  bottom: 12px;
-  flex-direction: row;
-  width: 100%;
-  margin-top: 8px;
-}
-
-.editor-nav--floating {
-  border-color: var(--border-subtle);
-  box-shadow: var(--shadow-md);
-}
-
-.editor-nav__group {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.editor-nav--left .editor-nav__group {
-  flex-direction: column;
-}
-
-.editor-nav--top .editor-nav__group--pushed,
-.editor-nav--bottom .editor-nav__group--pushed {
-  margin-left: auto;
-}
-
-.editor-nav--left .editor-nav__group--pushed {
-  margin-top: auto;
-}
-
-.editor-nav__divider {
-  background-color: var(--border-subtle);
-}
-
-.editor-nav--top .editor-nav__divider,
-.editor-nav--bottom .editor-nav__divider {
-  width: 1px;
-  height: 22px;
-  margin: 0 8px;
-}
-
-.editor-nav--left .editor-nav__divider {
-  width: 100%;
-  height: 1px;
-  margin: 6px 0;
-}
-
-.editor-nav :deep(.btn) {
-  margin: 0;
-}
-
-.editor-nav__label {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--text-muted, #94a3b8);
-  margin-right: 2px;
-}
-
-.editor-nav__select {
-  background-color: var(--bg-surface);
-  color: var(--text-primary);
-  border: 1px solid var(--border-default);
-  border-radius: 6px;
-  padding: 3px 6px;
-  font-size: 0.75rem;
-  font-weight: 500;
-  outline: none;
-  cursor: pointer;
-  transition: border-color 0.15s ease;
-}
-
-.editor-nav__select option {
-  background-color: var(--bg-surface);
-  color: var(--text-primary);
-}
-
-.editor-nav__select:focus {
-  border-color: var(--color-primary, #3b82f6);
-}
-
-.editor-nav__select:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-</style>

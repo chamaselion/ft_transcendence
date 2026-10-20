@@ -1,9 +1,10 @@
 <template>
   <div
-    class="editor-block"
+    class="editor-block relative rounded-md border-l-[3px] border-l-transparent px-3 py-1 transition-[background-color,border-color] duration-150"
     :class="{
-      'editor-block--active': active && !locked,
-      'editor-block--locked': locked,
+      'editor-block--active border-l-brand bg-subtle': active && !locked,
+      'editor-block--locked cursor-not-allowed border-2 border-l-2 border-danger bg-danger/[0.08] select-none [&_*]:pointer-events-none [&_*]:select-none':
+        locked,
     }"
     :data-block-id="block.id"
     @click="!locked && $emit('focus')"
@@ -18,20 +19,24 @@
     />
     <div
       v-if="isForeignLanguage && canonicalText && decorator.type !== 'c' && decorator.type !== 'cit'"
-      class="editor-block__canonical-preview"
+      class="mt-1 flex items-center gap-1.5 rounded bg-subtle px-2 py-0.5 text-[0.72rem] text-muted select-none"
       :title="`Canonical English: ${canonicalText}`"
     >
-      <span class="canonical-label">EN:</span>
-      <span class="canonical-text">{{ canonicalText }}</span>
+      <span class="font-bold text-ink-secondary">EN:</span>
+      <span class="min-w-0 flex-1 truncate italic">{{ canonicalText }}</span>
       <span
-        class="canonical-status"
-        :class="isDirty ? 'canonical-status--draft' : 'canonical-status--synced'"
+        class="shrink-0 rounded-full px-1.5 py-px text-[0.65rem] font-semibold"
+        :class="isDirty ? 'bg-warning/15 text-warning' : 'bg-success/15 text-success'"
         :title="isDirty ? 'Pending back-translation on blur' : 'Synchronized with database'"
       >
         {{ isDirty ? 'Draft' : 'Synced' }}
       </span>
     </div>
-    <span v-if="locked" class="editor-block__lock" title="This block is locked by another user">
+    <span
+      v-if="locked"
+      class="editor-block__lock pointer-events-auto absolute top-1 right-2 rounded bg-danger px-2 py-0.5 text-[10px] font-bold tracking-[0.05em] text-danger-contrast uppercase shadow-[0_1px_3px_rgba(0,0,0,0.2)]"
+      title="This block is locked by another user"
+    >
       Locked
     </span>
   </div>
@@ -106,92 +111,3 @@ const componentProps = computed(() => {
   }
 })
 </script>
-
-<style lang="css" scoped>
-.editor-block {
-  position: relative;
-  padding: 4px 12px;
-  border-left: 3px solid transparent;
-  border-radius: 6px;
-  transition:
-    background-color 0.15s ease,
-    border-color 0.15s ease;
-}
-
-.editor-block--active {
-  background-color: var(--bg-subtle);
-  border-left-color: var(--color-primary);
-}
-
-.editor-block--locked {
-  border: 2px solid var(--color-alert, #dc2626);
-  border-radius: 6px;
-  background-color: color-mix(in srgb, var(--color-alert, #dc2626) 8%, transparent);
-  user-select: none;
-  cursor: not-allowed;
-}
-
-.editor-block--locked :deep(*) {
-  pointer-events: none;
-  user-select: none;
-}
-
-.editor-block__lock {
-  position: absolute;
-  top: 4px;
-  right: 8px;
-  padding: 2px 8px;
-  border-radius: 4px;
-  background-color: var(--color-alert, #dc2626);
-  color: var(--color-alert-contrast, #ffffff);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  pointer-events: auto;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-}
-
-.editor-block__canonical-preview {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 4px;
-  padding: 2px 8px;
-  background-color: var(--bg-subtle, rgba(0, 0, 0, 0.04));
-  border-radius: 4px;
-  font-size: 0.72rem;
-  color: var(--text-muted, #64748b);
-  user-select: none;
-}
-
-.canonical-label {
-  font-weight: 700;
-  color: var(--text-secondary, #475569);
-}
-
-.canonical-text {
-  flex: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-style: italic;
-}
-
-.canonical-status {
-  padding: 1px 5px;
-  border-radius: 9999px;
-  font-size: 0.65rem;
-  font-weight: 600;
-}
-
-.canonical-status--synced {
-  background-color: color-mix(in srgb, var(--color-success, #22c55e) 15%, transparent);
-  color: var(--color-success, #22c55e);
-}
-
-.canonical-status--draft {
-  background-color: color-mix(in srgb, var(--color-warn, #eab308) 15%, transparent);
-  color: var(--color-warn, #eab308);
-}
-</style>

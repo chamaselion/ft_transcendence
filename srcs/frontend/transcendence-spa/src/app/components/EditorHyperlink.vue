@@ -1,8 +1,8 @@
 <template>
   <a
     v-if="safeHref"
-    class="hyperlink"
-    :class="{ 'hyperlink--underline': underline }"
+    class="hyperlink cursor-pointer text-[color:var(--hyperlink-color)] transition-colors duration-150 hover:text-[color:color-mix(in_srgb,var(--hyperlink-color)_80%,black)] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--hyperlink-color)]"
+    :class="underline ? 'underline underline-offset-2' : 'no-underline'"
     :href="safeHref"
     :target="target"
     :rel="rel"
@@ -10,7 +10,7 @@
   >
     <slot>{{ text }}</slot>
   </a>
-  <span v-else class="hyperlink hyperlink--invalid" :style="style">
+  <span v-else class="hyperlink hyperlink--invalid cursor-default text-inherit" :style="style">
     <slot>{{ text }}</slot>
   </span>
 </template>
@@ -18,19 +18,22 @@
 <script lang="ts" setup>
 import { computed } from 'vue'
 
-const props = withDefaults(defineProps<{
-  url: string
-  text?: string
-  color?: string
-  size?: string
-  underline?: boolean
-  target?: '_self' | '_blank' | '_parent' | '_top'
-}>(), {
-  color: 'var(--color-primary)',
-  size: 'inherit',
-  underline: true,
-  target: '_blank',
-})
+const props = withDefaults(
+  defineProps<{
+    url: string
+    text?: string
+    color?: string
+    size?: string
+    underline?: boolean
+    target?: '_self' | '_blank' | '_parent' | '_top'
+  }>(),
+  {
+    color: 'var(--color-primary)',
+    size: 'inherit',
+    underline: true,
+    target: '_blank',
+  },
+)
 
 // Only http(s) URLs are accepted, so schemes like `javascript:` or `data:`
 // can never reach the `href` and turn the link into an XSS vector. The URL
@@ -51,37 +54,3 @@ const style = computed(() => ({
   fontSize: props.size,
 }))
 </script>
-
-<style lang="css" scoped>
-.hyperlink {
-  color: var(--hyperlink-color, var(--color-primary));
-  cursor: pointer;
-  text-decoration: none;
-  transition: color .15s ease-in-out;
-}
-
-.hyperlink--underline {
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-.hyperlink:hover {
-  color: color-mix(in srgb, var(--hyperlink-color, var(--color-primary)) 80%, black);
-  text-decoration: underline;
-}
-
-.hyperlink:focus-visible {
-  outline: 2px solid var(--hyperlink-color, var(--color-primary));
-  outline-offset: 2px;
-}
-
-.hyperlink--invalid {
-  color: inherit;
-  cursor: default;
-}
-
-.hyperlink--invalid:hover {
-  color: inherit;
-  text-decoration: none;
-}
-</style>

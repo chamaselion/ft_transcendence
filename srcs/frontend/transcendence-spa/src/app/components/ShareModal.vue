@@ -5,12 +5,12 @@
     size="default"
     @update:model-value="$emit('update:modelValue', $event)"
   >
-    <div class="share-modal">
+    <div class="flex flex-col gap-5">
       <!-- Add new collaborator section -->
-      <section v-if="isOwner" class="share-modal__section">
-        <h3 class="share-modal__section-title">Invite Collaborator</h3>
-        <form class="share-modal__form" @submit.prevent="handleShare">
-          <div class="share-modal__inputs">
+      <section v-if="isOwner" class="flex flex-col gap-2.5 border-b border-line-subtle pb-4">
+        <h3 class="m-0 text-[0.95rem] font-semibold text-ink">Invite Collaborator</h3>
+        <form class="flex flex-col gap-3" @submit.prevent="handleShare">
+          <div class="flex flex-col gap-2.5">
             <Input
               v-model="email"
               type="email"
@@ -20,11 +20,11 @@
               required
             />
 
-            <label class="share-modal__select-label">
-              <span class="share-modal__label-text">Permission</span>
+            <label class="flex flex-col gap-1.5">
+              <span class="text-sm text-ink-secondary">Permission</span>
               <select
                 v-model="permission"
-                class="share-modal__select"
+                class="rounded-lg border border-line-subtle bg-surface px-3 py-2 text-sm text-ink outline-none transition-colors duration-150 focus:border-brand disabled:cursor-not-allowed disabled:opacity-50"
                 :disabled="loading"
               >
                 <option value="editor">Editor (Can edit and write)</option>
@@ -33,7 +33,7 @@
             </label>
           </div>
 
-          <div class="share-modal__actions">
+          <div class="flex justify-end">
             <Button
               type="submit"
               variant="elevated"
@@ -46,51 +46,69 @@
           </div>
         </form>
 
-        <p v-if="error" class="share-modal__alert share-modal__alert--error">
+        <p
+          v-if="error"
+          class="m-0 rounded-md border border-danger bg-danger/12 px-3 py-2 text-[0.825rem] text-danger"
+        >
           {{ error }}
         </p>
-        <p v-if="successMessage" class="share-modal__alert share-modal__alert--success">
+        <p
+          v-if="successMessage"
+          class="m-0 rounded-md border border-success bg-success/12 px-3 py-2 text-[0.825rem] text-success"
+        >
           {{ successMessage }}
         </p>
       </section>
 
-      <section v-else class="share-modal__section">
-        <p class="share-modal__hint">
+      <section v-else class="flex flex-col gap-2.5 border-b border-line-subtle pb-4">
+        <p class="m-0 text-sm text-muted">
           Only the document owner can manage shares and invite new collaborators.
         </p>
       </section>
 
       <!-- Existing collaborators section -->
-      <section class="share-modal__section">
-        <h3 class="share-modal__section-title">People with Access</h3>
+      <section class="flex flex-col gap-2.5 border-b border-line-subtle pb-4">
+        <h3 class="m-0 text-[0.95rem] font-semibold text-ink">People with Access</h3>
 
-        <div v-if="loadingShares" class="share-modal__muted">
+        <div v-if="loadingShares" class="px-0 py-2 text-sm text-muted italic">
           Loading collaborators...
         </div>
 
-        <div v-else-if="shares.length === 0" class="share-modal__muted">
+        <div v-else-if="shares.length === 0" class="px-0 py-2 text-sm text-muted italic">
           No collaborators shared yet. Invite someone using their email above.
         </div>
 
-        <ul v-else class="share-modal__list">
-          <li v-for="share in shares" :key="share.userId" class="share-modal__item">
-            <div class="share-modal__user-info">
-              <span class="share-modal__user-login">{{ share.login }}</span>
-              <span class="share-modal__user-email">{{ share.email }}</span>
+        <ul v-else class="m-0 flex max-h-[180px] list-none flex-col gap-2 overflow-y-auto p-0">
+          <li
+            v-for="share in shares"
+            :key="share.userId"
+            class="flex items-center justify-between rounded-lg bg-subtle px-3 py-2"
+          >
+            <div class="flex flex-col gap-0.5">
+              <span class="text-sm font-semibold text-ink">{{ share.login }}</span>
+              <span class="text-xs text-muted">{{ share.email }}</span>
             </div>
 
-            <div class="share-modal__user-actions">
+            <div class="flex items-center gap-2">
               <select
                 v-if="isOwner"
                 :value="share.permission"
-                class="share-modal__select share-modal__select--compact"
+                class="rounded-lg border border-line-subtle bg-surface px-2 py-1 text-[0.8rem] text-ink outline-none transition-colors duration-150 focus:border-brand disabled:cursor-not-allowed disabled:opacity-50"
                 :disabled="loading"
-                @change="handleUpdatePermission(share.userId, ($event.target as HTMLSelectElement).value as 'viewer' | 'editor')"
+                @change="
+                  handleUpdatePermission(
+                    share.userId,
+                    ($event.target as HTMLSelectElement).value as 'viewer' | 'editor',
+                  )
+                "
               >
                 <option value="editor">Editor</option>
                 <option value="viewer">Viewer</option>
               </select>
-              <span v-else class="share-modal__badge">
+              <span
+                v-else
+                class="rounded-full bg-surface px-2 py-0.5 text-xs font-medium text-ink-secondary"
+              >
                 {{ share.permission }}
               </span>
 
@@ -111,18 +129,10 @@
       </section>
 
       <!-- Share link section -->
-      <section class="share-modal__section share-modal__section--footer">
-        <div class="share-modal__link-row">
-          <Input
-            :model-value="shareUrl"
-            label="Room Link"
-            readonly
-          />
-          <Button
-            variant="outlined"
-            size="small"
-            @click="handleCopyLink"
-          >
+      <section class="flex flex-col gap-2.5 pb-0">
+        <div class="flex w-full items-end gap-2">
+          <Input :model-value="shareUrl" label="Room Link" readonly />
+          <Button variant="outlined" size="small" @click="handleCopyLink">
             {{ copied ? 'Copied!' : 'Copy Link' }}
           </Button>
         </div>
@@ -258,170 +268,3 @@ watch(
   { immediate: true },
 )
 </script>
-
-<style lang="css" scoped>
-.share-modal {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.share-modal__section {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.share-modal__section--footer {
-  border-bottom: none;
-  padding-bottom: 0;
-}
-
-.share-modal__section-title {
-  margin: 0;
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--text-base);
-}
-
-.share-modal__form {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.share-modal__inputs {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.share-modal__select-label {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.share-modal__label-text {
-  font-size: 0.875rem;
-  color: var(--text-secondary);
-}
-
-.share-modal__select {
-  padding: 8px 12px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 8px;
-  background-color: var(--bg-surface);
-  color: var(--text-base);
-  font-size: 0.875rem;
-  outline: none;
-  transition: border-color 0.15s ease;
-}
-
-.share-modal__select:focus {
-  border-color: var(--color-primary);
-}
-
-.share-modal__select--compact {
-  padding: 4px 8px;
-  font-size: 0.8rem;
-}
-
-.share-modal__actions {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.share-modal__alert {
-  margin: 0;
-  padding: 8px 12px;
-  border-radius: 6px;
-  font-size: 0.825rem;
-}
-
-.share-modal__alert--error {
-  background-color: color-mix(in srgb, var(--color-alert, #ef4444) 12%, transparent);
-  color: var(--color-alert, #ef4444);
-  border: 1px solid var(--color-alert, #ef4444);
-}
-
-.share-modal__alert--success {
-  background-color: color-mix(in srgb, var(--color-success, #22c55e) 12%, transparent);
-  color: var(--color-success, #22c55e);
-  border: 1px solid var(--color-success, #22c55e);
-}
-
-.share-modal__hint {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: 0.875rem;
-}
-
-.share-modal__muted {
-  color: var(--text-muted);
-  font-size: 0.875rem;
-  font-style: italic;
-  padding: 8px 0;
-}
-
-.share-modal__list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-height: 180px;
-  overflow-y: auto;
-}
-
-.share-modal__item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 12px;
-  border-radius: 8px;
-  background-color: var(--bg-subtle);
-}
-
-.share-modal__user-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.share-modal__user-login {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--text-base);
-}
-
-.share-modal__user-email {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-}
-
-.share-modal__user-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.share-modal__badge {
-  padding: 2px 8px;
-  border-radius: 9999px;
-  background-color: var(--bg-surface);
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--text-secondary);
-}
-
-.share-modal__link-row {
-  display: flex;
-  align-items: flex-end;
-  gap: 8px;
-  width: 100%;
-}
-</style>

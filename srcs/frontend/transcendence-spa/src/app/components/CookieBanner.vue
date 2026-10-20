@@ -100,23 +100,34 @@ defineExpose({
 </script>
 
 <template>
-  <Transition name="cookie-banner-fade">
+  <Transition
+    enter-active-class="transition-[opacity,transform] duration-300 ease-out"
+    enter-from-class="translate-y-5 opacity-0"
+    leave-active-class="transition-[opacity,transform] duration-300 ease-in"
+    leave-to-class="translate-y-5 opacity-0"
+  >
     <div
       v-if="isVisible"
-      class="cookie-banner-overlay"
+      class="pointer-events-none fixed inset-x-0 bottom-0 z-[9999] flex justify-center p-4"
       role="region"
       aria-label="EU Cookie Notice"
     >
-      <div class="cookie-banner">
+      <div
+        class="pointer-events-auto flex w-full max-w-[960px] flex-col gap-4 rounded-xl border border-line bg-surface/95 p-4 text-ink shadow-float backdrop-blur-md sm:px-6 sm:py-5"
+      >
         <!-- Main Header & Notice -->
-        <div class="cookie-banner__header">
-          <div class="cookie-banner__title-wrapper">
-            <span class="cookie-banner__icon-badge">
-              <Icon name="Cookie" :size="20" class="cookie-banner__icon" />
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <span
+              class="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[10px] bg-brand/12 text-brand"
+            >
+              <Icon name="Cookie" :size="20" />
             </span>
-            <div class="cookie-banner__titles">
-              <h2 class="cookie-banner__title">EU Cookie &amp; Privacy Notice</h2>
-              <span class="cookie-banner__badge">
+            <div class="flex flex-wrap items-center gap-2.5">
+              <h2 class="m-0 text-[1.05rem] font-bold text-ink">EU Cookie &amp; Privacy Notice</h2>
+              <span
+                class="inline-flex items-center gap-1 rounded-full border border-success/25 bg-success/15 px-2 py-0.5 text-[0.72rem] font-semibold text-success"
+              >
                 <Icon name="ShieldCheck" :size="13" />
                 ePrivacy &amp; GDPR Compliant
               </span>
@@ -124,30 +135,44 @@ defineExpose({
           </div>
         </div>
 
-        <div class="cookie-banner__body">
-          <p class="cookie-banner__description">
-            Trans Edit uses strictly functional cookies and local storage to provide essential services such as
-            user authentication, session security, and theme preferences. In accordance with EU Directive 2002/58/EC
-            (ePrivacy) and GDPR Art. 6, all cookies used on this site are strictly necessary for core functionality.
-            <strong>We do not use any advertising, profiling, or third-party tracking cookies.</strong>
+        <div class="text-sm leading-normal text-ink-secondary">
+          <p class="m-0">
+            Trans Edit uses strictly functional cookies and local storage to provide essential
+            services such as user authentication, session security, and theme preferences. In
+            accordance with EU Directive 2002/58/EC (ePrivacy) and GDPR Art. 6, all cookies used on
+            this site are strictly necessary for core functionality.
+            <strong class="text-ink"
+              >We do not use any advertising, profiling, or third-party tracking cookies.</strong
+            >
           </p>
         </div>
 
         <!-- Expandable Details Section -->
-        <Transition name="cookie-expand">
-          <div v-if="showDetails" class="cookie-banner__details">
-            <div class="cookie-banner__details-header">
-              <h3 class="cookie-banner__details-title">
+        <Transition
+          enter-active-class="max-h-[500px] overflow-hidden transition-[max-height,opacity,transform] duration-[250ms] ease-in-out"
+          enter-from-class="max-h-0 -translate-y-2 opacity-0"
+          leave-active-class="max-h-[500px] overflow-hidden transition-[max-height,opacity,transform] duration-[250ms] ease-in-out"
+          leave-to-class="max-h-0 -translate-y-2 opacity-0"
+        >
+          <div
+            v-if="showDetails"
+            class="mt-1 flex flex-col gap-3 rounded-lg border border-line-subtle bg-subtle p-4"
+          >
+            <div class="flex flex-col gap-1">
+              <h3 class="m-0 flex items-center gap-1.5 text-[0.9rem] font-semibold text-ink">
                 <Icon name="InfoCircle" :size="16" />
                 Active Storage &amp; Cookies Inventory
               </h3>
-              <p class="cookie-banner__details-subtitle">
-                The following technical storage items are set by this website for core site functionality:
+              <p class="m-0 text-[0.8rem] text-ink-secondary">
+                The following technical storage items are set by this website for core site
+                functionality:
               </p>
             </div>
 
-            <div class="cookie-banner__table-container">
-              <table class="cookie-banner__table">
+            <div class="overflow-x-auto rounded-md">
+              <table
+                class="w-full border-collapse text-left text-[0.8rem] [&_td]:border-b [&_td]:border-line-subtle [&_td]:px-3 [&_td]:py-2 [&_th]:border-b [&_th]:border-line-subtle [&_th]:bg-[color-mix(in_srgb,var(--bg-surface)_60%,transparent)] [&_th]:px-3 [&_th]:py-2 [&_th]:font-semibold [&_th]:whitespace-nowrap [&_th]:text-ink-secondary"
+              >
                 <thead>
                   <tr>
                     <th>Name</th>
@@ -161,16 +186,25 @@ defineExpose({
                 <tbody>
                   <tr v-for="cookie in cookieInventory" :key="cookie.name">
                     <td>
-                      <code class="cookie-name">{{ cookie.name }}</code>
+                      <code
+                        class="rounded bg-brand/10 px-1.5 py-0.5 font-mono font-semibold text-brand"
+                        >{{ cookie.name }}</code
+                      >
                     </td>
                     <td>{{ cookie.type }}</td>
                     <td>
-                      <span class="category-pill">{{ cookie.category }}</span>
+                      <span
+                        class="inline-block rounded-full bg-brand/12 px-2 py-0.5 text-[0.7rem] font-semibold whitespace-nowrap text-brand"
+                        >{{ cookie.category }}</span
+                      >
                     </td>
                     <td>{{ cookie.duration }}</td>
-                    <td class="cookie-purpose">{{ cookie.purpose }}</td>
+                    <td class="max-w-[320px] text-ink-secondary">{{ cookie.purpose }}</td>
                     <td>
-                      <span class="status-pill status-pill--required" title="Essential for site operation">
+                      <span
+                        class="inline-block rounded-full bg-success/15 px-2 py-0.5 text-[0.7rem] font-semibold whitespace-nowrap text-success"
+                        title="Essential for site operation"
+                      >
                         Always Active
                       </span>
                     </td>
@@ -182,11 +216,11 @@ defineExpose({
         </Transition>
 
         <!-- Action Buttons -->
-        <div class="cookie-banner__actions">
+        <div class="flex items-center justify-end gap-3 pt-1 max-sm:flex-col-reverse max-sm:items-stretch">
           <Button
             variant="outlined"
             size="small"
-            class="cookie-banner__btn-details"
+            class="max-sm:w-full max-sm:justify-center"
             @click="toggleDetails"
           >
             {{ showDetails ? 'Hide Details' : 'View Cookie Details' }}
@@ -196,7 +230,7 @@ defineExpose({
             variant="elevated"
             color="primary"
             size="small"
-            class="cookie-banner__btn-accept"
+            class="max-sm:w-full max-sm:justify-center"
             @click="acceptAll"
           >
             Got it &amp; Accept Functional Cookies
@@ -206,248 +240,3 @@ defineExpose({
     </div>
   </Transition>
 </template>
-
-<style scoped>
-.cookie-banner-overlay {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 9999;
-  padding: 16px;
-  pointer-events: none;
-  display: flex;
-  justify-content: center;
-}
-
-.cookie-banner {
-  pointer-events: auto;
-  width: 100%;
-  max-width: 960px;
-  background-color: color-mix(in srgb, var(--bg-surface) 96%, transparent);
-  backdrop-filter: blur(12px);
-  border: 1px solid var(--border-default);
-  border-radius: 12px;
-  box-shadow: var(--shadow-xl);
-  padding: 20px 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  color: var(--text-primary);
-}
-
-.cookie-banner__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.cookie-banner__title-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.cookie-banner__icon-badge {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
-  background-color: color-mix(in srgb, var(--color-primary) 12%, transparent);
-  color: var(--color-primary);
-  flex-shrink: 0;
-}
-
-.cookie-banner__titles {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.cookie-banner__title {
-  margin: 0;
-  font-size: 1.05rem;
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
-.cookie-banner__badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 0.72rem;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background-color: color-mix(in srgb, var(--color-good) 15%, transparent);
-  color: var(--color-good);
-  border: 1px solid color-mix(in srgb, var(--color-good) 25%, transparent);
-}
-
-.cookie-banner__body {
-  font-size: 0.875rem;
-  line-height: 1.5;
-  color: var(--text-secondary);
-}
-
-.cookie-banner__description {
-  margin: 0;
-}
-
-.cookie-banner__description strong {
-  color: var(--text-primary);
-}
-
-.cookie-banner__details {
-  background-color: var(--bg-subtle);
-  border: 1px solid var(--border-subtle);
-  border-radius: 8px;
-  padding: 16px;
-  margin-top: 4px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.cookie-banner__details-header {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.cookie-banner__details-title {
-  margin: 0;
-  font-size: 0.9rem;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--text-primary);
-}
-
-.cookie-banner__details-subtitle {
-  margin: 0;
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-}
-
-.cookie-banner__table-container {
-  overflow-x: auto;
-  border-radius: 6px;
-}
-
-.cookie-banner__table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.8rem;
-  text-align: left;
-}
-
-.cookie-banner__table th,
-.cookie-banner__table td {
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.cookie-banner__table th {
-  background-color: color-mix(in srgb, var(--bg-surface) 60%, transparent);
-  color: var(--text-secondary);
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.cookie-name {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-weight: 600;
-  padding: 2px 6px;
-  border-radius: 4px;
-  background-color: color-mix(in srgb, var(--color-primary) 10%, transparent);
-  color: var(--color-primary);
-}
-
-.category-pill {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 0.7rem;
-  font-weight: 600;
-  background-color: color-mix(in srgb, var(--color-primary) 12%, transparent);
-  color: var(--color-primary);
-  white-space: nowrap;
-}
-
-.cookie-purpose {
-  color: var(--text-secondary);
-  max-width: 320px;
-}
-
-.status-pill {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 0.7rem;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.status-pill--required {
-  background-color: color-mix(in srgb, var(--color-good) 15%, transparent);
-  color: var(--color-good);
-}
-
-.cookie-banner__actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 12px;
-  padding-top: 4px;
-}
-
-/* Animations */
-.cookie-banner-fade-enter-active,
-.cookie-banner-fade-leave-active {
-  transition: opacity 0.3s ease, transform 0.3s ease;
-}
-
-.cookie-banner-fade-enter-from,
-.cookie-banner-fade-leave-to {
-  opacity: 0;
-  transform: translateY(20px);
-}
-
-.cookie-expand-enter-active,
-.cookie-expand-leave-active {
-  transition: all 0.25s ease;
-  max-height: 500px;
-  overflow: hidden;
-}
-
-.cookie-expand-enter-from,
-.cookie-expand-leave-to {
-  opacity: 0;
-  max-height: 0;
-  padding-top: 0;
-  padding-bottom: 0;
-  transform: translateY(-8px);
-}
-
-@media (max-width: 640px) {
-  .cookie-banner {
-    padding: 16px;
-  }
-
-  .cookie-banner__actions {
-    flex-direction: column-reverse;
-    align-items: stretch;
-  }
-
-  .cookie-banner__btn-details,
-  .cookie-banner__btn-accept {
-    width: 100%;
-    justify-content: center;
-  }
-}
-</style>

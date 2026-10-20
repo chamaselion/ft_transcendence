@@ -48,15 +48,17 @@ Implementation note:
 
 ---
 ***2p  Major: Advanced permissions system.**
-- [ ] View, edit, and delete users (CRUD).
-- [ ] Roles management (admin, user, guest, moderator, etc.).
-- [ ] Different views and actions based on user role.
-- [ ] 
+- [x] View, edit, and delete users (CRUD).
+- [x] Roles management (admin, user, guest, moderator, etc.).
+- [x] Different views and actions based on user role.
+
 Implementation note:
 
 ---
-- [ ] **1p Minor: Sentiment analysis for user-generated content.**
-AI transation for editor content?
+**2 pMajor: Implement a complete LLM system interface.**
+- [x] Generate text and/or images based on user input.
+- [x] Handle streaming responses properly.
+- [x] Implement error handling and rate limiting.
 
 Implementation note:
 
@@ -72,9 +74,9 @@ Implementation note:
 
 ---
 **1p Minor: Support for multiple languages (at least 3 languages).**
-- [ ] Implement i18n (internationalization) system.
-- [ ] At least 3 complete language translations.
-- [ ] Language switcher in the UI.
+- [x] Implement i18n (internationalization) system.
+- [x] At least 3 complete language translations.
+- [x] Language switcher in the UI.
 - [ ] All user-facing text must be translatable.
 
 Implementation note:
@@ -91,17 +93,4 @@ Implementation note:
 
 ---
 ### Points altogether:
-### **16**
-
----
-
-*Maybe:*
-
-Minor: Server-Side Rendering (SSR) for improved performance and SEO.
-
-1 Minor: User activity analytics and insights dashboard.
-
-2 Major: Allow users to interact with other users.
--  A basic chat system (send/receive messages between users).
--  A profile system (view user information).
--  A friends system (add/remove friends, see friends list).
+### **18**

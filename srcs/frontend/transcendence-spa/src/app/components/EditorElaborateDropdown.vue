@@ -1,45 +1,41 @@
 <template>
-  <div ref="containerRef" class="elaborate-dropdown">
+  <div ref="containerRef" class="relative inline-flex items-center">
     <!-- Trigger Button -->
     <Button
       variant="flat"
       size="small"
       :disabled="disabled || loading"
-      class="elaborate-dropdown__btn"
+      class="gap-1.5! px-2! py-[3px]! text-[0.8125rem]!"
       :title="loading ? 'Elaborating block with AI...' : 'Rewrite or elaborate paragraph with AI persona'"
       @click="toggleMenu"
     >
       <template #icon>
-        <Icon
-          name="Sparkles"
-          :size="16"
-          :class="{ 'elaborate-dropdown__sparkle--spinning': loading }"
-        />
+        <Icon name="Sparkles" :size="16" :class="{ 'animate-spin': loading }" />
       </template>
-      <span class="elaborate-dropdown__btn-text">
+      <span class="text-[0.775rem]">
         {{ loading ? 'Elaborating…' : 'AI Elaborate' }}
       </span>
-      <span class="elaborate-dropdown__chevron" aria-hidden="true">▾</span>
+      <span class="ml-0.5 text-[0.65rem] opacity-80" aria-hidden="true">▾</span>
     </Button>
 
     <!-- Dropdown Menu Popover -->
     <div
       v-if="isOpen"
-      class="elaborate-menu"
+      class="absolute top-[calc(100%+6px)] left-0 z-[100] flex max-h-[460px] w-[360px] max-w-[90vw] flex-col gap-1.5 overflow-y-auto rounded-lg border border-line bg-surface p-1.5 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.15),0_8px_10px_-6px_rgba(0,0,0,0.1)]"
       role="menu"
       aria-orientation="vertical"
     >
-      <div class="elaborate-menu__header">
+      <div
+        class="flex items-center gap-1.5 border-b border-line-subtle px-2 py-1.5 text-xs font-bold text-brand"
+      >
         <Icon name="Sparkles" :size="14" />
         <span>Select AI Block Persona</span>
       </div>
 
-      <div
-        v-for="cat in PERSONA_CATEGORIES"
-        :key="cat"
-        class="elaborate-menu__category"
-      >
-        <div class="elaborate-menu__category-title">
+      <div v-for="cat in PERSONA_CATEGORIES" :key="cat" class="flex flex-col gap-0.5">
+        <div
+          class="px-2 pt-1.5 pb-[3px] text-[0.7rem] font-bold tracking-[0.03em] text-muted uppercase"
+        >
           {{ cat }}
         </div>
 
@@ -47,14 +43,14 @@
           v-for="persona in getPersonasForCategory(cat)"
           :key="persona.key"
           type="button"
-          class="elaborate-menu__item"
+          class="flex w-full cursor-pointer flex-col items-start rounded-md border-none bg-transparent px-2 py-1.5 text-left transition-colors duration-150 hover:bg-subtle"
           role="menuitem"
           @click="selectPersona(persona.key)"
         >
-          <div class="elaborate-menu__item-name">
+          <div class="text-[0.8125rem] font-semibold text-ink">
             {{ persona.name }}
           </div>
-          <div class="elaborate-menu__item-desc">
+          <div class="mt-0.5 text-[0.72rem] leading-[1.35] text-ink-secondary">
             {{ persona.description }}
           </div>
         </button>
@@ -63,18 +59,14 @@
 
     <!-- Hidden / Semantic HTML Select for automated testing & accessibility -->
     <select
-      class="elaborate-dropdown__native-select"
+      class="sr-only"
       aria-label="AI Persona"
       tabindex="-1"
       :disabled="disabled || loading"
       @change="onNativeSelectChange"
     >
       <option value="" disabled selected>Elaborate with AI</option>
-      <optgroup
-        v-for="cat in PERSONA_CATEGORIES"
-        :key="cat"
-        :label="cat"
-      >
+      <optgroup v-for="cat in PERSONA_CATEGORIES" :key="cat" :label="cat">
         <option
           v-for="persona in getPersonasForCategory(cat)"
           :key="persona.key"
@@ -162,131 +154,3 @@ onBeforeUnmount(() => {
   document.removeEventListener('keydown', handleKeydown)
 })
 </script>
-
-<style scoped>
-.elaborate-dropdown {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  color: var(--btn-contrast);
-}
-
-.elaborate-dropdown__btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-weight: 500;
-  font-size: 0.8125rem;
-  color: var(--color-primary-contrast);
-  padding: 3px 8px;
-  border-radius: 6px;
-  transition: background-color 0.15s ease, opacity 0.15s ease;
-}
-
-.elaborate-dropdown__btn-text {
-  font-size: 0.775rem;
-}
-
-.elaborate-dropdown__chevron {
-  font-size: 0.65rem;
-  opacity: 0.8;
-  margin-left: 2px;
-}
-
-.elaborate-dropdown__sparkle--spinning {
-  animation: spin 1.2s infinite linear;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-.elaborate-menu {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  z-index: 100;
-  width: 360px;
-  max-width: 90vw;
-  max-height: 460px;
-  overflow-y: auto;
-  background-color: var(--bg-surface, #ffffff);
-  border: 1px solid var(--border-default, #e2e8f0);
-  border-radius: 8px;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
-  padding: 6px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.elaborate-menu__header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 8px;
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: var(--color-primary, #3b82f6);
-  border-bottom: 1px solid var(--border-subtle, #f1f5f9);
-}
-
-.elaborate-menu__category {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.elaborate-menu__category-title {
-  padding: 6px 8px 3px;
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  color: var(--text-muted, #94a3b8);
-}
-
-.elaborate-menu__item {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  text-align: left;
-  padding: 6px 8px;
-  border-radius: 6px;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  transition: background-color 0.15s ease;
-  width: 100%;
-}
-
-.elaborate-menu__item:hover {
-  background-color: var(--bg-subtle, #f8fafc);
-}
-
-.elaborate-menu__item-name {
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--text-primary, #0f172a);
-}
-
-.elaborate-menu__item-desc {
-  margin-top: 2px;
-  font-size: 0.72rem;
-  line-height: 1.35;
-  color: var(--text-secondary, #64748b);
-}
-
-/* Visually hidden native select kept for screen readers & integration tests */
-.elaborate-dropdown__native-select {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: -1px;
-  padding: 0;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  border: 0;
-}
-</style>

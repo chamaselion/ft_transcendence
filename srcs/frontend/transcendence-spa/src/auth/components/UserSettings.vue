@@ -8,8 +8,9 @@ import Icon from '@/app/components/Icon.vue'
 import Input from '@/app/components/Input.vue'
 import Toast from '@/app/components/Toast.vue'
 import type { Root, User } from '../types/user'
-import type { OtpConfirmationResponse, GdprDataRequestResponse } from '../types/auth.types'
+import type { OtpConfirmationResponse } from '../types/auth.types'
 import { useAuthStore } from '@/stores/auth'
+import UserIcon from '@/app/components/UserIcon.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -28,6 +29,10 @@ const otpCode = ref('')
 const displayOTP = ref(false)
 const confirmationID = ref('')
 
+const deletionConfirmationID = ref('')
+const deletionCode = ref('')
+const deleting = ref(false)
+
 const updateSuccess = ref(false)
 const updateSuccessMessage = ref('')
 
@@ -37,9 +42,7 @@ const gdprSuccessMessage = ref('')
 
 const loggedIn = computed(() => res.value?.loggedIn === true)
 const status = computed(() => (loggedIn.value ? 'good' : 'warn'))
-const statusLabel = computed(() =>
-  loggedIn.value ? 'You are logged in' : 'You are not logged in',
-)
+const statusLabel = computed(() => (loggedIn.value ? 'You are logged in' : 'You are not logged in'))
 
 const roleLabel = computed(() => {
   const role = user.value?.role
@@ -112,10 +115,59 @@ async function confirmUpdateDetails() {
     errorFlag.value = true
     message.value =
       error instanceof Error ? error.message : 'Something went wrong while confirming OTP'
+  } finally {
+    otpCode.value = ''
   }
-  finally{
-    otpCode.value = '';
+}
+
+async function changeAvatar() {
+  // NOTE: Placeholder for avatar change functionality
+  console.log('Change avatar clicked')
+}
+
+async function requestDeletion() {
+  if (deleting.value) return
+  deleting.value = true
+  errorFlag.value = false
+  try {
+    const response = await httpClient.post<{ confirmationId: string }>(
+      'me/data-deletion/request',
+      {},
+    )
+    deletionConfirmationID.value = response.confirmationId
+    deletionCode.value = ''
+  } catch (error) {
+    message.value = error instanceof Error ? error.message : 'Failed to request account deletion.'
+    errorFlag.value = true
+  } finally {
+    deleting.value = false
   }
+}
+
+async function confirmDeletion() {
+  if (deleting.value || !deletionConfirmationID.value || !deletionCode.value.trim()) return
+  deleting.value = true
+  errorFlag.value = false
+  try {
+    await httpClient.post('me/data-deletion/confirm', {
+      confirmationId: deletionConfirmationID.value,
+      code: deletionCode.value.trim(),
+    })
+    authStore.invalidate()
+    res.value = { loggedIn: false }
+    user.value = null
+    await router.replace('/login')
+  } catch (error) {
+    message.value = error instanceof Error ? error.message : 'Failed to delete your account.'
+    errorFlag.value = true
+  } finally {
+    deleting.value = false
+  }
+}
+
+function cancelDeletion() {
+  deletionConfirmationID.value = ''
+  deletionCode.value = ''
 }
 
 async function exportGdprData(format: 'json' | 'csv' = 'json') {
@@ -151,10 +203,10 @@ onMounted(loadProfile)
 </script>
 
 <template>
-  <div class="user-settings">
-    <header class="user-settings__header">
-      <h1 class="user-settings__title">User Settings</h1>
-      <p class="user-settings__subtitle">Your account details and session status.</p>
+  <div class="box-border mx-auto w-full max-w-[520px] px-6 py-12">
+    <header class="mb-6">
+      <h1 class="m-0 mb-1.5 text-[1.6rem] font-bold text-ink">User Settings</h1>
+      <p class="m-0 text-sm text-ink-secondary">Your account details and session status.</p>
     </header>
 
     <Toast
@@ -163,7 +215,7 @@ onMounted(loadProfile)
       :message="message"
       :duration="6000"
       fluid
-      class="user-settings__toast"
+      class="mb-4"
     />
 
     <Toast
@@ -172,7 +224,7 @@ onMounted(loadProfile)
       :message="updateSuccessMessage"
       :duration="6000"
       fluid
-      class="user-settings__toast"
+      class="mb-4"
     />
 
     <Toast
@@ -181,38 +233,61 @@ onMounted(loadProfile)
       :message="gdprSuccessMessage"
       :duration="6000"
       fluid
-      class="user-settings__toast"
+      class="mb-4"
     />
 
-    <Card v-if="pending" class="user-settings__card">
-      <p class="skeleton__caption">Loading your profile…</p>
+    <Card v-if="pending" class="w-full">
+      <p class="mt-4 text-center text-[13px] text-muted">Loading your profile…</p>
     </Card>
 
-    <Card v-else-if="failed" class="user-settings__card">
-      <div class="state">
-        <span class="state__badge state__badge--alert" aria-hidden="true">!</span>
-        <p class="state__title">We couldn't load your profile</p>
-        <p class="state__text">Something went wrong while contacting the server.</p>
+    <Card v-else-if="failed" class="w-full">
+      <div class="flex flex-col items-center gap-2.5 px-0 pt-3 pb-1 text-center">
+        <span
+          class="mb-1 inline-flex h-10 w-10 items-center justify-center rounded-full bg-danger/15 text-xl leading-none font-bold text-danger"
+          aria-hidden="true"
+          >!</span
+        >
+        <p class="m-0 text-base font-semibold text-ink">We couldn't load your profile</p>
+        <p class="m-0 mb-2 max-w-[34ch] text-sm leading-normal text-ink-secondary">
+          Something went wrong while contacting the server.
+        </p>
         <Button variant="elevated" color="primary" @click="loadProfile">Try again</Button>
       </div>
     </Card>
 
-    <Card v-else-if="loggedIn" class="user-settings__card">
-      <div class="profile__identity">
-        <div class="profile__meta">
-          <span class="profile__login">{{ user?.login }}</span>
-          <span v-if="roleLabel" class="profile__role">{{ roleLabel }}</span>
+    <Card v-else-if="loggedIn" class="w-full">
+      <div class="flex items-center gap-4 border-b border-line-subtle pb-4">
+        <div class="flex w-full min-w-0 flex-col items-start gap-1.5">
+          <div class="flex w-full items-center justify-between">
+            <span class="text-lg font-semibold text-ink [overflow-wrap:anywhere]">{{
+              user?.login
+            }}</span>
+            <div class="group relative inline-flex shrink-0 overflow-hidden rounded-full">
+              <UserIcon
+                class="transition-[filter] duration-[180ms] group-hover:blur-[2px]"
+                avatar-url="https://thispersondoesnotexist.com/random-person.jpeg"
+                size="large"
+                @click="changeAvatar"
+              />
+              <span
+                class="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/25 text-[28px] leading-none text-white opacity-0 transition-opacity duration-[180ms] group-hover:opacity-100"
+                aria-hidden="true"
+                >+</span
+              >
+            </div>
+          </div>
+          <span
+            v-if="roleLabel"
+            class="rounded-full px-2.5 py-0.5 text-xs font-semibold tracking-wide uppercase"
+            :class="user?.role === 'admin' ? 'bg-danger/12 text-danger' : 'bg-brand/12 text-brand'"
+            >{{ roleLabel }}</span
+          >
         </div>
       </div>
 
-      <dl v-if="user" class="profile__details">
-        <div class="profile__id-detail">
-          <span class="profile__detail-label">User ID</span>
-          <p id="userID" class="profile__detail-value">{{ user.id }}</p>
-        </div>
-
-        <div class="profile__detail">
-          <form @submit.prevent="updateUserDetails(email, login)">
+      <dl v-if="user" class="flex flex-col">
+        <div class="mb-2">
+          <form class="grid gap-2" @submit.prevent="updateUserDetails(email, login)">
             <Input label="Email" v-model="email" type="text" />
             <Input label="Username" v-model="login" type="text" />
             <Button
@@ -225,318 +300,113 @@ onMounted(loadProfile)
           </form>
         </div>
 
-        <div v-if="displayOTP" class="profile__detail">
-          <form @submit.prevent="confirmUpdateDetails">
+        <div v-if="displayOTP" class="mb-2">
+          <form class="grid gap-2" @submit.prevent="confirmUpdateDetails">
             <Input label="OTP Code" v-model="otpCode" type="text" />
-            <Button
-              v-if="confirmationID"
-              variant="elevated"
-              type="submit"
-            >
-              Confirm OTP
-            </Button>
+            <Button v-if="confirmationID" variant="elevated" type="submit">Confirm OTP</Button>
           </form>
         </div>
       </dl>
 
-      <div v-if="user" class="profile__gdpr">
-        <div class="profile__gdpr-info">
-          <span class="profile__gdpr-title">Privacy &amp; GDPR</span>
-          <p class="profile__gdpr-description">
-            Under GDPR Art. 15, you have the right to obtain a copy of your personal data.
+      <div v-if="user" class="mt-5 flex flex-col gap-4 border-t border-line-subtle pt-4">
+        <div class="flex flex-col gap-3">
+          <div class="flex flex-col gap-1">
+            <span class="text-sm font-semibold text-ink">Privacy &amp; GDPR</span>
+            <p class="m-0 text-[13px] leading-snug text-ink-secondary">
+              Under GDPR Art. 15, you have the right to obtain a copy of your personal data.
+            </p>
+          </div>
+          <div class="flex flex-wrap items-center gap-2.5">
+            <Button
+              id="request-gdpr-btn"
+              variant="outlined"
+              color="primary"
+              :loading="gdprPending"
+              @click="exportGdprData('json')"
+            >
+              <template #prepend>
+                <Icon name="ShieldCheck" :size="18" />
+              </template>
+              Export GDPR Data
+            </Button>
+            <Button
+              id="export-gdpr-csv-btn"
+              variant="outlined"
+              color="primary"
+              :loading="gdprPending"
+              @click="exportGdprData('csv')"
+            >
+              Export (CSV)
+            </Button>
+          </div>
+          <p v-if="gdprSuccess" class="m-0 text-[13px] leading-snug font-medium text-success">
+            {{ gdprSuccessMessage }}
           </p>
         </div>
-        <div class="profile__gdpr-actions">
+
+        <div class="flex flex-col gap-2">
           <Button
-            id="request-gdpr-btn"
+            v-if="!deletionConfirmationID"
+            color="alert"
             variant="outlined"
-            color="primary"
-            :loading="gdprPending"
-            @click="exportGdprData('json')"
+            :loading="deleting"
+            @click="requestDeletion"
           >
-            <template #prepend>
-              <Icon name="ShieldCheck" :size="18" />
-            </template>
-            Export GDPR Data
+            Delete account
           </Button>
-          <Button
-            id="export-gdpr-csv-btn"
-            variant="outlined"
-            color="primary"
-            :loading="gdprPending"
-            @click="exportGdprData('csv')"
-          >
-            Export (CSV)
-          </Button>
+          <form v-else class="grid gap-2" @submit.prevent="confirmDeletion">
+            <p class="m-0 mb-2 max-w-[34ch] text-sm leading-normal text-ink-secondary">
+              Enter the code sent to your email to permanently delete your account.
+            </p>
+            <Input
+              v-model="deletionCode"
+              label="Deletion confirmation code"
+              type="text"
+              :disabled="deleting"
+            />
+            <Button
+              type="submit"
+              color="alert"
+              :loading="deleting"
+              :disabled="!deletionCode.trim()"
+            >
+              Confirm deletion
+            </Button>
+            <Button variant="outlined" color="default" :disabled="deleting" @click="cancelDeletion">
+              Cancel
+            </Button>
+          </form>
         </div>
-        <p v-if="gdprSuccess" class="profile__gdpr-success">
-          {{ gdprSuccessMessage }}
-        </p>
       </div>
 
       <template #footer>
-        <div class="status" :class="`status--${status}`" role="status">
-          <span class="status__dot" aria-hidden="true" />
-          <span class="status__text">{{ statusLabel }}</span>
+        <div
+          class="flex items-center gap-2 text-sm font-medium"
+          :class="status === 'good' ? 'text-success' : 'text-warning'"
+          role="status"
+        >
+          <span
+            class="h-2.5 w-2.5 shrink-0 rounded-full bg-current shadow-[0_0_0_3px_color-mix(in_srgb,currentColor_22%,transparent)]"
+            aria-hidden="true"
+          />
+          <span>{{ statusLabel }}</span>
         </div>
       </template>
     </Card>
 
-    <Card v-else class="user-settings__card">
-      <div class="state">
-        <span class="state__badge state__badge--warn" aria-hidden="true">!</span>
-        <p class="state__title">You're not logged in</p>
-        <p class="state__text">Sign in to view and manage your account settings.</p>
+    <Card v-else class="w-full">
+      <div class="flex flex-col items-center gap-2.5 px-0 pt-3 pb-1 text-center">
+        <span
+          class="mb-1 inline-flex h-10 w-10 items-center justify-center rounded-full bg-warning/[18%] text-xl leading-none font-bold text-warning"
+          aria-hidden="true"
+          >!</span
+        >
+        <p class="m-0 text-base font-semibold text-ink">You're not logged in</p>
+        <p class="m-0 mb-2 max-w-[34ch] text-sm leading-normal text-ink-secondary">
+          Sign in to view and manage your account settings.
+        </p>
         <Button variant="elevated" color="primary" @click="goToLogin">Sign in</Button>
       </div>
     </Card>
   </div>
 </template>
-
-<style lang="css" scoped>
-form {
-  display: grid;
-  gap:8px;
-}
-
-.user-settings {
-  box-sizing: border-box;
-  width: 100%;
-  max-width: 520px;
-  margin: 0 auto;
-  padding: 48px 24px;
-}
-
-.user-settings__header {
-  margin-bottom: 24px;
-}
-
-.user-settings__title {
-  margin: 0 0 6px;
-  font-size: 1.6rem;
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
-.user-settings__subtitle {
-  margin: 0;
-  font-size: 14px;
-  color: var(--text-secondary);
-}
-
-.user-settings__toast {
-  margin-bottom: 16px;
-}
-
-.user-settings__card {
-  width: 100%;
-}
-
-.user-settings :deep(.btn) {
-  margin-right: 0;
-}
-
-.profile__identity {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.profile__meta {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
-  min-width: 0;
-}
-
-.profile__login {
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--text-primary);
-  overflow-wrap: anywhere;
-}
-
-.profile__role {
-  padding: 2px 10px;
-  border-radius: 999px;
-  background-color: color-mix(in srgb, var(--color-primary) 12%, transparent);
-  color: var(--color-primary);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-}
-
-.profile__details {
-  display: flex;
-  flex-direction: column;
-}
-
-.profile__id-detail {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 14px 2px;
-  background-color: var(--bg-subtle);
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-}
-
-.profile__detail {
-  align-items: baseline;
-  margin-bottom: 8px;
-}
-
-.profile__detail-label {
-  flex-shrink: 0;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-secondary);
-}
-
-.profile__detail-value {
-  margin: 0;
-  min-width: 0;
-  padding: 4px 8px;
-  border: 1px solid var(--border-default);
-  border-radius: 6px;
-  font-size: 14px;
-  color: var(--text-primary);
-  text-align: right;
-  overflow-wrap: anywhere;
-}
-
-.status {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.status__dot {
-  flex-shrink: 0;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background-color: var(--status-color);
-}
-
-.status--good {
-  --status-color: var(--color-good);
-  color: var(--color-good);
-}
-
-.status--warn {
-  --status-color: var(--color-warn);
-  color: var(--color-warn-contrast);
-}
-
-.status--good .status__dot,
-.status--warn .status__dot {
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--status-color) 22%, transparent);
-}
-
-.state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 0 4px;
-  text-align: center;
-}
-
-.state__badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  margin-bottom: 4px;
-  border-radius: 50%;
-  color: var(--badge-contrast);
-  font-size: 20px;
-  font-weight: 700;
-  line-height: 1;
-}
-
-.state__badge--alert {
-  --badge-contrast: var(--color-alert-contrast);
-  background-color: color-mix(in srgb, var(--color-alert) 15%, transparent);
-  color: var(--color-alert);
-}
-
-.state__badge--warn {
-  --badge-contrast: var(--color-warn-contrast);
-  background-color: color-mix(in srgb, var(--color-warn) 18%, transparent);
-  color: var(--color-warn);
-}
-
-.state__title {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.state__text {
-  margin: 0 0 8px;
-  max-width: 34ch;
-  font-size: 14px;
-  line-height: 1.5;
-  color: var(--text-secondary);
-}
-
-.skeleton__caption {
-  margin: 16px 0 0;
-  font-size: 13px;
-  color: var(--text-muted);
-  text-align: center;
-}
-
-.profile__gdpr {
-  margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border-subtle);
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.profile__gdpr-info {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.profile__gdpr-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.profile__gdpr-description {
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.4;
-  color: var(--text-secondary);
-}
-
-.profile__gdpr-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.profile__gdpr-success {
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.4;
-  color: var(--color-good);
-  font-weight: 500;
-}
-</style>

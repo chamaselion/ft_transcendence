@@ -1,3 +1,4 @@
+import { useAuthStore } from '@/stores/auth'
 import { createRouter, createWebHistory } from 'vue-router'
 
 const router = createRouter({
@@ -29,16 +30,31 @@ const router = createRouter({
       component: () => import('@/auth/views/RegisterView.vue'),
     },
     {
-      path: '/settings',
-      name: 'settings',
-      component: () => import('@/auth/views/SettingsView.vue'),
-    },
-    {
       name: 'oauth-callback',
       path: '/auth/oauth/:provider/callback',
       component: () => import('@/auth/views/OAuthCallbackView.vue'),
     },
+    {
+      path: '/profile',
+      name: 'Profile',
+      component: () => import('@/app/ProfileView.vue'),
+    },
+    {
+      path: '/admin',
+      name: 'Admin',
+      component: () => import('@/app/AdminView.vue'),
+    },
   ],
+})
+
+router.beforeEach(async (to) => {
+  const authStore = useAuthStore()
+
+  if (to.name === 'Admin') {
+    if (authStore.isAdmin()) return true
+    else return { name: 'home' }
+  }
+  return true
 })
 
 export default router
