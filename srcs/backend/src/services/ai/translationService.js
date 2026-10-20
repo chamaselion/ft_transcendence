@@ -1,6 +1,6 @@
 const { getAiConfig } = require('../../config');
 const { resolveProvider } = require('./providers');
-const { stripTags } = require('../../controllers/documents/sanitize');
+const { unescapeHtml } = require('../../controllers/documents/sanitize');
 
 const SUPPORTED_LANGUAGES = Object.freeze(['en', 'de', 'hu']);
 
@@ -26,7 +26,7 @@ class TranslationService {
 
   /**
    * Translates an array of document blocks from sourceLang to targetLang.
-   * Keeps block IDs matched and strips any unsafe HTML markup from the output.
+   * Keeps block IDs matched and normalizes HTML entities in the output to plain text.
    *
    * @param {Object} options
    * @param {Array<{ id: string, text: string }>} options.blocks
@@ -45,7 +45,7 @@ class TranslationService {
 
     // Identity translation
     if (sourceLang.toLowerCase() === targetLang.toLowerCase()) {
-      return blocks.map((b) => ({ id: b.id, text: stripTags(String(b.text ?? '')) }));
+      return blocks.map((b) => ({ id: b.id, text: unescapeHtml(String(b.text ?? '')) }));
     }
 
     const sourceName = this.getLanguageName(sourceLang);
@@ -100,14 +100,14 @@ class TranslationService {
     const resultMap = new Map();
     for (const item of parsedBlocks) {
       if (item && item.id) {
-        resultMap.set(String(item.id), stripTags(String(item.text ?? '')));
+        resultMap.set(String(item.id), unescapeHtml(String(item.text ?? '')));
       }
     }
 
     // Return in original order, falling back to original text if missing
     return inputBlocks.map((b) => ({
       id: b.id,
-      text: resultMap.has(b.id) ? resultMap.get(b.id) : stripTags(b.text),
+      text: resultMap.has(b.id) ? resultMap.get(b.id) : unescapeHtml(b.text),
     }));
   }
 
@@ -133,7 +133,7 @@ class TranslationService {
 
     // Identity translation
     if (sourceLang.toLowerCase() === targetLang.toLowerCase()) {
-      return stripTags(rawText);
+      return unescapeHtml(rawText);
     }
 
     const sourceName = this.getLanguageName(sourceLang);
@@ -166,7 +166,7 @@ class TranslationService {
       cleaned = cleaned.slice(1, -1).trim();
     }
 
-    return stripTags(cleaned);
+    return unescapeHtml(cleaned);
   }
 }
 
