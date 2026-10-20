@@ -7,6 +7,10 @@ import { useRouter } from 'vue-router'
 
 const authStore = useAuthStore()
 const router = useRouter()
+
+function openCookieBanner() {
+  window.dispatchEvent(new CustomEvent('open-cookie-banner'))
+}
 </script>
 
 <template>
@@ -34,6 +38,13 @@ const router = useRouter()
         </div>
       </section>
     </template>
+
+    <footer class="home-footer">
+      <span class="home-footer__text">Trans Edit © 2026 · EU GDPR &amp; ePrivacy Compliant</span>
+      <button class="home-footer__btn" @click="openCookieBanner">
+        Cookie Policy &amp; Preferences
+      </button>
+    </footer>
   </main>
 </template>
 
@@ -118,5 +129,35 @@ const router = useRouter()
   gap: 16px;
   flex-wrap: wrap;
   justify-content: center;
+}
+
+.home-footer {
+  margin-top: 48px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.home-footer__btn {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--color-primary);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: opacity 0.15s ease;
+}
+
+.home-footer__btn:hover {
+  opacity: 0.8;
 }
 </style>
