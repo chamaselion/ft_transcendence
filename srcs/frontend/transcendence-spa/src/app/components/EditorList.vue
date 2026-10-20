@@ -9,12 +9,11 @@
       'list--empty': isEmpty,
     }"
     :style="style"
-    :data-placeholder="placeholder"
     v-bind="attributes"
     @input="onInput"
     @focus="onFocus"
     @blur="onBlur"
-    @keydown="onKeydown"
+    @keydown="handleKeydown"
     @paste="onPaste"
   >
     <template v-if="!editable">
@@ -37,7 +36,6 @@ const props = withDefaults(
     marker?: string
     editable?: boolean
     locked?: boolean
-    placeholder?: string
     typeface?: string
     color?: string
     bgColor?: string
@@ -50,7 +48,6 @@ const props = withDefaults(
     marker: '',
     editable: false,
     locked: false,
-    placeholder: 'List item',
     typeface: 'inherit',
     color: 'var(--text-primary)',
     bgColor: 'transparent',
@@ -96,6 +93,22 @@ const { attributes, onInput, onFocus, onBlur, onKeydown, onPaste } = useEditable
   },
 )
 
+const handleKeydown = (event: KeyboardEvent) =>{
+  if (event.key === 'Backspace' || event.key === 'Delete') {
+    const el = element.value
+    const items = el ? Array.from(el.querySelectorAll('li')) : []
+    const onlyEmptyItem =
+      items.length <= 1 && items.every((item) => item.innerText.trim() === '')
+
+    if (onlyEmptyItem) {
+      event.preventDefault()
+      return
+    }
+  }
+
+  onKeydown(event)
+}
+
 const style = computed(() => ({
   fontFamily: props.typeface,
   color: props.color,
@@ -104,11 +117,3 @@ const style = computed(() => ({
   listStyleType: props.marker || (props.ordered ? 'decimal' : 'disc'),
 }))
 </script>
-
-<style scoped>
-.list--editable.list--empty:not(:focus)::before {
-  content: attr(data-placeholder);
-  color: var(--text-muted);
-  pointer-events: none;
-}
-</style>
