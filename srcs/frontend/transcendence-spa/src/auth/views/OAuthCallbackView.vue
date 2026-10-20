@@ -79,61 +79,22 @@ onMounted(async () => {
 </script>
 
 <template>
-  <main
-    class="oauth-callback"
-    :aria-busy="loading"
-  >
-    <section class="callback-card">
+  <main class="grid min-h-[60vh] place-items-center p-6" :aria-busy="loading">
+    <section
+      class="box-border w-full max-w-[440px] rounded-xl border border-line-subtle bg-surface p-8 text-center text-ink"
+    >
       <template v-if="loading">
-        <h1>Completing sign-in</h1>
-        <p role="status">Please wait while we verify your account.</p>
+        <h1 class="mt-0 text-2xl">Completing sign-in</h1>
+        <p class="leading-relaxed" role="status">Please wait while we verify your account.</p>
       </template>
       <template v-else-if="errorMessage">
-        <h1>Unable to finish sign-in</h1>
-        <p role="alert">{{ errorMessage }}</p>
-        <Button
-          v-if="canRetrySession"
-          @click="loadSession"
-          >Retry loading session</Button
+        <h1 class="mt-0 text-2xl">Unable to finish sign-in</h1>
+        <p class="leading-relaxed" role="alert">{{ errorMessage }}</p>
+        <Button v-if="canRetrySession" @click="loadSession">Retry loading session</Button>
+        <RouterLink to="/login" class="mt-4 block text-brand hover:text-brand-hover hover:underline"
+          >Back to login</RouterLink
         >
-        <RouterLink to="/login">Back to login</RouterLink>
       </template>
     </section>
   </main>
 </template>
-
-<style scoped>
-.oauth-callback {
-  display: grid;
-  place-items: center;
-  min-height: 60vh;
-  padding: 24px;
-}
-
-.callback-card {
-  box-sizing: border-box;
-  width: 100%;
-  max-width: 440px;
-  padding: 32px;
-  text-align: center;
-  background: var(--bg-surface);
-  color: var(--text-primary);
-  border: 1px solid var(--border-subtle);
-  border-radius: 12px;
-}
-
-h1 {
-  margin-top: 0;
-  font-size: 24px;
-}
-
-p {
-  line-height: 1.6;
-}
-
-a {
-  display: block;
-  margin-top: 16px;
-  color: var(--color-primary);
-}
-</style>

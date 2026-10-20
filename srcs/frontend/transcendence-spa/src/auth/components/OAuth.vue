@@ -26,21 +26,21 @@ function hideExplainer() {
 </script>
 
 <template>
-  <div class="oauth-container">
-    <div class="oauth-provider">
+  <div class="relative flex items-center justify-center">
+    <div class="relative flex max-[480px]:static">
       <Button
+        class="oauth-btn github rounded! border-0! bg-subtle! px-4! py-2! text-ink! shadow-[0px_4px_6px_rgba(0,0,0,0.1)]! duration-300! hover:bg-brand-hover! dark:bg-[#24292e]! dark:hover:bg-brand-hover!"
         @click="startOAuth('github')"
         @mouseenter="showExplainer"
         @mouseleave="hideExplainer"
-        class="oauth-btn github"
       >
         Sign In with <Icon name="Github" />
       </Button>
       <div
-        class="provider-explainer"
         id="gh-provider-explainer"
+        class="provider-explainer pointer-events-none absolute bottom-[calc(100%_+_0.75rem)] left-1/2 z-10 box-border hidden w-[22rem] max-w-[calc(100vw_-_2rem)] -translate-x-1/2 items-start gap-3 rounded-xl border border-black/10 bg-subtle p-4 text-left text-[0.8125rem] leading-relaxed text-ink"
       >
-        <p>
+        <p class="m-0">
           By signing in with GitHub, you can use your existing GitHub account to access our
           services. This allows for a seamless login experience and eliminates the need to create a
           new account. Your GitHub credentials will not be shared with us, and we will only request
@@ -48,20 +48,20 @@ function hideExplainer() {
         </p>
       </div>
     </div>
-    <div class="oauth-provider">
+    <div class="relative flex max-[480px]:static">
       <Button
+        class="oauth-btn rounded! border-0! bg-subtle! px-4! py-2! text-ink! shadow-[0px_4px_6px_rgba(0,0,0,0.1)]! duration-300! hover:bg-brand-hover! dark:bg-[#24292e]! dark:hover:bg-brand-hover!"
         @click="startOAuth('42')"
         @mouseenter="showExplainer"
         @mouseleave="hideExplainer"
-        class="oauth-btn"
       >
         Sign In with <Icon name="FortyTwo" />
       </Button>
       <div
-        class="provider-explainer"
         id="42-provider-explainer"
+        class="provider-explainer pointer-events-none absolute bottom-[calc(100%_+_0.75rem)] left-1/2 z-10 box-border hidden w-[22rem] max-w-[calc(100vw_-_2rem)] -translate-x-1/2 items-start gap-3 rounded-xl border border-black/10 bg-subtle p-4 text-left text-[0.8125rem] leading-relaxed text-ink"
       >
-        <p>
+        <p class="m-0">
           By signing in with 42, you can use your existing 42 account to access our services. This
           allows for a seamless login experience and eliminates the need to create a new account.
           Your 42 credentials will not be shared with us, and we will only request the necessary
@@ -71,83 +71,3 @@ function hideExplainer() {
     </div>
   </div>
 </template>
-
-<style scoped lang="css">
-.oauth-container {
-  position: relative;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.oauth-provider {
-  position: relative;
-  display: flex;
-}
-
-.provider-explainer {
-  display: none;
-  position: absolute;
-  bottom: calc(100% + 0.75rem);
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 10;
-  box-sizing: border-box;
-  width: 22rem;
-  max-width: calc(100vw - 2rem);
-  align-items: flex-start;
-  gap: 0.75rem;
-  padding: 1rem 1.125rem;
-  background-color: var(--bg-subtle);
-  color: var(--text-primary);
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 0.75rem;
-  font-size: 0.8125rem;
-  line-height: 1.6;
-  text-align: left;
-  pointer-events: none;
-}
-
-.provider-explainer p {
-  margin: 0;
-}
-
-@media (max-width: 480px) {
-  .oauth-provider {
-    position: static;
-  }
-}
-
-.oauth-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  border-radius: 0.25rem;
-  border: none;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-  box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
-}
-
-:root[data-theme='light'] {
-  .oauth-btn {
-    background-color: var(--bg-subtle);
-    color: var(--text-primary);
-  }
-  .oauth-btn:hover {
-    background-color: var(--color-primary-hover);
-  }
-}
-
-:root[data-theme='dark'] {
-  .oauth-btn {
-    background-color: #24292e;
-    color: var(--text-primary);
-  }
-  .oauth-btn:hover {
-    background-color: var(--color-primary-hover);
-  }
-}
-</style>
