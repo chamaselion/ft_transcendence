@@ -17,3 +17,11 @@ export interface OtpConfirmationResponse {
   pendingUpdate: PendingUpdate
   user: User
 }
+
+export interface GdprDataRequestResponse {
+  requestAccepted: boolean
+  reference: string
+  emailSent: boolean
+  message?: string
+}
+

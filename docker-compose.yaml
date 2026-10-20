@@ -29,6 +29,8 @@ services:
       - .env
     volumes:
       - ./.env:/usr/src/app/.env:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     # No host port: backend is reachable only through nginx (single entry point).
     expose:
       - "${PORT}"
