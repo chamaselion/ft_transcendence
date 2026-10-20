@@ -1,0 +1,47 @@
+@layer theme, base, components, utilities;
+
+@import 'tailwindcss/theme.css' layer(theme);
+@import './theme.css' layer(base);
+@import 'tailwindcss/utilities.css' layer(utilities);
+
+@theme {
+  --color-app: var(--bg-app);
+  --color-surface: var(--bg-surface);
+  --color-subtle: var(--bg-subtle);
+  --color-header: var(--bg-header);
+
+  --color-ink: var(--text-primary);
+  --color-ink-secondary: var(--text-secondary);
+  --color-muted: var(--text-muted);
+
+  --color-brand: var(--color-primary);
+  --color-brand-hover: var(--color-primary-hover);
+  --color-brand-contrast: var(--color-primary-contrast);
+
+  --color-danger: var(--color-alert);
+  --color-danger-hover: var(--color-alert-hover);
+  --color-danger-contrast: var(--color-alert-contrast);
+  --color-warning: var(--color-warn);
+  --color-warning-hover: var(--color-warn-hover);
+  --color-warning-contrast: var(--color-warn-contrast);
+  --color-success: var(--color-good);
+  --color-success-hover: var(--color-good-hover);
+  --color-success-contrast: var(--color-good-contrast);
+
+  --color-line: var(--border-default);
+  --color-line-subtle: var(--border-subtle);
+
+  --shadow-card: var(--shadow-md);
+  --shadow-float: var(--shadow-xl);
+}
+
+@layer base {
+  *,
+  ::before,
+  ::after {
+    box-sizing: border-box;
+    border-width: 0;
+    border-style: solid;
+    border-color: var(--color-line);
+  }
+}
