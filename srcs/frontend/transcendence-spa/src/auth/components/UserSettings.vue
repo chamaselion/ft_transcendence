@@ -331,7 +331,7 @@ onMounted(loadProfile)
                 :disabled="avatarPending"
                 @change="changeAvatar"
               />
-              <button
+              <Button
                 type="button"
                 class="profile__avatar-button"
                 aria-label="Change profile icon"
@@ -344,7 +344,7 @@ onMounted(loadProfile)
                   :name="user?.login"
                   size="large"
                 />
-              </button>
+              </Button>
               <span
                 class="profile__avatar-overlay"
                 aria-hidden="true"
