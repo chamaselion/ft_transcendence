@@ -377,7 +377,7 @@ onMounted(loadProfile)
             >
               Remove profile icon
             </Button>
-            <p>JPEG, PNG or WebP, up to 2 MiB.</p>
+            <p>JPEG, PNG or WebP, up to 2 MiB. Maximum 16 Million pixels</p>
           </div>
           <span
             v-if="roleLabel"
