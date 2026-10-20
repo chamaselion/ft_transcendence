@@ -5,8 +5,28 @@ const { ensureSession, getTokenFromCookie, isSessionActive } = require('../auth/
 const { checkAndConsumeExportQuota } = require('./exportQuota');
 const { recordGdprAuditEvent } = require('./audit');
 const { createGdprNotificationService } = require('../../services/gdprNotificationService');
+const { getUserIcon, iconKey, isMissingIcon } = require('../../services/userIconService');
 
 const gdprNotificationService = createGdprNotificationService();
+
+const exportUserIcon = async (userId) => {
+  try {
+    const object = await getUserIcon(iconKey(userId));
+    const bytes = await object.Body.transformToByteArray();
+
+    return {
+      filename: `profile-icon-${userId}.webp`,
+      contentType: 'image/webp',
+      encoding: 'base64',
+      data: Buffer.from(bytes).toString('base64'),
+    };
+  } catch (error) {
+    if (isMissingIcon(error)) return null;
+    throw error;
+  }
+};
+
+
 
 const neutralizeCsvFormula = (value) => {
   const text = value === null || value === undefined ? '' : String(value);
@@ -86,6 +106,7 @@ const createDataExportCsvHandler = ({ userModel, tokenLib = jwt, secret = requir
 
       if (!user) return res.status(401).json({ error: 'Unauthorized' });
       await ensureSession({ token, user });
+      const profileIcon = await exportUserIcon(user.id);
 
       const exportReference = `export-${user.id}-${Date.now()}`;
       const fileTimestamp = Date.now();
@@ -105,6 +126,20 @@ const createDataExportCsvHandler = ({ userModel, tokenLib = jwt, secret = requir
       res.write(toCsvRow(['section', 'id', 'login', 'email', 'createdAt', 'updatedAt']) + '\n');
       res.write(toCsvRow(['user', user.id, user.login, user.email, user.createdAt, user.updatedAt]) + '\n');
 
+      res.write('\n');
+      res.write(toCsvRow(['section', 'field', 'value']) + '\n');
+      res.write(
+        toCsvRow(['profileIcon', 'present', profileIcon !== null]) + '\n',
+      );
+
+      if (profileIcon) {
+        for (const field of ['filename', 'contentType', 'encoding', 'data']) {
+          res.write(
+            toCsvRow(['profileIcon', field, profileIcon[field]]) + '\n',
+          );
+        }
+      }
+
       res.once('finish', () => {
         void recordGdprAuditEvent({
           userId: user.id,
@@ -116,7 +151,7 @@ const createDataExportCsvHandler = ({ userModel, tokenLib = jwt, secret = requir
           metadata: {
             endpoint: '/me/data-export/csv',
             format: 'csv',
-            sections: ['meta', 'user'],
+            sections: ['meta', 'user', 'profileIcon'],
           },
         });
 
