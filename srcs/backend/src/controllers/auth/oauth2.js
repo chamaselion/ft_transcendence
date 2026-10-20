@@ -357,19 +357,6 @@ const createOAuth2Handler = ({ logger = console } = {}) => {
     }
   };
 
-  const finalizeAuth = async ({
-    provider,
-    providerUser,
-    localUser,
-    sessionToken,
-  } = {}) => ({
-    provider: normalizeProvider(provider),
-    providerUser: providerUser || null,
-    localUser: localUser || null,
-    sessionToken: sessionToken || null,
-    status: 'complete',
-  });
-
   return {
     startAuthorization,
     exchange,
@@ -378,7 +365,6 @@ const createOAuth2Handler = ({ logger = console } = {}) => {
     normalizeProviderProfile,
     exchangeCodeForToken,
     fetchProviderProfile,
-    finalizeAuth,
   };
 };
 
