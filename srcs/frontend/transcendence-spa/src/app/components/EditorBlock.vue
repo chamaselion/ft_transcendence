@@ -16,6 +16,11 @@
       @focus="!locked && $emit('focus')"
       @blur="$emit('blur')"
     />
+    <FoldableTextPreview
+      v-if="isForeignLanguage && canonicalText && decorator.type !== 'c' && decorator.type !== 'cit'"
+      :text="canonicalText"
+      :is-dirty="isDirty"
+    />
     <span v-if="locked" class="editor-block__lock" title="This block is locked by another user">
       Locked
     </span>
@@ -29,13 +34,20 @@ import EditorHeading from '@/app/components/EditorHeading.vue'
 import EditorList from '@/app/components/EditorList.vue'
 import EditorCitation from '@/app/components/EditorCitation.vue'
 import EditorCode from '@/app/components/EditorCode.vue'
+import FoldableTextPreview from '@/app/components/FoldableTextPreview.vue'
 import { parseDecorator, serializeDecorator, type Block, type BlockType } from '@/app/editor/types'
+import { useEditorStore } from '@/stores/editor'
 
 const props = defineProps<{
   block: Block
   active?: boolean
   locked?: boolean
 }>()
+
+const store = useEditorStore()
+const canonicalText = computed(() => store.getCanonicalText(props.block.id))
+const isForeignLanguage = computed(() => store.activeLanguage !== 'en')
+const isDirty = computed(() => store.isBlockDirty(props.block.id))
 
 const emit = defineEmits<{
   'update:text': [value: string]
@@ -130,4 +142,5 @@ const componentProps = computed(() => {
   pointer-events: auto;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
+
 </style>

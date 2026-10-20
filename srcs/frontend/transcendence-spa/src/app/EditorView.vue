@@ -5,15 +5,17 @@ import Editor from '@/app/components/Editor.vue'
 import Button from '@/app/components/Button.vue'
 import Icon from '@/app/components/Icon.vue'
 import { WebSocketEditorDataProvider } from '@/app/editor/dataProvider'
-import type { EditorDataProvider } from '@/app/editor/types'
-import { createBlock } from '@/app/editor/types'
+import { createBlock, isCodeOrCitation, type EditorDataProvider } from '@/app/editor/types'
 import { useAuthStore } from '@/stores/auth'
+import { useEditorStore } from '@/stores/editor'
+import { translateBlocks, type SupportedLanguage } from '@/app/editor/translation.api'
 import { createDocument, getDocument, updateDocumentTitle } from '@/app/editor/document.api'
 import ShareModal from '@/app/components/ShareModal.vue'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const editorStore = useEditorStore()
 
 const provider = ref<EditorDataProvider | null>(null)
 const documentTitle = ref<string>('Untitled Document')
@@ -79,6 +81,33 @@ function openRoom(docId: string, initialTitle?: string) {
   }
 
   provider.value = wsProvider
+}
+
+async function onLanguageChange(targetLang: SupportedLanguage) {
+  if (targetLang === editorStore.activeLanguage) return
+  if (targetLang === 'en') {
+    editorStore.setLanguage('en')
+    return
+  }
+
+  editorStore.isTranslating = true
+  editorStore.translationError = null
+  try {
+    // remove code and citation blocks from translation, as they are not translatable
+    const filteredBlocks = editorStore.blocks.filter((b) => !isCodeOrCitation(b.decorator))
+    const payload = filteredBlocks.map((b) => ({
+      id: b.id,
+      text: editorStore.getCanonicalText(b.id) || b.text,
+    }))
+    const translated = await translateBlocks(payload, 'en', targetLang)
+    editorStore.applyTranslations(translated)
+    editorStore.setLanguage(targetLang)
+  } catch (err) {
+    console.error('Document translation failed:', err)
+    errorMessage.value = err instanceof Error ? err.message : 'Translation failed'
+  } finally {
+    editorStore.isTranslating = false
+  }
 }
 
 async function onTitleBlur() {
@@ -220,15 +249,32 @@ onBeforeUnmount(() => {
           <span v-if="userPermission" class="permission-badge"> Role: {{ userPermission }} </span>
         </div>
       </div>
-
       <div class="editor-view__actions">
+        <div class="lang-selector-group" title="AI Document Translation (EU AI Act Compliant)">
+          <span v-if="editorStore.isTranslating" class="lang-translating-pill">
+            AI Translating...
+          </span>
+          <div class="lang-selector-wrapper">
+            <select
+              class="lang-selector"
+              :value="editorStore.activeLanguage"
+              :disabled="editorStore.isTranslating"
+              title="Select document display language"
+              @change="onLanguageChange(($event.target as HTMLSelectElement).value as SupportedLanguage)"
+            >
+              <option value="en">🇬🇧 English</option>
+              <option value="de">🇩🇪 Deutsch (AI)</option>
+              <option value="hu">🇭🇺 Magyar (AI)</option>
+            </select>
+          </div>
+        </div>
+
         <Button v-if="documentId" variant="outlined" size="small" @click="showShareModal = true">
           <template #icon>
             <Icon name="Share" :size="16" />
           </template>
           Share
         </Button>
-        <Button variant="outlined" size="small" @click="handleCreateNew"> + New Document </Button>
       </div>
     </div>
 
@@ -364,6 +410,88 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.lang-selector-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lang-selector-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.lang-sparkle-icon {
+  position: absolute;
+  left: 8px;
+  pointer-events: none;
+  color: var(--color-primary, #3b82f6);
+}
+
+.lang-selector {
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  padding: 5px 10px 5px 28px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.lang-selector option {
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+}
+
+.lang-selector:focus {
+  border-color: var(--color-primary, #3b82f6);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary, #3b82f6) 20%, transparent);
+}
+
+.lang-selector:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.lang-translating-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 9999px;
+  background-color: color-mix(in srgb, var(--color-primary, #3b82f6) 18%, transparent);
+  color: var(--color-primary, #3b82f6);
+}
+
+.ai-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  background-color: color-mix(in srgb, var(--color-warn, #f59e0b) 15%, transparent);
+  color: var(--color-warn, #f59e0b);
+  border: 1px solid color-mix(in srgb, var(--color-warn, #f59e0b) 30%, transparent);
+}
+
+.sparkle-pulse {
+  animation: spin-pulse 2s infinite linear;
+}
+
+@keyframes spin-pulse {
+  0% { transform: scale(1) rotate(0deg); }
+  50% { transform: scale(1.15) rotate(180deg); }
+  100% { transform: scale(1) rotate(360deg); }
 }
 
 .editor-view__error {

@@ -7,27 +7,8 @@
       { 'editor-nav--floating': floating },
     ]"
   >
-    <!-- Add block buttons -->
-    <div class="editor-nav__group">
-      <Button
-        v-for="type in blockTypes"
-        :key="type"
-        variant="flat"
-        size="small"
-        square
-        :title="`Add ${blockTypeLabels[type]}`"
-        @click="$emit('add', type)"
-      >
-        <template #icon>
-          <Icon :name="typeIcons[type]" :size="18" />
-        </template>
-      </Button>
-    </div>
-
-    <!-- Contextual block formatting group -->
+    <!-- When block is active: Specific formatting options for active block + Delete button on left side -->
     <template v-if="activeBlock && activeDecorator">
-      <span class="editor-nav__divider" />
-
       <!-- Paragraph: Alignment (Left, Middle/Center, Right, Block/Justify) -->
       <div v-if="activeDecorator.type === 'p'" class="editor-nav__group editor-nav__group--formatting">
         <Button
@@ -106,23 +87,45 @@
           </option>
         </select>
       </div>
+
+      <span v-if="activeDecorator.type !== 'cit'" class="editor-nav__divider" />
+
+      <!-- Delete active block button -->
+      <div class="editor-nav__group">
+        <Button
+          variant="outlined"
+          color="alert"
+          size="small"
+          square
+          title="Delete active block"
+          :disabled="!activeBlockId || deleteDisabled"
+          @click="$emit('delete')"
+        >
+          <template #icon>
+            <Icon name="Trash" :size="18" />
+          </template>
+        </Button>
+      </div>
     </template>
 
-    <span class="editor-nav__divider" />
-
-    <!-- Delete active block button -->
-    <div class="editor-nav__group">
+    <!-- Add block buttons (pushed to right side when block is active, or aligned to left when no block active) -->
+    <div
+      class="editor-nav__group editor-nav__group--add"
+      :class="{ 'editor-nav__group--pushed': Boolean(activeBlock && activeDecorator) }"
+    >
+      <span v-if="activeBlock && activeDecorator" class="editor-nav__divider" />
+      <span v-else class="editor-nav__label">Add:</span>
       <Button
-        variant="outlined"
-        color="alert"
+        v-for="type in blockTypes"
+        :key="type"
+        variant="flat"
         size="small"
         square
-        title="Delete active block"
-        :disabled="!activeBlockId || deleteDisabled"
-        @click="$emit('delete')"
+        :title="`Add ${blockTypeLabels[type]}`"
+        @click="$emit('add', type)"
       >
         <template #icon>
-          <Icon name="Trash" :size="18" />
+          <Icon :name="typeIcons[type]" :size="18" />
         </template>
       </Button>
     </div>
@@ -255,6 +258,15 @@ onBeforeUnmount(() => window.removeEventListener('scroll', onScroll))
   flex-direction: column;
 }
 
+.editor-nav--top .editor-nav__group--pushed,
+.editor-nav--bottom .editor-nav__group--pushed {
+  margin-left: auto;
+}
+
+.editor-nav--left .editor-nav__group--pushed {
+  margin-top: auto;
+}
+
 .editor-nav__divider {
   background-color: var(--border-subtle);
 }
@@ -284,9 +296,9 @@ onBeforeUnmount(() => window.removeEventListener('scroll', onScroll))
 }
 
 .editor-nav__select {
-  background-color: var(--bg-surface, #fff);
-  color: var(--text-base, #1e293b);
-  border: 1px solid var(--border-subtle, #cbd5e1);
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
   border-radius: 6px;
   padding: 3px 6px;
   font-size: 0.75rem;
@@ -294,6 +306,11 @@ onBeforeUnmount(() => window.removeEventListener('scroll', onScroll))
   outline: none;
   cursor: pointer;
   transition: border-color 0.15s ease;
+}
+
+.editor-nav__select option {
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
 }
 
 .editor-nav__select:focus {
