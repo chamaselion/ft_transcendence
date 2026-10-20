@@ -222,6 +222,11 @@ function formatFullDate(dateString: string): string {
   })
 }
 
+const pageButtonClass = (active: boolean) =>
+  active
+    ? 'border-brand bg-brand font-semibold text-brand-contrast hover:enabled:bg-brand-hover hover:enabled:text-brand-contrast'
+    : 'border-transparent bg-transparent font-medium text-ink-secondary hover:enabled:border-line-subtle hover:enabled:bg-surface hover:enabled:text-ink'
+
 onMounted(() => {
   fetchDocuments()
 })
@@ -232,15 +237,18 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="directory">
+  <div class="mx-auto flex w-full max-w-[1080px] flex-col gap-4">
     <!-- Top toolbar / header -->
-    <div class="directory__header">
-      <div class="directory__title-group">
-        <h2 class="directory__title">Documents</h2>
-        <span class="directory__count">{{ totalDocuments }}</span>
+    <div class="flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-2.5">
+        <h2 class="m-0 text-[1.6rem] leading-tight font-bold text-ink">Documents</h2>
+        <span
+          class="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-subtle px-2 text-[0.8rem] font-semibold text-ink-secondary"
+          >{{ totalDocuments }}</span
+        >
       </div>
 
-      <div class="directory__header-actions">
+      <div class="flex items-center gap-2">
         <Button variant="elevated" color="primary" size="small" @click="handleCreateNew">
           <template #prepend>
             <Icon name="Plus" :size="16" />
@@ -251,20 +259,20 @@ onBeforeUnmount(() => {
     </div>
 
     <!-- Filters and Search Bar -->
-    <div class="directory__toolbar">
-      <div class="directory__search-wrapper">
-        <Icon name="Search" :size="16" class="directory__search-icon" />
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div class="relative flex min-w-[260px] flex-1 items-center">
+        <Icon name="Search" :size="16" class="pointer-events-none absolute left-3 text-muted" />
         <input
           v-model="searchQuery"
           type="text"
-          class="directory__search-input"
+          class="w-full rounded-lg border border-line bg-surface py-2 pr-[34px] pl-9 text-[0.9rem] text-ink transition-[border-color,box-shadow] outline-none placeholder:text-muted focus:border-brand focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-primary)_20%,transparent)]"
           placeholder="Search documents by title..."
           @input="onSearchInput"
         />
         <button
           v-if="searchQuery"
           type="button"
-          class="directory__search-clear"
+          class="absolute right-2 flex h-[22px] w-[22px] cursor-pointer items-center justify-center rounded-full border-none bg-transparent p-0 text-lg leading-none text-muted hover:bg-subtle hover:text-ink"
           title="Clear search"
           @click="clearSearch"
         >
@@ -272,27 +280,39 @@ onBeforeUnmount(() => {
         </button>
       </div>
 
-      <div class="directory__filters">
+      <div class="flex items-center gap-1 rounded-lg bg-subtle p-1">
         <button
           type="button"
-          class="directory__filter-tab"
-          :class="{ 'directory__filter-tab--active': selectedScope === 'all' }"
+          class="inline-flex cursor-pointer items-center gap-1.5 rounded-md border-none px-3 py-1.5 text-[0.85rem] transition-[background-color,color] duration-150"
+          :class="
+            selectedScope === 'all'
+              ? 'bg-surface font-semibold text-ink shadow-[var(--shadow-sm)]'
+              : 'bg-transparent font-medium text-ink-secondary hover:bg-[color-mix(in_srgb,var(--text-primary)_6%,transparent)] hover:text-ink'
+          "
           @click="setScope('all')"
         >
           All
         </button>
         <button
           type="button"
-          class="directory__filter-tab"
-          :class="{ 'directory__filter-tab--active': selectedScope === 'own' }"
+          class="inline-flex cursor-pointer items-center gap-1.5 rounded-md border-none px-3 py-1.5 text-[0.85rem] transition-[background-color,color] duration-150"
+          :class="
+            selectedScope === 'own'
+              ? 'bg-surface font-semibold text-ink shadow-[var(--shadow-sm)]'
+              : 'bg-transparent font-medium text-ink-secondary hover:bg-[color-mix(in_srgb,var(--text-primary)_6%,transparent)] hover:text-ink'
+          "
           @click="setScope('own')"
         >
           Owned
         </button>
         <button
           type="button"
-          class="directory__filter-tab"
-          :class="{ 'directory__filter-tab--active': selectedScope === 'shared' }"
+          class="inline-flex cursor-pointer items-center gap-1.5 rounded-md border-none px-3 py-1.5 text-[0.85rem] transition-[background-color,color] duration-150"
+          :class="
+            selectedScope === 'shared'
+              ? 'bg-surface font-semibold text-ink shadow-[var(--shadow-sm)]'
+              : 'bg-transparent font-medium text-ink-secondary hover:bg-[color-mix(in_srgb,var(--text-primary)_6%,transparent)] hover:text-ink'
+          "
           @click="setScope('shared')"
         >
           Shared
@@ -300,37 +320,48 @@ onBeforeUnmount(() => {
 
         <button
           type="button"
-          class="directory__refresh-btn"
+          class="ml-1 inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md border-none bg-transparent p-0 text-ink-secondary transition-[background-color,color] duration-150 hover:bg-surface hover:text-ink"
           title="Refresh documents"
           :disabled="loading"
           @click="fetchDocuments"
         >
-          <Icon name="Refresh" :size="16" :class="{ 'directory__refresh-spinner': loading }" />
+          <Icon name="Refresh" :size="16" :class="{ 'animate-spin': loading }" />
         </button>
       </div>
     </div>
 
     <!-- Error message banner -->
-    <div v-if="errorMessage" class="directory__error">
+    <div
+      v-if="errorMessage"
+      class="flex items-center justify-between rounded-lg border border-danger bg-danger/12 px-4 py-3 text-[0.9rem] text-danger"
+    >
       <span>{{ errorMessage }}</span>
       <Button variant="outlined" size="x-small" @click="fetchDocuments">Retry</Button>
     </div>
 
     <!-- Loading skeleton / state -->
-    <div v-if="loading && documents.length === 0" class="directory__loading">
-      <div class="directory__loader-spinner" />
+    <div
+      v-if="loading && documents.length === 0"
+      class="flex flex-col items-center justify-center gap-3 px-4 py-16 text-[0.95rem] text-muted"
+    >
+      <div class="h-7 w-7 animate-spin rounded-full border-[3px] border-line border-t-brand" />
       <span>Loading available documents...</span>
     </div>
 
     <!-- Empty states -->
-    <div v-else-if="!loading && documents.length === 0" class="directory__empty">
-      <div class="directory__empty-icon">
+    <div
+      v-else-if="!loading && documents.length === 0"
+      class="flex flex-col items-center justify-center rounded-xl border border-dashed border-line bg-surface/60 px-6 py-16 text-center"
+    >
+      <div
+        class="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-subtle text-muted"
+      >
         <Icon name="FileText" :size="48" />
       </div>
-      <h3 class="directory__empty-title">
+      <h3 class="m-0 mb-2 text-xl font-semibold text-ink">
         {{ searchQuery ? 'No matching documents' : 'No documents yet' }}
       </h3>
-      <p class="directory__empty-desc">
+      <p class="m-0 mb-5 max-w-[420px] text-[0.9rem] text-ink-secondary">
         {{
           searchQuery
             ? 'Try adjusting your search terms or filter scope.'
@@ -352,50 +383,74 @@ onBeforeUnmount(() => {
     </div>
 
     <!-- Documents List Table and Pagination Container -->
-    <div v-else class="directory__table-wrapper">
-      <table class="directory__table">
+    <div
+      v-else
+      class="overflow-hidden rounded-[10px] border border-line-subtle bg-surface shadow-[var(--shadow-sm)]"
+    >
+      <table class="w-full border-collapse text-left">
         <thead>
           <tr>
-            <th class="directory__th directory__th--name">Document Name</th>
-            <th class="directory__th directory__th--status">Ownership</th>
-            <th class="directory__th directory__th--changed">Last Changed</th>
-            <th class="directory__th directory__th--actions">Actions</th>
+            <th
+              class="w-[46%] border-b border-line-subtle bg-subtle px-4 py-3 text-[0.8rem] font-semibold tracking-[0.05em] text-ink-secondary uppercase max-md:w-[55%]"
+            >
+              Document Name
+            </th>
+            <th
+              class="w-[18%] border-b border-line-subtle bg-subtle px-4 py-3 text-[0.8rem] font-semibold tracking-[0.05em] text-ink-secondary uppercase max-md:w-[25%]"
+            >
+              Ownership
+            </th>
+            <th
+              class="w-[20%] border-b border-line-subtle bg-subtle px-4 py-3 text-[0.8rem] font-semibold tracking-[0.05em] text-ink-secondary uppercase max-md:hidden"
+            >
+              Last Changed
+            </th>
+            <th
+              class="w-[16%] border-b border-line-subtle bg-subtle px-4 py-3 text-right text-[0.8rem] font-semibold tracking-[0.05em] text-ink-secondary uppercase max-md:w-[20%]"
+            >
+              Actions
+            </th>
           </tr>
         </thead>
         <tbody>
           <tr
             v-for="doc in documents"
             :key="doc.id"
-            class="directory__row"
+            class="group cursor-pointer border-b border-line-subtle transition-colors duration-150 last:border-0 hover:bg-[color-mix(in_srgb,var(--text-primary)_4%,var(--bg-surface))]"
             @click="handleOpenDocument(doc.id)"
           >
             <!-- Document Name -->
-            <td class="directory__td directory__td--name">
-              <div class="directory__doc-info">
-                <div class="directory__doc-icon">
+            <td class="min-w-0 px-4 py-3.5 align-middle">
+              <div class="flex min-w-0 items-center gap-3">
+                <div
+                  class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand/12 text-brand"
+                >
                   <Icon name="FileText" :size="20" />
                 </div>
-                <div class="directory__doc-text">
-                  <span class="directory__doc-title" :title="doc.title || 'Untitled Document'">
+                <div class="flex min-w-0 flex-col gap-0.5 overflow-hidden">
+                  <span
+                    class="truncate text-[0.95rem] font-semibold text-ink group-hover:text-brand"
+                    :title="doc.title || 'Untitled Document'"
+                  >
                     {{ doc.title || 'Untitled Document' }}
                   </span>
-                  <span class="directory__doc-id">ID: {{ doc.id.slice(0, 8) }}...</span>
+                  <span class="font-mono text-xs text-muted">ID: {{ doc.id.slice(0, 8) }}...</span>
                 </div>
               </div>
             </td>
 
             <!-- Owned / Shared -->
-            <td class="directory__td directory__td--status">
-              <div class="directory__ownership">
+            <td class="px-4 py-3.5 align-middle">
+              <div class="flex flex-col items-start gap-0.5">
                 <span
                   v-if="doc.permission === 'owner'"
-                  class="directory__badge directory__badge--owned"
+                  class="inline-flex items-center rounded-full bg-success/15 px-2 py-0.5 text-xs font-semibold text-success capitalize"
                 >
                   Owned
                 </span>
                 <span
                   v-else
-                  class="directory__badge directory__badge--shared"
+                  class="inline-flex items-center rounded-full bg-warning/15 px-2 py-0.5 text-xs font-semibold text-warning capitalize"
                   :title="doc.owner ? `Shared by ${doc.owner.login}` : 'Shared document'"
                 >
                   Shared
@@ -403,7 +458,7 @@ onBeforeUnmount(() => {
 
                 <span
                   v-if="doc.permission !== 'owner' && doc.owner"
-                  class="directory__owner-note"
+                  class="text-xs text-muted"
                   :title="`Document created by ${doc.owner.login}`"
                 >
                   by {{ doc.owner.login }}
@@ -412,15 +467,18 @@ onBeforeUnmount(() => {
             </td>
 
             <!-- Last Changed -->
-            <td class="directory__td directory__td--changed">
-              <span class="directory__time" :title="formatFullDate(doc.updatedAt)">
+            <td class="px-4 py-3.5 align-middle max-md:hidden">
+              <span class="text-sm text-ink-secondary" :title="formatFullDate(doc.updatedAt)">
                 {{ formatRelativeTime(doc.updatedAt) }}
               </span>
             </td>
 
             <!-- Actions: if owner, icon buttons to share or delete -->
-            <td class="directory__td directory__td--actions" @click.stop>
-              <div v-if="doc.permission === 'owner'" class="directory__action-buttons">
+            <td class="px-4 py-3.5 text-right align-middle" @click.stop>
+              <div
+                v-if="doc.permission === 'owner'"
+                class="inline-flex items-center justify-end gap-1.5"
+              >
                 <Button
                   variant="outlined"
                   size="small"
@@ -447,8 +505,11 @@ onBeforeUnmount(() => {
                   </template>
                 </Button>
               </div>
-              <div v-else class="directory__non-owner-placeholder">
-                <span class="directory__role-pill" :title="`Your role: ${doc.permission}`">
+              <div v-else class="inline-flex items-center justify-end">
+                <span
+                  class="rounded bg-subtle px-1.5 py-0.5 text-xs text-muted capitalize"
+                  :title="`Your role: ${doc.permission}`"
+                >
                   {{ doc.permission }}
                 </span>
               </div>
@@ -458,22 +519,25 @@ onBeforeUnmount(() => {
       </table>
 
       <!-- Pagination and Page Size Footer Bar -->
-      <div class="directory__pagination">
+      <div
+        class="flex flex-wrap items-center justify-between gap-4 border-t border-line-subtle bg-subtle px-4 py-3 max-md:flex-col max-md:items-center max-md:gap-2.5"
+      >
         <!-- Range Information -->
-        <div class="directory__pagination-info">
+        <div class="text-sm text-ink-secondary">
           Showing
-          <strong class="directory__pagination-strong">{{ fromItem }}</strong>
+          <strong class="font-semibold text-ink">{{ fromItem }}</strong>
           –
-          <strong class="directory__pagination-strong">{{ toItem }}</strong>
+          <strong class="font-semibold text-ink">{{ toItem }}</strong>
           of
-          <strong class="directory__pagination-strong">{{ totalDocuments }}</strong>
+          <strong class="font-semibold text-ink">{{ totalDocuments }}</strong>
         </div>
 
         <!-- Page Navigation Buttons -->
-        <div class="directory__pagination-nav">
+        <div class="flex items-center gap-1">
           <button
             type="button"
-            class="directory__page-btn directory__page-btn--arrow"
+            class="inline-flex h-[30px] min-w-[30px] cursor-pointer items-center justify-center rounded-md border px-1 text-[0.85rem] transition-[background-color,color,border-color] duration-150 disabled:cursor-not-allowed disabled:opacity-40"
+            :class="pageButtonClass(false)"
             title="First page"
             aria-label="First page"
             :disabled="currentPage === 1 || loading"
@@ -483,7 +547,8 @@ onBeforeUnmount(() => {
           </button>
           <button
             type="button"
-            class="directory__page-btn directory__page-btn--arrow"
+            class="inline-flex h-[30px] min-w-[30px] cursor-pointer items-center justify-center rounded-md border px-1 text-[0.85rem] transition-[background-color,color,border-color] duration-150 disabled:cursor-not-allowed disabled:opacity-40"
+            :class="pageButtonClass(false)"
             title="Previous page"
             aria-label="Previous page"
             :disabled="currentPage === 1 || loading"
@@ -493,15 +558,20 @@ onBeforeUnmount(() => {
           </button>
 
           <!-- Page numbers -->
-          <div class="directory__page-numbers">
+          <div class="flex items-center gap-0.5">
             <template v-for="(p, idx) in visiblePages" :key="idx">
-              <span v-if="p === '...'" class="directory__page-ellipsis">…</span>
+              <span
+                v-if="p === '...'"
+                class="inline-flex h-[30px] w-6 items-center justify-center text-[0.85rem] text-muted"
+              >
+                …
+              </span>
               <button
                 v-else
                 type="button"
-                class="directory__page-btn directory__page-btn--number"
-                :class="{ 'directory__page-btn--active': p === currentPage }"
-                :aria-current="p === currentPage ? 'page' : undefined"
+                class="inline-flex h-[30px] min-w-[30px] cursor-pointer items-center justify-center rounded-md border px-1.5 text-[0.85rem] transition-[background-color,color,border-color] duration-150 disabled:cursor-not-allowed disabled:opacity-40"
+                :class="pageButtonClass(Number(p) === currentPage)"
+                :aria-current="Number(p) === currentPage ? 'page' : undefined"
                 :disabled="loading"
                 @click="goToPage(Number(p))"
               >
@@ -512,7 +582,8 @@ onBeforeUnmount(() => {
 
           <button
             type="button"
-            class="directory__page-btn directory__page-btn--arrow"
+            class="inline-flex h-[30px] min-w-[30px] cursor-pointer items-center justify-center rounded-md border px-1 text-[0.85rem] transition-[background-color,color,border-color] duration-150 disabled:cursor-not-allowed disabled:opacity-40"
+            :class="pageButtonClass(false)"
             title="Next page"
             aria-label="Next page"
             :disabled="currentPage >= totalPages || loading"
@@ -522,7 +593,8 @@ onBeforeUnmount(() => {
           </button>
           <button
             type="button"
-            class="directory__page-btn directory__page-btn--arrow"
+            class="inline-flex h-[30px] min-w-[30px] cursor-pointer items-center justify-center rounded-md border px-1 text-[0.85rem] transition-[background-color,color,border-color] duration-150 disabled:cursor-not-allowed disabled:opacity-40"
+            :class="pageButtonClass(false)"
             title="Last page"
             aria-label="Last page"
             :disabled="currentPage >= totalPages || loading"
@@ -533,12 +605,14 @@ onBeforeUnmount(() => {
         </div>
 
         <!-- Rows per page selector: 5, 10, 20 (default 10) -->
-        <div class="directory__page-size">
-          <label for="page-size-select" class="directory__page-size-label">Rows:</label>
+        <div class="flex items-center gap-2">
+          <label for="page-size-select" class="text-[0.85rem] whitespace-nowrap text-ink-secondary"
+            >Rows:</label
+          >
           <select
             id="page-size-select"
             :value="pageSize"
-            class="directory__page-size-select"
+            class="cursor-pointer rounded-md border border-line bg-surface px-2 py-1 text-[0.85rem] text-ink outline-none transition-colors duration-150 focus:border-brand"
             :disabled="loading"
             @change="handlePageSizeChange(Number(($event.target as HTMLSelectElement).value))"
           >
@@ -560,12 +634,12 @@ onBeforeUnmount(() => {
 
     <!-- Delete Confirmation Modal -->
     <Modal v-model="showDeleteModal" title="Delete Document" size="small">
-      <div class="directory__delete-modal-content">
+      <div class="flex flex-col gap-3 text-[0.95rem] text-ink">
         <p>
           Are you sure you want to delete
           <strong>"{{ selectedDeleteDoc?.title || 'Untitled Document' }}"</strong>?
         </p>
-        <p class="directory__delete-warning">
+        <p class="m-0 text-[0.85rem] text-ink-secondary">
           This document and all its contents will be permanently deleted. This action cannot be
           undone.
         </p>
@@ -586,629 +660,8 @@ onBeforeUnmount(() => {
     </Modal>
 
     <!-- Notification Toast -->
-    <div class="directory__toast-anchor">
+    <div class="pointer-events-auto fixed right-6 bottom-6 z-[1001]">
       <Toast v-model="showToast" :type="toastType" :message="toastMessage" :duration="4000" />
     </div>
   </div>
 </template>
-
-<style scoped>
-.directory {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  width: 100%;
-  max-width: 1080px;
-  margin: 0 auto;
-}
-
-/* Header */
-.directory__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-.directory__title-group {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.directory__title {
-  margin: 0;
-  font-size: 1.6rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  line-height: 1.2;
-}
-
-.directory__count {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 24px;
-  height: 24px;
-  padding: 0 8px;
-  border-radius: 9999px;
-  background-color: var(--bg-subtle);
-  color: var(--text-secondary);
-  font-size: 0.8rem;
-  font-weight: 600;
-}
-
-.directory__header-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-/* Toolbar */
-.directory__toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.directory__search-wrapper {
-  position: relative;
-  display: flex;
-  align-items: center;
-  flex: 1;
-  min-width: 260px;
-}
-
-.directory__search-icon {
-  position: absolute;
-  left: 12px;
-  color: var(--text-muted);
-  pointer-events: none;
-}
-
-.directory__search-input {
-  width: 100%;
-  padding: 8px 34px 8px 36px;
-  border: 1px solid var(--border-default);
-  border-radius: 8px;
-  background-color: var(--bg-surface);
-  color: var(--text-primary);
-  font-size: 0.9rem;
-  transition:
-    border-color 0.2s,
-    box-shadow 0.2s;
-}
-
-.directory__search-input:focus {
-  outline: none;
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 20%, transparent);
-}
-
-.directory__search-clear {
-  position: absolute;
-  right: 8px;
-  width: 22px;
-  height: 22px;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  font-size: 18px;
-  line-height: 1;
-  border-radius: 50%;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.directory__search-clear:hover {
-  background-color: var(--bg-subtle);
-  color: var(--text-primary);
-}
-
-.directory__filters {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  background-color: var(--bg-subtle);
-  padding: 4px;
-  border-radius: 8px;
-}
-
-.directory__filter-tab {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  margin: 0;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: 0.85rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition:
-    background-color 0.15s,
-    color 0.15s;
-}
-
-.directory__filter-tab:hover {
-  color: var(--text-primary);
-  background-color: color-mix(in srgb, var(--text-primary) 6%, transparent);
-}
-
-.directory__filter-tab--active {
-  background-color: var(--bg-surface);
-  color: var(--text-primary);
-  box-shadow: var(--shadow-sm);
-  font-weight: 600;
-}
-
-.directory__refresh-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  margin: 0 0 0 4px;
-  padding: 0;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition:
-    background-color 0.15s,
-    color 0.15s;
-}
-
-.directory__refresh-btn:hover:not(:disabled) {
-  background-color: var(--bg-surface);
-  color: var(--text-primary);
-}
-
-.directory__refresh-spinner {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* Error State */
-.directory__error {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px;
-  border-radius: 8px;
-  background-color: color-mix(in srgb, var(--color-alert) 12%, transparent);
-  border: 1px solid var(--color-alert);
-  color: var(--color-alert);
-  font-size: 0.9rem;
-}
-
-/* Loading State */
-.directory__loading {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  padding: 64px 16px;
-  color: var(--text-muted);
-  font-size: 0.95rem;
-}
-
-.directory__loader-spinner {
-  width: 28px;
-  height: 28px;
-  border: 3px solid var(--border-default);
-  border-top-color: var(--color-primary);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-/* Empty State */
-.directory__empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  padding: 64px 24px;
-  border: 1px dashed var(--border-default);
-  border-radius: 12px;
-  background-color: color-mix(in srgb, var(--bg-surface) 60%, transparent);
-}
-
-.directory__empty-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  background-color: var(--bg-subtle);
-  color: var(--text-muted);
-  margin-bottom: 16px;
-}
-
-.directory__empty-title {
-  margin: 0 0 8px;
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.directory__empty-desc {
-  margin: 0 0 20px;
-  font-size: 0.9rem;
-  color: var(--text-secondary);
-  max-width: 420px;
-}
-
-/* Table Wrapper */
-.directory__table-wrapper {
-  background-color: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
-  border-radius: 10px;
-  overflow: hidden;
-  box-shadow: var(--shadow-sm);
-}
-
-.directory__table {
-  width: 100%;
-  border-collapse: collapse;
-  text-align: left;
-}
-
-.directory__th {
-  padding: 12px 16px;
-  background-color: var(--bg-subtle);
-  color: var(--text-secondary);
-  font-size: 0.8rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.directory__th--name {
-  width: 46%;
-}
-
-.directory__th--status {
-  width: 18%;
-}
-
-.directory__th--changed {
-  width: 20%;
-}
-
-.directory__th--actions {
-  width: 16%;
-  text-align: right;
-}
-
-.directory__row {
-  cursor: pointer;
-  transition: background-color 0.15s ease;
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.directory__row:last-child {
-  border-bottom: none;
-}
-
-.directory__row:hover {
-  background-color: color-mix(in srgb, var(--text-primary) 4%, var(--bg-surface));
-}
-
-.directory__td {
-  padding: 14px 16px;
-  vertical-align: middle;
-}
-
-.directory__td--name {
-  min-width: 0;
-}
-
-.directory__doc-info {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-}
-
-.directory__doc-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  background-color: color-mix(in srgb, var(--color-primary) 12%, transparent);
-  color: var(--color-primary);
-  flex-shrink: 0;
-}
-
-.directory__doc-text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-  overflow: hidden;
-}
-
-.directory__doc-title {
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.directory__row:hover .directory__doc-title {
-  color: var(--color-primary);
-}
-
-.directory__doc-id {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  font-family: monospace;
-}
-
-/* Ownership badges */
-.directory__ownership {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-}
-
-.directory__badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 8px;
-  border-radius: 9999px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: capitalize;
-}
-
-.directory__badge--owned {
-  background-color: color-mix(in srgb, var(--color-good) 15%, transparent);
-  color: var(--color-good);
-}
-
-.directory__badge--shared {
-  background-color: color-mix(in srgb, var(--color-warn) 15%, transparent);
-  color: var(--color-warn);
-}
-
-.directory__owner-note {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-}
-
-/* Changed column */
-.directory__time {
-  font-size: 0.875rem;
-  color: var(--text-secondary);
-}
-
-/* Actions column */
-.directory__td--actions {
-  text-align: right;
-}
-
-.directory__action-buttons {
-  display: inline-flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 6px;
-}
-
-.directory__action-buttons :deep(.btn) {
-  margin: 0;
-}
-
-.directory__non-owner-placeholder {
-  display: inline-flex;
-  align-items: center;
-  justify-content: flex-end;
-}
-
-.directory__role-pill {
-  font-size: 0.75rem;
-  padding: 2px 6px;
-  border-radius: 4px;
-  background-color: var(--bg-subtle);
-  color: var(--text-muted);
-  text-transform: capitalize;
-}
-
-/* Pagination Bar */
-.directory__pagination {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 12px 16px;
-  border-top: 1px solid var(--border-subtle);
-  background-color: var(--bg-subtle);
-  flex-wrap: wrap;
-}
-
-.directory__pagination-info {
-  font-size: 0.875rem;
-  color: var(--text-secondary);
-}
-
-.directory__pagination-strong {
-  color: var(--text-primary);
-  font-weight: 600;
-}
-
-.directory__pagination-nav {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.directory__page-numbers {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-}
-
-.directory__page-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 30px;
-  height: 30px;
-  padding: 0 6px;
-  margin: 0;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  background-color: transparent;
-  color: var(--text-secondary);
-  font-size: 0.85rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition:
-    background-color 0.15s,
-    color 0.15s,
-    border-color 0.15s;
-}
-
-.directory__page-btn:hover:not(:disabled) {
-  background-color: var(--bg-surface);
-  color: var(--text-primary);
-  border-color: var(--border-subtle);
-}
-
-.directory__page-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.directory__page-btn--active {
-  background-color: var(--color-primary);
-  color: var(--color-primary-contrast);
-  font-weight: 600;
-  border-color: var(--color-primary);
-}
-
-.directory__page-btn--active:hover:not(:disabled) {
-  background-color: var(--color-primary-hover);
-  color: var(--color-primary-contrast);
-}
-
-.directory__page-btn--arrow {
-  padding: 0 4px;
-}
-
-.directory__page-ellipsis {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 30px;
-  color: var(--text-muted);
-  font-size: 0.85rem;
-}
-
-/* Page size selector */
-.directory__page-size {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.directory__page-size-label {
-  font-size: 0.85rem;
-  color: var(--text-secondary);
-  white-space: nowrap;
-}
-
-.directory__page-size-select {
-  padding: 4px 8px;
-  border: 1px solid var(--border-default);
-  border-radius: 6px;
-  background-color: var(--bg-surface);
-  color: var(--text-primary);
-  font-size: 0.85rem;
-  cursor: pointer;
-  outline: none;
-  transition: border-color 0.15s;
-}
-
-.directory__page-size-select:focus {
-  border-color: var(--color-primary);
-}
-
-/* Delete Modal Content */
-.directory__delete-modal-content {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  font-size: 0.95rem;
-  color: var(--text-primary);
-}
-
-.directory__delete-warning {
-  margin: 0;
-  font-size: 0.85rem;
-  color: var(--text-secondary);
-}
-
-/* Fixed Toast positioning */
-.directory__toast-anchor {
-  position: fixed;
-  bottom: 24px;
-  right: 24px;
-  z-index: 1001;
-  pointer-events: auto;
-}
-
-/* Responsive adjustments */
-@media (max-width: 768px) {
-  .directory__th--changed,
-  .directory__td--changed {
-    display: none;
-  }
-
-  .directory__th--name {
-    width: 55%;
-  }
-
-  .directory__th--status {
-    width: 25%;
-  }
-
-  .directory__th--actions {
-    width: 20%;
-  }
-
-  .directory__pagination {
-    flex-direction: column;
-    align-items: center;
-    gap: 10px;
-  }
-}
-</style>
