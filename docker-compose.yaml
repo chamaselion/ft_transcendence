@@ -9,6 +9,7 @@ services:
       - ./srcs/frontend:/usr/share/nginx/html:ro
     depends_on:
       - backend
+      - obj-storage
 
   # Placeholder until the real SPA exists. Keeps the service wired into
   # the stack (idles via the Dockerfile keep-alive CMD). nginx still serves
