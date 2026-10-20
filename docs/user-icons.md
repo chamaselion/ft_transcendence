@@ -42,7 +42,7 @@ as WebP without input metadata. The backend validates image contents rather than
 trusting the filename or declared MIME type.
 
 `GET /api/auth/me` includes `user.avatarUrl`, or `null` for the frontend's initials
-fallback. This uses S3 HEAD metadata, with the object's ETag as its URL version.
+fallback.
 A metadata lookup failure falls back to initials without invalidating the login.
 The read route is **self-only**: it can't be used to display another
 user's icon. Responses use `Cache-Control: private, no-store`.
