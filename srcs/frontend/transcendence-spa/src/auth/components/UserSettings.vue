@@ -134,7 +134,8 @@ async function changeAvatar(event: Event) {
     const body = new FormData()
     body.append('icon', file)
     const response = await httpClient.request<{ avatarUrl: string }>('me/icon', {
-      method: 'PUT', body,
+      method: 'PUT',
+      body,
     })
     if (user.value) {
       user.value.avatarUrl = response.avatarUrl
@@ -351,10 +352,33 @@ onMounted(loadProfile)
               >
             </div>
           </div>
-          <p>JPEG, PNG or WebP, up to 2 MiB.</p>
-          <Button v-if="user?.avatarUrl" :disabled="avatarPending" @click="removeAvatar">
-            Remove profile icon
-          </Button>
+          <div class="profile__icon-options">
+            <Button
+              v-if="authStore.isAuthenticated && !user?.avatarUrl"
+              :disabled="avatarPending"
+              @click="avatarInput?.click()"
+              class="add"
+            >
+              Add Profile Icon
+            </Button>
+            <Button
+              v-else
+              @click="avatarInput?.click()"
+              :disabled="avatarPending"
+              class="change"
+            >
+              Change Profile Icon
+            </Button>
+            <Button
+              v-if="user?.avatarUrl"
+              :disabled="avatarPending"
+              @click="removeAvatar"
+              class="remove"
+            >
+              Remove profile icon
+            </Button>
+            <p>JPEG, PNG or WebP, up to 2 MiB.</p>
+          </div>
           <span
             v-if="roleLabel"
             class="profile__role"
@@ -411,7 +435,10 @@ onMounted(loadProfile)
         </div>
       </dl>
 
-      <div v-if="user" class="profile__gdpr">
+      <div
+        v-if="user"
+        class="profile__gdpr"
+      >
         <div class="profile__gdpr-info">
           <span class="profile__gdpr-title">Privacy &amp; GDPR</span>
           <p class="profile__gdpr-description">
@@ -427,7 +454,10 @@ onMounted(loadProfile)
             @click="exportGdprData('json')"
           >
             <template #prepend>
-              <Icon name="ShieldCheck" :size="18" />
+              <Icon
+                name="ShieldCheck"
+                :size="18"
+              />
             </template>
             Export GDPR Data
           </Button>
@@ -441,11 +471,13 @@ onMounted(loadProfile)
             Export (CSV)
           </Button>
         </div>
-        <p v-if="gdprSuccess" class="profile__gdpr-success">
+        <p
+          v-if="gdprSuccess"
+          class="profile__gdpr-success"
+        >
           {{ gdprSuccessMessage }}
         </p>
       </div>
-      <!-- Admin panel entry point: uncomment to expose it only to admins.
       <Button
         v-if="authStore.isAdmin()"
         variant="outlined"
@@ -454,7 +486,6 @@ onMounted(loadProfile)
       >
         Go to Admin Panel
       </Button>
-      -->
 
       <Button
         v-if="!deletionConfirmationID"
@@ -535,6 +566,26 @@ onMounted(loadProfile)
 </template>
 
 <style lang="css" scoped>
+.profile__icon-options {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.add {
+  background-color: var(--color-good);
+}
+
+.change {
+  background-color: var(--color-warn);
+  color: var(--color-primary-contrast);
+}
+
+.remove {
+  background-color: var(--color-alert) !important;
+}
+
 form {
   display: grid;
   gap: 8px;
