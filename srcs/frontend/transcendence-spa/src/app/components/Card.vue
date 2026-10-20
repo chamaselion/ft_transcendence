@@ -1,59 +1,33 @@
 <template>
-  <div class="card" :class="{ 'card--elevated': elevated, 'card--outlined': outlined }">
-    <div v-if="title || $slots.header" class="card__header">
+  <div
+    class="card overflow-hidden rounded-[10px] border bg-surface text-ink"
+    :class="{ 'shadow-card': elevated, 'border-line': outlined, 'border-transparent': !outlined }"
+  >
+    <div
+      v-if="title || $slots.header"
+      class="border-b border-line-subtle px-4 py-3 text-base font-semibold"
+    >
       <slot name="header">{{ title }}</slot>
     </div>
-    <div class="card__body">
+    <div class="p-4">
       <slot />
     </div>
-    <div v-if="$slots.footer" class="card__footer">
+    <div v-if="$slots.footer" class="border-t border-line-subtle bg-subtle px-4 py-3">
       <slot name="footer" />
     </div>
   </div>
 </template>
 
 <script lang="ts" setup>
-withDefaults(defineProps<{
-  title?: string
-  elevated?: boolean
-  outlined?: boolean
-}>(), {
-  elevated: true,
-  outlined: false,
-})
+withDefaults(
+  defineProps<{
+    title?: string
+    elevated?: boolean
+    outlined?: boolean
+  }>(),
+  {
+    elevated: true,
+    outlined: false,
+  },
+)
 </script>
-
-<style lang="css" scoped>
-.card {
-  background-color: var(--bg-surface);
-  color: var(--text-primary);
-  border: 1px solid transparent;
-  border-radius: 10px;
-  overflow: hidden;
-}
-
-.card--elevated {
-  box-shadow: var(--shadow-md);
-}
-
-.card--outlined {
-  border-color: var(--border-default);
-}
-
-.card__header {
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--border-subtle);
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.card__body {
-  padding: 16px;
-}
-
-.card__footer {
-  padding: 12px 16px;
-  border-top: 1px solid var(--border-subtle);
-  background-color: var(--bg-subtle);
-}
-</style>
