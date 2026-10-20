@@ -198,6 +198,10 @@ async function loadEditor(idParam?: string) {
   }
 }
 
+function handleCreateNew() {
+  router.push('/editor')
+}
+
 onMounted(() => {
   loadEditor()
 })
@@ -289,6 +293,12 @@ onBeforeUnmount(() => {
             <Icon name="Share" :size="16" />
           </template>
           Share
+        </Button>
+        <Button v-if="documentId" variant="outlined" size="small" @click="handleCreateNew">
+          <template #icon>
+            <Icon name="Plus" :size="16" />
+          </template>
+          New Document
         </Button>
       </div>
     </div>
