@@ -116,6 +116,25 @@
           </option>
         </select>
       </div>
+
+      <span v-if="activeDecorator.type !== 'cit'" class="editor-nav__divider" />
+
+      <!-- Delete active block button -->
+      <div class="editor-nav__group">
+        <Button
+          variant="outlined"
+          color="alert"
+          size="small"
+          square
+          title="Delete active block"
+          :disabled="!activeBlockId || deleteDisabled"
+          @click="$emit('delete')"
+        >
+          <template #icon>
+            <Icon name="Trash" :size="18" />
+          </template>
+        </Button>
+      </div>
     </template>
 
     <span class="editor-nav__divider" :class="dividerClass" />
@@ -125,16 +144,16 @@
       :class="{ 'flex-col': position === 'left' }"
     >
       <Button
-        variant="outlined"
-        color="alert"
+        v-for="type in blockTypes"
+        :key="type"
+        variant="flat"
         size="small"
         square
-        title="Delete active block"
-        :disabled="!activeBlockId || deleteDisabled"
-        @click="$emit('delete')"
+        :title="`Add ${blockTypeLabels[type]}`"
+        @click="$emit('add', type)"
       >
         <template #icon>
-          <Icon name="Trash" :size="18" />
+          <Icon :name="typeIcons[type]" :size="18" />
         </template>
       </Button>
     </div>

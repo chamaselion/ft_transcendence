@@ -49,8 +49,28 @@ const requireNumberEnv = (name) => {
   return parsedValue;
 };
 
+const getAiConfig = () => {
+  const provider = (process.env.AI_PROVIDER || 'mock').toLowerCase();
+  const defaultModel =
+    provider === 'deepseek'
+      ? 'deepseek-chat'
+      : provider === 'anthropic'
+        ? 'claude-3-5-haiku-20241022'
+        : 'gpt-4o-mini';
+
+  return {
+    provider,
+    model: process.env.AI_MODEL || defaultModel,
+    apiKey: process.env.AI_API_KEY || '',
+    baseUrl: process.env.AI_BASE_URL || '',
+    timeoutMs: Number(process.env.AI_TIMEOUT_MS) || 15000,
+  };
+};
+
 module.exports = {
   requireEnv,
   getOptionalEnv,
   requireNumberEnv,
+  getAiConfig,
 };
+

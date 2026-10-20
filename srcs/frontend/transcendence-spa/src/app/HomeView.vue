@@ -7,10 +7,14 @@ import { useRouter } from 'vue-router'
 
 const authStore = useAuthStore()
 const router = useRouter()
+
+function openCookieBanner() {
+  window.dispatchEvent(new CustomEvent('open-cookie-banner'))
+}
 </script>
 
 <template>
-  <main class="box-border min-h-[calc(100vh_-_61px)] w-full px-6 py-10">
+  <main class="box-border flex min-h-[calc(100vh_-_61px)] w-full flex-col px-6 py-10">
     <template v-if="authStore.isAuthenticated">
       <DocumentDirectory />
     </template>
@@ -38,5 +42,17 @@ const router = useRouter()
         </div>
       </section>
     </template>
+
+    <footer
+      class="mt-auto flex w-full flex-wrap items-center justify-between gap-4 border-t border-line-subtle pt-6 text-[0.8125rem] text-muted"
+    >
+      <span>Trans Edit © 2026 · EU GDPR &amp; ePrivacy Compliant</span>
+      <button
+        class="ml-auto cursor-pointer border-0 bg-transparent p-0 text-[0.8125rem] font-medium text-brand underline underline-offset-[3px] transition-opacity duration-150 hover:opacity-80"
+        @click="openCookieBanner"
+      >
+        Cookie Policy &amp; Preferences
+      </button>
+    </footer>
   </main>
 </template>

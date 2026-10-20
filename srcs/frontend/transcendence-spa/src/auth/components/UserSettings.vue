@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { httpClient, HttpError } from '../auth.api'
 import Button from '@/app/components/Button.vue'
 import Card from '@/app/components/Card.vue'
+import Icon from '@/app/components/Icon.vue'
 import Input from '@/app/components/Input.vue'
 import Toast from '@/app/components/Toast.vue'
 import type { Root, User } from '../types/user'
@@ -34,6 +35,10 @@ const deleting = ref(false)
 
 const updateSuccess = ref(false)
 const updateSuccessMessage = ref('')
+
+const gdprPending = ref(false)
+const gdprSuccess = ref(false)
+const gdprSuccessMessage = ref('')
 
 const loggedIn = computed(() => res.value?.loggedIn === true)
 const status = computed(() => (loggedIn.value ? 'good' : 'warn'))
@@ -139,6 +144,35 @@ async function requestDeletion() {
   }
 }
 
+async function exportGdprData(format: 'json' | 'csv' = 'json') {
+  gdprPending.value = true
+  gdprSuccess.value = false
+  errorFlag.value = false
+
+  try {
+    const endpoint = format === 'csv' ? 'me/data-export/csv' : 'me/data-export'
+    const { blob, filename } = await httpClient.download(endpoint)
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+
+    gdprSuccessMessage.value = `Your GDPR data export (${format.toUpperCase()}) has been downloaded successfully.`
+    gdprSuccess.value = true
+  } catch (error) {
+    console.error('Error exporting GDPR data:', error)
+    errorFlag.value = true
+    message.value =
+      error instanceof Error ? error.message : 'Something went wrong while exporting GDPR data'
+  } finally {
+    gdprPending.value = false
+  }
+}
+
 async function confirmDeletion() {
   if (deleting.value || !deletionConfirmationID.value || !deletionCode.value.trim()) return
   deleting.value = true
@@ -169,7 +203,7 @@ onMounted(loadProfile)
 </script>
 
 <template>
-  <div class="box-border mx-auto w-full max-w-[520px] px-6 py-12">
+  <div class="box-border mx-auto w-full max-w-[1080px] px-6 py-12">
     <header class="mb-6">
       <h1 class="m-0 mb-1.5 text-[1.6rem] font-bold text-ink">User Settings</h1>
       <p class="m-0 text-sm text-ink-secondary">Your account details and session status.</p>
@@ -193,8 +227,20 @@ onMounted(loadProfile)
       class="mb-4"
     />
 
-    <Card v-if="pending" class="w-full">
-      <p class="mt-4 text-center text-[13px] text-muted">Loading your profile…</p>
+    <Toast
+      v-model="gdprSuccess"
+      type="good"
+      :message="gdprSuccessMessage"
+      :duration="6000"
+      fluid
+      class="mb-4"
+    />
+
+    <Card
+      v-if="pending"
+      class="w-full :deep(.btn):mr-0"
+    >
+      <p class="m-0 mt-4 text-[0.75rem] text-muted text-center">Loading your profile…</p>
     </Card>
 
     <Card v-else-if="failed" class="w-full">
@@ -265,8 +311,55 @@ onMounted(loadProfile)
         </div>
       </dl>
 
+      <div v-if="user" class="mt-6 flex flex-col gap-2.5 border-t border-line-subtle pt-4">
+        <div class="flex flex-col gap-1.5">
+          <span class="font-semibold text-[0.875rem] text-brand">Privacy &amp; GDPR</span>
+          <p class="m-0 text-[0.875rem] text-ink-secondary">
+            Under GDPR Art. 15, you have the right to obtain a copy of your personal data.
+          </p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <Button
+            class="flex mt-2 items-center gap-2 flex-wrap"
+            variant="outlined"
+            color="primary"
+            :loading="gdprPending"
+            @click="exportGdprData('json')"
+          >
+            <template #prepend>
+              <Icon name="ShieldCheck" :size="18" />
+            </template>
+            Export GDPR Data
+          </Button>
+          <Button
+            class="flex mt-2 items-center gap-2 flex-wrap"
+            id="export-gdpr-csv-btn"
+            variant="outlined"
+            color="primary"
+            :loading="gdprPending"
+            @click="exportGdprData('csv')"
+          >
+          Export (CSV)
+        </Button>
+        </div>
+        <p v-if="gdprSuccess" class="m-0 text-[0.875rem] text-success font-medium">
+          {{ gdprSuccessMessage }}
+        </p>
+      </div>
+      <!-- Admin panel entry point: uncomment to expose it only to admins.
+      <Button
+        v-if="authStore.isAdmin()"
+        variant="outlined"
+        color="primary"
+        @click="router.push('/admin')"
+      >
+        Go to Admin Panel
+      </Button>
+      -->
+      <span></span>
       <Button
         v-if="!deletionConfirmationID"
+        class="flex mt-2 items-center gap-2 flex-wrap"
         color="alert"
         variant="outlined"
         :loading="deleting"

@@ -77,8 +77,10 @@ import EditorNav from '@/app/components/EditorNav.vue'
 import Button from '@/app/components/Button.vue'
 import { useEditorStore } from '@/stores/editor'
 import { isStandardText } from '@/app/editor/useEditable'
+import { translateBlocks, backTranslateBlock } from '@/app/editor/translation.api'
 import {
   createBlock,
+  isCodeOrCitation,
   parseDecorator,
   serializeDecorator,
   type Block,
@@ -352,6 +354,14 @@ function hasPendingData(): boolean {
   return Boolean(editDebounceTimer || (pendingEditBlockId !== null && pendingEditText !== null))
 }
 
+function getSurroundingContext(blockId: string): string {
+  const index = store.blocks.findIndex((b) => b.id === blockId)
+  if (index === -1) return ''
+  const prev = store.blocks[index - 1]?.text ?? ''
+  const next = store.blocks[index + 1]?.text ?? ''
+  return [prev ? `Previous: ${prev}` : '', next ? `Next: ${next}` : ''].filter(Boolean).join('\n')
+}
+
 async function flushPendingEdit(): Promise<boolean> {
   if (editDebounceTimer) {
     clearTimeout(editDebounceTimer)
@@ -359,14 +369,39 @@ async function flushPendingEdit(): Promise<boolean> {
   }
   if (pendingEditBlockId && pendingEditText !== null) {
     const blockId = pendingEditBlockId
-    const text = pendingEditText
+    let textToSend = pendingEditText
     const decorator = pendingEditDecorator ?? undefined
     pendingEditBlockId = null
     pendingEditText = null
     pendingEditDecorator = null
+
+    // If edited in non-English mode, back-translate dirty block to English before saving to DB/WS
+    if (store.activeLanguage !== 'en' && store.isBlockDirty(blockId)) {
+      const currentBlock = store.blocks.find((b) => b.id === blockId)
+      if (currentBlock && isCodeOrCitation(currentBlock.decorator)) {
+        store.setCanonicalText(blockId, textToSend)
+        store.clearBlockDirty(blockId)
+      } else {
+        try {
+          const surroundingContext = getSurroundingContext(blockId)
+          const canonical = await backTranslateBlock(
+            textToSend,
+            store.activeLanguage,
+            'en',
+            surroundingContext,
+          )
+          store.setCanonicalText(blockId, canonical)
+          store.clearBlockDirty(blockId)
+          textToSend = canonical
+        } catch (err) {
+          console.error('Back-translation failed during save:', err)
+        }
+      }
+    }
+
     return await props.provider.sendEdit({
       blockId,
-      text,
+      text: textToSend,
       decorator,
     })
   }
@@ -416,16 +451,55 @@ function wireProvider(provider: EditorDataProvider) {
   }
 
   provider.onInit = (e) => {
+    store.initCanonicalBlocks(e.blocks)
     store.setBlocks(e.blocks)
+    if (store.activeLanguage !== 'en') {
+      const translatable = e.blocks.filter((b) => !isCodeOrCitation(b.decorator))
+      const payload = translatable.map((b) => ({ id: b.id, text: b.text }))
+      if (payload.length > 0) {
+        translateBlocks(payload, 'en', store.activeLanguage)
+          .then((res) => {
+            store.applyTranslations(res)
+          })
+          .catch((err) => console.error('Failed to translate initial blocks:', err))
+      }
+    }
   }
 
   provider.onCreated = (e) => {
     store.insertBlock(e.block, e.afterBlockId)
+    if (store.activeLanguage !== 'en' && !isCodeOrCitation(e.block.decorator)) {
+      translateBlocks([{ id: e.block.id, text: e.block.text }], 'en', store.activeLanguage)
+        .then((res) => {
+          if (res.length > 0) {
+            store.applyTranslations(res)
+          }
+        })
+        .catch((err) => console.error('Failed to translate newly created block:', err))
+    }
   }
 
   provider.onUpdated = (e) => {
     if (e.text !== undefined) {
-      store.updateBlockText(e.blockId, e.text)
+      store.setCanonicalText(e.blockId, e.text)
+      if (store.activeLanguage === 'en') {
+        store.updateBlockText(e.blockId, e.text)
+      } else {
+        // If local user is not actively editing this block, translate it to activeLanguage
+        if (store.activeBlockId !== e.blockId) {
+          const currentBlock = store.blocks.find((b) => b.id === e.blockId)
+          if (!currentBlock || !isCodeOrCitation(currentBlock.decorator)) {
+            translateBlocks([{ id: e.blockId, text: e.text }], 'en', store.activeLanguage)
+              .then((res) => {
+                const first = res[0]
+                if (first && store.activeLanguage !== 'en') {
+                  store.updateBlockText(e.blockId, first.text)
+                }
+              })
+              .catch((err) => console.error('Failed to translate updated block:', err))
+          }
+        }
+      }
     }
     if (e.decorator !== undefined) {
       store.updateBlockDecorator(e.blockId, e.decorator)
@@ -555,19 +629,14 @@ const onUpdateText = async (block: Block, text: string) => {
   store.updateBlockText(block.id, text)
   resetLockTimeout(block.id)
   const wasStandard = isStandardText(oldText)
-  if (wasStandard && !isStandardText(text)) {
-    flushPendingEdit()
-    await props.provider.sendEdit({
-      blockId: block.id,
-      text,
-      decorator: block.decorator,
-    })
-    return
-  }
-
   pendingEditBlockId = block.id
   pendingEditText = text
   pendingEditDecorator = block.decorator
+
+  if (wasStandard && !isStandardText(text)) {
+    await flushPendingEdit()
+    return
+  }
 
   if (editDebounceTimer) {
     clearTimeout(editDebounceTimer)
@@ -594,23 +663,16 @@ const onUpdateDecorator = async (block: Block | null, newDecorator: BlockDecorat
 
   // Flush any pending text edit along with the new decorator
   if (pendingEditBlockId === block.id) {
-    if (editDebounceTimer) {
-      clearTimeout(editDebounceTimer)
-      editDebounceTimer = null
-    }
-    const textToSend = pendingEditText ?? block.text
-    pendingEditBlockId = null
-    pendingEditText = null
-    pendingEditDecorator = null
+    pendingEditDecorator = serialized
+    await flushPendingEdit()
+  } else {
+    const textToSend =
+      store.activeLanguage === 'en'
+        ? block.text
+        : store.getCanonicalText(block.id) || block.text
     await props.provider.sendEdit({
       blockId: block.id,
       text: textToSend,
-      decorator: serialized,
-    })
-  } else {
-    await props.provider.sendEdit({
-      blockId: block.id,
-      text: block.text,
       decorator: serialized,
     })
   }
