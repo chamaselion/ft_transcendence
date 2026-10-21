@@ -44,6 +44,7 @@ export const iconNames = [
   'Cookie',
   'ShieldCheck',
   'InfoCircle',
+  'Key',
 ] as const
 
 export type IconName = (typeof iconNames)[number]
@@ -95,6 +96,7 @@ import {
   IconCookie,
   IconShieldCheck,
   IconInfoCircle,
+  IconKey,
 } from '@tabler/icons-vue'
 
 const iconMap: Record<IconName, Component> = {
@@ -142,6 +144,7 @@ const iconMap: Record<IconName, Component> = {
   Cookie: IconCookie,
   ShieldCheck: IconShieldCheck,
   InfoCircle: IconInfoCircle,
+  Key: IconKey,
 }
 
 const props = withDefaults(

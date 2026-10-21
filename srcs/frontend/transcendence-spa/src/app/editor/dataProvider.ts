@@ -68,11 +68,8 @@ export class WebSocketEditorDataProvider implements EditorDataProvider {
     userId?: string | null
   }) => void = () => {}
   public onDeleted: (e: { blockId: string }) => void = () => {}
-  public onLocked: (e: {
-    blockId: string
-    userId?: string | null
-    clientId?: string
-  }) => void = () => {}
+  public onLocked: (e: { blockId: string; userId?: string | null; clientId?: string }) => void =
+    () => {}
   public onUnlocked: (e: { blockId: string }) => void = () => {}
   public onTitleUpdated: (e: { title: string; userId?: string | null }) => void = () => {}
   public onError: (e: { error: string }) => void = () => {}
@@ -314,11 +311,8 @@ export class LocalEditorDataProvider implements EditorDataProvider {
     userId?: string | null
   }) => void = () => {}
   public onDeleted: (e: { blockId: string }) => void = () => {}
-  public onLocked: (e: {
-    blockId: string
-    userId?: string | null
-    clientId?: string
-  }) => void = () => {}
+  public onLocked: (e: { blockId: string; userId?: string | null; clientId?: string }) => void =
+    () => {}
   public onUnlocked: (e: { blockId: string }) => void = () => {}
   public onTitleUpdated: (e: { title: string; userId?: string | null }) => void = () => {}
   public onError: (e: { error: string }) => void = () => {}

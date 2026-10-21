@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { httpClient, HttpError } from '../auth.api'
 import OtpValidation from './OtpValidation.vue'
+import PasswordResetModal from './PasswordResetModal.vue'
 import Toast from '@/app/components/Toast.vue'
 import Input from '@/app/components/Input.vue'
 import Button from '@/app/components/Button.vue'
@@ -33,6 +34,7 @@ const challengeID = ref('')
 const registerRedirectFlag = ref(Boolean(props.isRegisterRedirect))
 const otpConfirmationRequired = ref(false)
 const isSubmitting = ref(false)
+const resetOpen = ref(false)
 const errors = ref({ email: '', password: '' })
 
 const validateField = (field: 'email' | 'password') => {
@@ -107,8 +109,31 @@ const handleLogin = async () => {
       <OAuth />
 
       <form class="flex flex-col gap-4" @submit.prevent="handleLogin">
-        <Input label="E-mail" type="email" v-model="email" required :error="errors.email" @blur="validateField('email')"/>
-        <Input label="Password" type="password" v-model="password" required :error="errors.password" @blur="validateField('password')"/>
+        <Input
+          label="E-mail"
+          type="email"
+          v-model="email"
+          required
+          :error="errors.email"
+          @blur="validateField('email')"
+        />
+        <Input
+          label="Password"
+          type="password"
+          v-model="password"
+          required
+          :error="errors.password"
+          @blur="validateField('password')"
+        />
+        <div class="-mt-2 flex justify-end">
+          <button
+            type="button"
+            class="m-0 cursor-pointer border-0 bg-transparent p-0 text-sm font-medium text-brand hover:bg-transparent hover:text-brand-hover hover:underline"
+            @click="resetOpen = true"
+          >
+            Forgot password?
+          </button>
+        </div>
         <Button type="submit" size="large" class="w-full" :loading="isSubmitting">
           {{ isSubmitting ? 'Signing in' : 'Login' }}
         </Button>
@@ -125,4 +150,6 @@ const handleLogin = async () => {
   </div>
 
   <OtpValidation v-if="otpConfirmationRequired" :email="email" :challengeID="challengeID" />
+
+  <PasswordResetModal v-model="resetOpen" :initial-email="email" />
 </template>

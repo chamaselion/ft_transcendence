@@ -46,7 +46,9 @@ const emit = defineEmits<{
       v-else-if="!props.loading && props.documents.length === 0"
       class="flex flex-col items-center justify-center rounded-xl border border-dashed border-line bg-surface/60 px-6 py-16 text-center"
     >
-      <div class="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-subtle text-muted">
+      <div
+        class="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-subtle text-muted"
+      >
         <Icon name="FileText" :size="48" />
       </div>
       <h3 class="m-0 mb-2 text-xl font-semibold text-ink">

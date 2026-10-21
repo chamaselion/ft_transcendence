@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { httpClient, HttpError } from '../auth.api'
+import PasswordResetModal from './PasswordResetModal.vue'
 import Button from '@/app/components/Button.vue'
 import Card from '@/app/components/Card.vue'
 import Icon from '@/app/components/Icon.vue'
 import Input from '@/app/components/Input.vue'
+import TermsOfServiceModal from '@/app/components/TermsOfServiceModal.vue'
 import Toast from '@/app/components/Toast.vue'
 import type { Root, User } from '../types/user'
 import type { OtpConfirmationResponse } from '../types/auth.types'
@@ -34,6 +36,26 @@ const deletionConfirmationID = ref('')
 const deletionCode = ref('')
 const deleting = ref(false)
 const errors = ref({ email: '', login: '', otp: '', deletion: '' })
+
+const passwordResetOpen = ref(false)
+const passwordResetSucceeded = ref(false)
+const termsOpen = ref(false)
+
+watch(passwordResetOpen, (open) => {
+  if (!open && passwordResetSucceeded.value) {
+    authStore.invalidate()
+    router.replace('/login')
+  }
+})
+
+function openPasswordReset() {
+  passwordResetSucceeded.value = false
+  passwordResetOpen.value = true
+}
+
+function handlePasswordResetSuccess() {
+  passwordResetSucceeded.value = true
+}
 
 function validateEmailField() {
   errors.value.email = validateEmail(email.value ?? '').error ?? ''
@@ -316,10 +338,7 @@ onMounted(loadProfile)
       class="mb-4"
     />
 
-    <Card
-      v-if="pending"
-      class="w-full :deep(.btn):mr-0"
-    >
+    <Card v-if="pending" class="w-full :deep(.btn):mr-0">
       <p class="m-0 mt-4 text-[0.75rem] text-muted text-center">Loading your profile…</p>
     </Card>
 
@@ -342,9 +361,7 @@ onMounted(loadProfile)
       <div class="flex items-center gap-4 border-b border-line-subtle pb-4">
         <div class="flex w-full min-w-0 flex-col items-start gap-1.5">
           <div class="flex w-full items-center justify-between">
-            <span class="text-lg font-semibold text-ink wrap-anywhere">{{
-              user?.login
-            }}</span>
+            <span class="text-lg font-semibold text-ink wrap-anywhere">{{ user?.login }}</span>
             <div class="group relative inline-flex shrink-0 overflow-hidden rounded-full">
               <input
                 ref="avatarInput"
@@ -360,13 +377,13 @@ onMounted(loadProfile)
                 aria-label="Change profile icon"
                 :disabled="avatarPending"
               > -->
-                <UserIcon
-                  class="profile__avatar-icon"
-                  :avatar-url="user?.avatarUrl ?? undefined"
-                  :name="user?.login"
+              <UserIcon
+                class="profile__avatar-icon"
+                :avatar-url="user?.avatarUrl ?? undefined"
+                :name="user?.login"
                 @click="avatarInput?.click()"
-                  size="large"
-                />
+                size="large"
+              />
               <!-- </Button> -->
               <span
                 class="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/25 text-[28px] leading-none text-white opacity-0 transition-opacity duration-[180ms] group-hover:opacity-100"
@@ -384,12 +401,7 @@ onMounted(loadProfile)
             >
               Add Profile Icon
             </Button>
-            <Button
-              v-else
-              @click="avatarInput?.click()"
-              :disabled="avatarPending"
-              class="change"
-            >
+            <Button v-else @click="avatarInput?.click()" :disabled="avatarPending" class="change">
               Change Profile Icon
             </Button>
             <Button
@@ -414,8 +426,20 @@ onMounted(loadProfile)
       <dl v-if="user" class="flex flex-col">
         <div class="mb-2">
           <form class="grid gap-2" @submit.prevent="updateUserDetails(email, login)">
-            <Input label="Email" v-model="email" type="text" :error="errors.email" @blur="validateEmailField" />
-            <Input label="Username" v-model="login" type="text" :error="errors.login" @blur="validateLoginField"/>
+            <Input
+              label="Email"
+              v-model="email"
+              type="text"
+              :error="errors.email"
+              @blur="validateEmailField"
+            />
+            <Input
+              label="Username"
+              v-model="login"
+              type="text"
+              :error="errors.login"
+              @blur="validateLoginField"
+            />
             <Button
               v-if="(isChanged(user.email, email) || isChanged(user.login, login)) && !displayOTP"
               variant="elevated"
@@ -428,7 +452,13 @@ onMounted(loadProfile)
 
         <div v-if="displayOTP" class="mb-2">
           <form class="grid gap-2" @submit.prevent="confirmUpdateDetails">
-            <Input label="OTP Code" v-model="otpCode" type="text" :error="errors.otp" @blur="validateOtpField" />
+            <Input
+              label="OTP Code"
+              v-model="otpCode"
+              type="text"
+              :error="errors.otp"
+              @blur="validateOtpField"
+            />
             <Button v-if="confirmationID" variant="elevated" type="submit">Confirm OTP</Button>
           </form>
         </div>
@@ -450,10 +480,7 @@ onMounted(loadProfile)
             @click="exportGdprData('json')"
           >
             <template #prepend>
-              <Icon
-                name="ShieldCheck"
-                :size="18"
-              />
+              <Icon name="ShieldCheck" :size="18" />
             </template>
             Export GDPR Data
           </Button>
@@ -465,13 +492,55 @@ onMounted(loadProfile)
             :loading="gdprPending"
             @click="exportGdprData('csv')"
           >
-          Export (CSV)
-        </Button>
+            Export (CSV)
+          </Button>
         </div>
         <p v-if="gdprSuccess" class="m-0 text-[0.875rem] text-success font-medium">
           {{ gdprSuccessMessage }}
         </p>
       </div>
+
+      <div v-if="user" class="mt-6 flex flex-col gap-2.5 border-t border-line-subtle pt-4">
+        <div class="flex flex-col gap-1.5">
+          <span class="font-semibold text-[0.875rem] text-brand">Password</span>
+          <p class="m-0 text-[0.875rem] text-ink-secondary">
+            Reset your password with a code sent to your email. You will need to sign in again
+            afterwards.
+          </p>
+        </div>
+        <Button
+          class="flex mt-2 items-center gap-2 self-start"
+          variant="outlined"
+          color="primary"
+          @click="openPasswordReset"
+        >
+          <template #prepend>
+            <Icon name="Key" :size="18" />
+          </template>
+          Reset password
+        </Button>
+      </div>
+
+      <div v-if="user" class="mt-6 flex flex-col gap-2.5 border-t border-line-subtle pt-4">
+        <div class="flex flex-col gap-1.5">
+          <span class="font-semibold text-[0.875rem] text-brand">Legal</span>
+          <p class="m-0 text-[0.875rem] text-ink-secondary">
+            Read the Terms of Service that apply to your use of Trans Edit.
+          </p>
+        </div>
+        <Button
+          class="flex mt-2 items-center gap-2 self-start"
+          variant="outlined"
+          color="primary"
+          @click="termsOpen = true"
+        >
+          <template #prepend>
+            <Icon name="FileText" :size="18" />
+          </template>
+          Terms of Service
+        </Button>
+      </div>
+
       <Button
         v-if="authStore.isAdmin()"
         variant="outlined"
@@ -540,4 +609,11 @@ onMounted(loadProfile)
       </div>
     </Card>
   </div>
+
+  <PasswordResetModal
+    v-model="passwordResetOpen"
+    :initial-email="email"
+    @success="handlePasswordResetSuccess"
+  />
+  <TermsOfServiceModal v-model="termsOpen" />
 </template>

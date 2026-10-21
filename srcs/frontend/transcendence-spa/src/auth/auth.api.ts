@@ -80,7 +80,11 @@ export class HttpClient {
     const response = await fetch(buildUrl(path, this.baseUrl, config.query), {
       method: config.method ?? 'GET',
       headers,
-      body: isFormData ? config.body as FormData : config.body ? JSON.stringify(config.body) : undefined,
+      body: isFormData
+        ? (config.body as FormData)
+        : config.body
+          ? JSON.stringify(config.body)
+          : undefined,
       signal: config.signal,
     })
     if (!response.ok) {
@@ -124,7 +128,7 @@ export class HttpClient {
 
   async download(
     path: string,
-    config: RequestConfig = {}
+    config: RequestConfig = {},
   ): Promise<{ blob: Blob; filename: string }> {
     const headers: Record<string, string> = {
       ...DEFAULT_HEADERS,

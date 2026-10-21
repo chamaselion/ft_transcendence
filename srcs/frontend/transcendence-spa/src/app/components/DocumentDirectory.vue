@@ -9,10 +9,7 @@ import DocumentToolbar from '@/app/components/documents/DocumentToolbar.vue'
 import DocumentTable from '@/app/components/documents/DocumentTable.vue'
 import DocumentPagination from '@/app/components/documents/DocumentPagination.vue'
 import DeleteDocumentModal from '@/app/components/documents/DeleteDocumentModal.vue'
-import {
-  useDocumentDirectory,
-  type DocumentScope,
-} from '@/app/composables/useDocumentDirectory'
+import { useDocumentDirectory, type DocumentScope } from '@/app/composables/useDocumentDirectory'
 import type { DocumentData } from '@/app/editor/document.api'
 
 const router = useRouter()

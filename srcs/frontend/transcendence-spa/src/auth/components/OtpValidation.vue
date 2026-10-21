@@ -68,7 +68,14 @@ const handleOtpConfirmation = async () => {
     <div class="mt-6 flex flex-col gap-6">
       <Toast v-model="errorFlag" type="alert" :message="message" :duration="6000" fluid />
       <form class="flex flex-col gap-4" @submit.prevent="handleOtpConfirmation">
-        <Input label="Enter OTP" type="text" v-model="otp" required :error="codeError" @blur="validateCode"/>
+        <Input
+          label="Enter OTP"
+          type="text"
+          v-model="otp"
+          required
+          :error="codeError"
+          @blur="validateCode"
+        />
         <Button type="submit" class="w-full">Confirm OTP</Button>
       </form>
     </div>

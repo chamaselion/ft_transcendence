@@ -23,19 +23,22 @@
 <script lang="ts" setup>
 defineOptions({ inheritAttrs: false })
 
-withDefaults(defineProps<{
-  modelValue?: string | number
-  label?: string
-  type?: string
-  placeholder?: string
-  error?: string
-  hint?: string
-  disabled?: boolean
-}>(), {
-  modelValue: '',
-  type: 'text',
-  disabled: false,
-})
+withDefaults(
+  defineProps<{
+    modelValue?: string | number
+    label?: string
+    type?: string
+    placeholder?: string
+    error?: string
+    hint?: string
+    disabled?: boolean
+  }>(),
+  {
+    modelValue: '',
+    type: 'text',
+    disabled: false,
+  },
+)
 
 defineEmits<{ 'update:modelValue': [value: string] }>()
 </script>

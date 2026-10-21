@@ -1,12 +1,15 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import DocumentDirectory from '@/app/components/DocumentDirectory.vue'
 import Button from '@/app/components/Button.vue'
 import Icon from '@/app/components/Icon.vue'
+import TermsOfServiceModal from '@/app/components/TermsOfServiceModal.vue'
 import { useRouter } from 'vue-router'
 
 const authStore = useAuthStore()
 const router = useRouter()
+const termsOpen = ref(false)
 
 function openCookieBanner() {
   window.dispatchEvent(new CustomEvent('open-cookie-banner'))
@@ -47,12 +50,22 @@ function openCookieBanner() {
       class="mt-auto flex w-full flex-wrap items-center justify-between gap-4 border-t border-line-subtle pt-6 text-[0.8125rem] text-muted"
     >
       <span>Trans Edit © 2026 · EU GDPR &amp; ePrivacy Compliant</span>
-      <button
-        class="ml-auto cursor-pointer border-0 bg-transparent p-0 text-[0.8125rem] font-medium text-brand underline underline-offset-[3px] transition-opacity duration-150 hover:opacity-80"
-        @click="openCookieBanner"
-      >
-        Cookie Policy &amp; Preferences
-      </button>
+      <div class="ml-auto flex flex-wrap items-center gap-4">
+        <button
+          class="cursor-pointer border-0 bg-transparent p-0 text-[0.8125rem] font-medium text-brand underline underline-offset-[3px] transition-opacity duration-150 hover:bg-transparent hover:opacity-80"
+          @click="termsOpen = true"
+        >
+          Terms of Service
+        </button>
+        <button
+          class="cursor-pointer border-0 bg-transparent p-0 text-[0.8125rem] font-medium text-brand underline underline-offset-[3px] transition-opacity duration-150 hover:bg-transparent hover:opacity-80"
+          @click="openCookieBanner"
+        >
+          Cookie Policy &amp; Preferences
+        </button>
+      </div>
     </footer>
+
+    <TermsOfServiceModal v-model="termsOpen" />
   </main>
 </template>

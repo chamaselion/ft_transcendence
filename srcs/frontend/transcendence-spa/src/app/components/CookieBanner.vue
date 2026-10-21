@@ -24,7 +24,8 @@ const cookieInventory: CookieInfo[] = [
     type: 'Cookie',
     provider: 'Transcendence (1st party)',
     duration: '7 days',
-    purpose: 'Stores your authenticated session (JWT) to keep you logged in and secure real-time collaboration.',
+    purpose:
+      'Stores your authenticated session (JWT) to keep you logged in and secure real-time collaboration.',
     category: 'Strictly Necessary',
     required: true,
   },
@@ -33,7 +34,8 @@ const cookieInventory: CookieInfo[] = [
     type: 'Local Storage',
     provider: 'Transcendence (1st party)',
     duration: 'Persistent',
-    purpose: 'Remembers your interface display theme preference (light or dark mode) across browser visits.',
+    purpose:
+      'Remembers your interface display theme preference (light or dark mode) across browser visits.',
     category: 'Functionality',
     required: true,
   },
@@ -42,7 +44,8 @@ const cookieInventory: CookieInfo[] = [
     type: 'Local Storage',
     provider: 'Transcendence (1st party)',
     duration: '1 year',
-    purpose: 'Remembers your acknowledgment of this EU cookie disclosure to prevent repeated popups.',
+    purpose:
+      'Remembers your acknowledgment of this EU cookie disclosure to prevent repeated popups.',
     category: 'Strictly Necessary',
     required: true,
   },
@@ -101,12 +104,7 @@ defineExpose({
 
 <template>
   <Transition name="cookie-banner-fade">
-    <div
-      v-if="isVisible"
-      class="cookie-banner-overlay"
-      role="region"
-      aria-label="EU Cookie Notice"
-    >
+    <div v-if="isVisible" class="cookie-banner-overlay" role="region" aria-label="EU Cookie Notice">
       <div class="cookie-banner">
         <!-- Main Header & Notice -->
         <div class="cookie-banner__header">
@@ -126,10 +124,13 @@ defineExpose({
 
         <div class="cookie-banner__body">
           <p class="cookie-banner__description">
-            Trans Edit uses strictly functional cookies and local storage to provide essential services such as
-            user authentication, session security, and theme preferences. In accordance with EU Directive 2002/58/EC
-            (ePrivacy) and GDPR Art. 6, all cookies used on this site are strictly necessary for core functionality.
-            <strong>We do not use any advertising, profiling, or third-party tracking cookies.</strong>
+            Trans Edit uses strictly functional cookies and local storage to provide essential
+            services such as user authentication, session security, and theme preferences. In
+            accordance with EU Directive 2002/58/EC (ePrivacy) and GDPR Art. 6, all cookies used on
+            this site are strictly necessary for core functionality.
+            <strong
+              >We do not use any advertising, profiling, or third-party tracking cookies.</strong
+            >
           </p>
         </div>
 
@@ -142,7 +143,8 @@ defineExpose({
                 Active Storage &amp; Cookies Inventory
               </h3>
               <p class="cookie-banner__details-subtitle">
-                The following technical storage items are set by this website for core site functionality:
+                The following technical storage items are set by this website for core site
+                functionality:
               </p>
             </div>
 
@@ -170,7 +172,10 @@ defineExpose({
                     <td>{{ cookie.duration }}</td>
                     <td class="cookie-purpose">{{ cookie.purpose }}</td>
                     <td>
-                      <span class="status-pill status-pill--required" title="Essential for site operation">
+                      <span
+                        class="status-pill status-pill--required"
+                        title="Essential for site operation"
+                      >
                         Always Active
                       </span>
                     </td>
@@ -409,7 +414,9 @@ defineExpose({
 /* Animations */
 .cookie-banner-fade-enter-active,
 .cookie-banner-fade-leave-active {
-  transition: opacity 0.3s ease, transform 0.3s ease;
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease;
 }
 
 .cookie-banner-fade-enter-from,

@@ -1,9 +1,5 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import {
-  deleteDocument,
-  listDocuments,
-  type DocumentData,
-} from '@/app/editor/document.api'
+import { deleteDocument, listDocuments, type DocumentData } from '@/app/editor/document.api'
 import { validateSearchQuery } from '@/utils/validation'
 
 export type DocumentScope = 'all' | 'own' | 'shared'
@@ -25,15 +21,11 @@ export function useDocumentDirectory() {
   const currentPage = ref<number>(1)
   const totalDocuments = ref<number>(0)
 
-  const totalPages = computed(() =>
-    Math.max(1, Math.ceil(totalDocuments.value / pageSize.value)),
-  )
+  const totalPages = computed(() => Math.max(1, Math.ceil(totalDocuments.value / pageSize.value)))
   const fromItem = computed(() =>
     totalDocuments.value === 0 ? 0 : (currentPage.value - 1) * pageSize.value + 1,
   )
-  const toItem = computed(() =>
-    Math.min(currentPage.value * pageSize.value, totalDocuments.value),
-  )
+  const toItem = computed(() => Math.min(currentPage.value * pageSize.value, totalDocuments.value))
 
   const showDeleteModal = ref(false)
   const selectedDeleteDoc = ref<DocumentData | null>(null)
@@ -150,8 +142,7 @@ export function useDocumentDirectory() {
     } catch (err) {
       console.error('Failed to delete document:', err)
       toastType.value = 'alert'
-      toastMessage.value =
-        err instanceof Error ? err.message : 'Failed to delete document.'
+      toastMessage.value = err instanceof Error ? err.message : 'Failed to delete document.'
       showToast.value = true
     } finally {
       isDeleting.value = false

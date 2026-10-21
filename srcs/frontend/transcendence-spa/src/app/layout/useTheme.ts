@@ -2,9 +2,9 @@ import { ref } from 'vue'
 
 export type Theme = 'light' | 'dark'
 
-const savedTheme = (localStorage.getItem('app-theme') as Theme) ||
-  (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' :
-'light')
+const savedTheme =
+  (localStorage.getItem('app-theme') as Theme) ||
+  (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
 
 const currentTheme = ref<Theme>(savedTheme)
 

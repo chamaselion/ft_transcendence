@@ -76,14 +76,16 @@ const logoutLink = `${linkBase} border-[color:color-mix(in_srgb,var(--color-aler
         @click="toggleTheme"
       >
         <Icon :name="currentTheme === 'light' ? 'Moon' : 'Sun'" :size="18" />
-        <span class="btn--lable max-sm:hidden">{{ currentTheme === 'light' ? 'Dark' : 'Light' }}</span>
+        <span class="btn--lable max-sm:hidden">{{
+          currentTheme === 'light' ? 'Dark' : 'Light'
+        }}</span>
       </button>
     </nav>
-    <router-link
-      v-if="authStore.isAuthenticated"
-      to="/profile"
-    >
-      <UserIcon :avatar-url="authStore.user?.avatarUrl ?? undefined" :name="authStore.user?.login" />
+    <router-link v-if="authStore.isAuthenticated" to="/profile">
+      <UserIcon
+        :avatar-url="authStore.user?.avatarUrl ?? undefined"
+        :name="authStore.user?.login"
+      />
     </router-link>
     <router-link v-else to="/login">
       <UserIcon avatar-url="/user-default-avatar.png" />

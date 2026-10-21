@@ -1,8 +1,5 @@
 <template>
-  <div
-    class="canonical-preview"
-    :class="{ 'canonical-preview--expanded': expanded }"
-  >
+  <div class="canonical-preview" :class="{ 'canonical-preview--expanded': expanded }">
     <button
       type="button"
       class="canonical-preview__toggle"

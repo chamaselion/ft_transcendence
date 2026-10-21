@@ -45,7 +45,12 @@ export interface EditorDataProvider {
   sendTitleUpdate?: (title: string) => Promise<boolean>
   onInit: (e: EditorInitEvent) => void
   onCreated: (e: { block: Block; afterBlockId?: string | null }) => void
-  onUpdated: (e: { blockId: string; text?: string; decorator?: string; userId?: string | null }) => void
+  onUpdated: (e: {
+    blockId: string
+    text?: string
+    decorator?: string
+    userId?: string | null
+  }) => void
   onDeleted: (e: { blockId: string }) => void
   onLocked?: (e: { blockId: string; userId?: string | null; clientId?: string }) => void
   onUnlocked: (e: { blockId: string }) => void

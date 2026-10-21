@@ -1,19 +1,8 @@
 <template>
-  <component
-    v-if="exportMode"
-    :is="ordered ? 'ol' : 'ul'"
-    class="list list--export"
-    :style="style"
-  >
-    <li
-      v-for="(item, index) in lines"
-      :key="index"
-      class="list__item"
-    >
-      <span
-        class="list__marker"
-        aria-hidden="true"
-      >{{ markerLabel(index) }}</span>{{ item }}
+  <component v-if="exportMode" :is="ordered ? 'ol' : 'ul'" class="list list--export" :style="style">
+    <li v-for="(item, index) in lines" :key="index" class="list__item">
+      <span class="list__marker" aria-hidden="true">{{ markerLabel(index) }}</span
+      >{{ item }}
     </li>
   </component>
 
@@ -116,12 +105,11 @@ const { attributes, onInput, onFocus, onBlur, onKeydown, onPaste } = useEditable
   },
 )
 
-const handleKeydown = (event: KeyboardEvent) =>{
+const handleKeydown = (event: KeyboardEvent) => {
   if (event.key === 'Backspace' || event.key === 'Delete') {
     const el = element.value
     const items = el ? Array.from(el.querySelectorAll('li')) : []
-    const onlyEmptyItem =
-      items.length <= 1 && items.every((item) => item.innerText.trim() === '')
+    const onlyEmptyItem = items.length <= 1 && items.every((item) => item.innerText.trim() === '')
 
     if (onlyEmptyItem) {
       event.preventDefault()
@@ -137,9 +125,7 @@ const style = computed(() => ({
   color: props.color,
   backgroundColor: props.bgColor,
   fontSize: props.size,
-  listStyleType: props.exportMode
-    ? 'none'
-    : props.marker || (props.ordered ? 'decimal' : 'disc'),
+  listStyleType: props.exportMode ? 'none' : props.marker || (props.ordered ? 'decimal' : 'disc'),
 }))
 
 function markerLabel(index: number): string {

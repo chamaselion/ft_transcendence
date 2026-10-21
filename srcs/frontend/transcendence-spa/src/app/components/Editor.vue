@@ -31,7 +31,9 @@
         :paginate-elements-by-height="usablePageHeightPx"
       >
         <template #pdf-content>
-          <div class="pdf-content box-border w-full bg-transparent px-6 py-3.5 [word-spacing:0.4em]">
+          <div
+            class="pdf-content box-border w-full bg-transparent px-6 py-3.5 [word-spacing:0.4em]"
+          >
             <EditorBlock
               v-for="block in store.blocks"
               :key="block.id"
@@ -775,9 +777,7 @@ const onUpdateDecorator = async (block: Block | null, newDecorator: BlockDecorat
     await flushPendingEdit()
   } else {
     const textToSend =
-      store.activeLanguage === 'en'
-        ? block.text
-        : store.getCanonicalText(block.id) || block.text
+      store.activeLanguage === 'en' ? block.text : store.getCanonicalText(block.id) || block.text
     await props.provider.sendEdit({
       blockId: block.id,
       text: textToSend,
@@ -826,9 +826,8 @@ const onBlur = async (block: Block) => {
 }
 
 defineExpose({
-  onGeneratePdf
+  onGeneratePdf,
 })
-
 </script>
 
 <style lang="css" scoped>

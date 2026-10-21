@@ -34,7 +34,7 @@ const connectionStatus = ref<'connecting' | 'connected' | 'disconnected'>('conne
 const errorMessage = ref<string | null>(null)
 const titleError = ref('')
 const isLoading = ref<boolean>(true)
-const editorElement = ref<typeof Editor | null>(null);
+const editorElement = ref<typeof Editor | null>(null)
 
 const statusClass = computed(
   () =>
@@ -314,7 +314,11 @@ onBeforeUnmount(() => {
           >
             Room: {{ documentId.slice(0, 8) }}...
           </span> -->
-          <span v-if="userPermission" class="inline-flex items-center rounded-full bg-subtle px-2 py-0.5 text-xs font-semibold text-ink-secondary capitalize" title="Your Role">
+          <span
+            v-if="userPermission"
+            class="inline-flex items-center rounded-full bg-subtle px-2 py-0.5 text-xs font-semibold text-ink-secondary capitalize"
+            title="Your Role"
+          >
             {{ userPermission }}
           </span>
         </div>
@@ -333,7 +337,9 @@ onBeforeUnmount(() => {
               :value="editorStore.activeLanguage"
               :disabled="editorStore.isTranslating"
               title="Select document display language"
-              @change="onLanguageChange(($event.target as HTMLSelectElement).value as SupportedLanguage)"
+              @change="
+                onLanguageChange(($event.target as HTMLSelectElement).value as SupportedLanguage)
+              "
             >
               <option value="en">🇬🇧 English</option>
               <option value="de">🇩🇪 Deutsch (AI)</option>
@@ -602,10 +608,13 @@ onBeforeUnmount(() => {
   font-style: italic;
 } */
 
-.btn--lable { display:block;}
-
+.btn--lable {
+  display: block;
+}
 
 @media (max-width: 768px) {
-  .btn--lable { display: none;}
+  .btn--lable {
+    display: none;
+  }
 }
 </style>

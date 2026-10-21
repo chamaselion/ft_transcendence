@@ -19,7 +19,9 @@
       @blur="$emit('blur')"
     />
     <FoldableTextPreview
-      v-if="isForeignLanguage && canonicalText && decorator.type !== 'c' && decorator.type !== 'cit'"
+      v-if="
+        isForeignLanguage && canonicalText && decorator.type !== 'c' && decorator.type !== 'cit'
+      "
       :text="canonicalText"
       :is-dirty="isDirty"
     />
