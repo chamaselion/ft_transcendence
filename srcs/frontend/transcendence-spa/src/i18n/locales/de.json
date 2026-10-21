@@ -6,7 +6,8 @@
     "cancel": "Abbrechen",
     "remove": "Entfernen",
     "retry": "Erneut versuchen",
-    "somethingWentWrong": "Etwas ist schiefgelaufen"
+    "somethingWentWrong": "Etwas ist schiefgelaufen",
+    "alreadyLoggedIn": "Sie sind bereits angemeldet."
   },
   "nav": {
     "home": "Startseite",
@@ -46,9 +47,9 @@
     "register": {
       "title": "Registrieren",
       "subtitle": "Erstellen Sie ein Konto, um zu beginnen.",
-      "usernameLabel": "Benutzername:",
-      "emailLabel": "E-Mail:",
-      "passwordLabel": "Passwort:",
+      "usernameLabel": "Benutzername",
+      "emailLabel": "E-Mail",
+      "passwordLabel": "Passwort",
       "submit": "Registrieren",
       "footerText": "Sie haben bereits ein Konto?",
       "footerLink": "Hier anmelden"
@@ -98,14 +99,39 @@
     "signIn": "Anmelden",
     "updateError": "Beim Aktualisieren der Benutzerdaten ist etwas schiefgelaufen",
     "updateSuccess": "Ihre Daten wurden erfolgreich aktualisiert.",
-    "confirmError": "Beim Bestätigen des OTP ist etwas schiefgelaufen"
+    "confirmError": "Beim Bestätigen des OTP ist etwas schiefgelaufen",
+    "addIcon": "Profilbild hinzufügen",
+    "changeIcon": "Profilbild ändern",
+    "removeIcon": "Profilbild entfernen",
+    "iconHint": "JPEG, PNG oder WebP, bis zu 2 MiB. Maximal 16 Millionen Pixel",
+    "iconTooLarge": "Das Symbol darf höchstens 2 MiB groß sein",
+    "iconUpdated": "Ihr Profilbild wurde aktualisiert.",
+    "uploadFailed": "Hochladen des Symbols fehlgeschlagen",
+    "removeFailed": "Entfernen des Symbols fehlgeschlagen",
+    "privacyGdpr": "Datenschutz & DSGVO",
+    "gdprDescription": "Gemäß DSGVO Art. 15 haben Sie das Recht, eine Kopie Ihrer personenbezogenen Daten zu erhalten.",
+    "exportGdpr": "DSGVO-Daten exportieren",
+    "exportCsv": "Export (CSV)",
+    "exportSuccess": "Ihr DSGVO-Datenexport ({format}) wurde erfolgreich heruntergeladen.",
+    "exportFailed": "Beim Exportieren der DSGVO-Daten ist etwas schiefgelaufen",
+    "goToAdmin": "Zum Admin-Bereich",
+    "deleteAccount": "Konto löschen",
+    "deletionCodePrompt": "Geben Sie den an Ihre E-Mail gesendeten Code ein, um Ihr Konto dauerhaft zu löschen.",
+    "deletionCodeLabel": "Löschbestätigungscode",
+    "confirmDeletion": "Löschung bestätigen",
+    "deletionRequestFailed": "Kontolöschung konnte nicht angefordert werden.",
+    "deleteAccountFailed": "Ihr Konto konnte nicht gelöscht werden.",
+    "roleAdmin": "Administrator",
+    "roleUser": "Benutzer"
   },
   "home": {
     "badge": "Neu",
     "title": "Willkommen bei Trans Edit",
     "subtitle": "Ein kollaborativer Dokumenteneditor für Teams. Erstellen, bearbeiten und teilen Sie Dokumente in Echtzeit mit Ihren Teammitgliedern.",
-    "getStarted": "Loslegen",
-    "login": "Anmelden"
+    "getStarted": "Registrieren",
+    "login": "Anmelden",
+    "footerCopyright": "Trans Edit © 2026 · EU DSGVO & ePrivacy konform",
+    "cookiePolicy": "Cookie-Richtlinie & Einstellungen"
   },
   "editor": {
     "clickToRename": "Zum Umbenennen des Dokuments klicken",
@@ -116,6 +142,7 @@
     "roleLabel": "Rolle:",
     "share": "Teilen",
     "newDocument": "+ Neues Dokument",
+    "generatePdf": "PDF erzeugen",
     "initializing": "Dokumentenraum wird initialisiert...",
     "addBlock": "{type} hinzufügen",
     "alignLeft": "Linksbündig",
@@ -129,6 +156,21 @@
     "deleteBlock": "Aktiven Block löschen",
     "lockedTitle": "Dieser Block ist von einem anderen Benutzer gesperrt",
     "lockedBadge": "Gesperrt",
+    "yourRole": "Ihre Rolle",
+    "translating": "KI übersetzt...",
+    "translationFailed": "Übersetzung fehlgeschlagen",
+    "titleTooLong": "Der Titel darf höchstens {max} Zeichen lang sein.",
+    "emptyDocument": "Dieses Dokument ist leer. Fügen Sie über die Werkzeugleiste einen Block hinzu.",
+    "unsavedChanges": "Ausstehende Änderungen konnten nicht auf dem Server gespeichert werden. Möchten Sie die Seite wirklich verlassen?",
+    "previewDraft": "Entwurf",
+    "previewSynced": "Synchronisiert",
+    "previewDirtyTooltip": "Ausstehende Rückübersetzung beim Verlassen des Feldes",
+    "previewSyncedTooltip": "Mit der Datenbank synchronisiert",
+    "roles": {
+      "owner": "Eigentümer",
+      "editor": "Bearbeiter",
+      "viewer": "Betrachter"
+    },
     "blockType": {
       "p": "Absatz",
       "li": "Liste",
@@ -147,7 +189,8 @@
   "documents": {
     "title": "Dokumente",
     "newDocument": "Neues Dokument",
-    "searchPlaceholder": "Nach Titel suchen...",
+    "searchPlaceholder": "Titel und Inhalt durchsuchen...",
+    "searchAria": "Dokumente nach Titel und Inhalt durchsuchen",
     "clearSearch": "Suche löschen",
     "filterAll": "Alle",
     "filterOwned": "Eigene",
@@ -157,7 +200,7 @@
     "emptyNoMatchTitle": "Keine passenden Dokumente",
     "emptyNoMatchDesc": "Versuchen Sie, Ihre Suchbegriffe oder den Filterbereich anzupassen.",
     "emptyTitle": "Noch keine Dokumente",
-    "emptyDesc": "Erstellen Sie Ihr erstes Dokument, um es in Echtzeit zu im Team zu bearbeiten.",
+    "emptyDesc": "Erstellen Sie Ihr erstes Dokument, um es in Echtzeit im Team zu bearbeiten.",
     "createDocument": "Dokument erstellen",
     "columnName": "Dokumentname",
     "columnOwnership": "Eigentümer",
@@ -172,6 +215,7 @@
     "roleTitle": "Ihre Rolle: {role}",
     "shareDocument": "Dokument teilen",
     "deleteDocument": "Dokument löschen",
+    "idLabel": "ID:",
     "paginationShowing": "Zeige {from}–{to} von {total}",
     "firstPage": "Erste Seite",
     "previousPage": "Vorherige Seite",
@@ -186,12 +230,19 @@
     "deletedToast": "\"{title}\" wurde gelöscht.",
     "deleteFailed": "Dokument konnte nicht gelöscht werden.",
     "timeUnknown": "Unbekannt",
-    "timeJustNow": "Gerade eben"
+    "timeJustNow": "Gerade eben",
+    "timeMinuteAgo": "Vor 1 Minute",
+    "timeMinutesAgo": "Vor {count} Minuten",
+    "timeHourAgo": "Vor 1 Stunde",
+    "timeHoursAgo": "Vor {count} Stunden",
+    "timeYesterday": "Gestern",
+    "timeDayAgo": "Vor 1 Tag",
+    "timeDaysAgo": "Vor {count} Tagen"
   },
   "share": {
     "title": "Dokument teilen",
     "inviteTitle": "Mitbearbeiter einladen",
-    "emailPlaceholder": "Benutzer-E-Mail eingeben (z. B. bob@example.com)",
+    "emailPlaceholder": "Benutzer-E-Mail eingeben (z. B. bob{'@'}example.com)",
     "emailLabel": "E-Mail des Mitbearbeiters",
     "permission": "Berechtigung",
     "permissionEditorLong": "Bearbeiter (Kann bearbeiten und schreiben)",
@@ -211,5 +262,113 @@
     "failedShare": "Dokument konnte nicht geteilt werden",
     "failedUpdate": "Freigabe konnte nicht aktualisiert werden",
     "failedRevoke": "Freigabe konnte nicht entzogen werden"
+  },
+  "cookie": {
+    "ariaLabel": "EU-Cookie-Hinweis",
+    "title": "EU-Cookie- & Datenschutzhinweis",
+    "badge": "ePrivacy- & DSGVO-konform",
+    "description": "Trans Edit verwendet ausschließlich funktionale Cookies und lokalen Speicher, um wesentliche Dienste wie Benutzerauthentifizierung, Sitzungssicherheit und Designeinstellungen bereitzustellen. Gemäß EU-Richtlinie 2002/58/EG (ePrivacy) und DSGVO Art. 6 sind alle auf dieser Website verwendeten Cookies für die Kernfunktionalität unbedingt erforderlich.",
+    "descriptionStrong": "Wir verwenden keine Werbe-, Profiling- oder Tracking-Cookies von Drittanbietern.",
+    "detailsTitle": "Aktive Speicher- & Cookie-Übersicht",
+    "detailsSubtitle": "Die folgenden technischen Speicherelemente werden von dieser Website für die Kernfunktionalität gesetzt:",
+    "columnName": "Name",
+    "columnMechanism": "Mechanismus",
+    "columnCategory": "Kategorie",
+    "columnDuration": "Dauer",
+    "columnPurpose": "Zweck",
+    "columnStatus": "Status",
+    "alwaysActive": "Immer aktiv",
+    "essential": "Erforderlich für den Betrieb der Website",
+    "hideDetails": "Details ausblenden",
+    "viewDetails": "Cookie-Details anzeigen",
+    "accept": "Verstanden & funktionale Cookies akzeptieren",
+    "categories": {
+      "strictlyNecessary": "Unbedingt erforderlich",
+      "functionality": "Funktionalität"
+    },
+    "types": {
+      "cookie": "Cookie",
+      "localStorage": "Lokaler Speicher"
+    },
+    "durations": {
+      "sevenDays": "7 Tage",
+      "persistent": "Dauerhaft",
+      "oneYear": "1 Jahr"
+    },
+    "items": {
+      "token": {
+        "purpose": "Speichert Ihre authentifizierte Sitzung (JWT), um Sie angemeldet zu halten und die Echtzeit-Zusammenarbeit abzusichern."
+      },
+      "theme": {
+        "purpose": "Merkt sich Ihre Anzeigeeinstellung (heller oder dunkler Modus) über Browserbesuche hinweg."
+      },
+      "consent": {
+        "purpose": "Merkt sich Ihre Kenntnisnahme dieses EU-Cookie-Hinweises, um wiederholte Popups zu vermeiden."
+      }
+    }
+  },
+  "admin": {
+    "title": "Admin-Ansicht",
+    "users": {
+      "showing": "Zeige {from}–{to} von {total} Benutzern",
+      "perPage": "Benutzer pro Seite:",
+      "nextPage": "Nächste Seite",
+      "previousPage": "Vorherige Seite",
+      "sortBy": "Sortieren nach:",
+      "createdAt": "Erstellt am",
+      "username": "Benutzername",
+      "userEmail": "E-Mail",
+      "userId": "Benutzer-ID",
+      "role": "Rolle"
+    },
+    "modal": {
+      "title": "Benutzer verwalten",
+      "createdAt": "Erstellt am",
+      "updatedAt": "Aktualisiert am",
+      "promote": "Zum Admin machen",
+      "revoke": "Adminrechte entziehen",
+      "delete": "Benutzer löschen",
+      "updateUsernamePlaceholder": "Benutzernamen aktualisieren",
+      "updateUsername": "Benutzernamen aktualisieren",
+      "deleteTitle": "Benutzer löschen",
+      "permanentlyDelete": "{login} dauerhaft löschen?",
+      "deleteWarning": "Dieses Konto und alle zugehörigen Daten werden gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.",
+      "typeToConfirm": "Geben Sie „{login}“ zur Bestätigung ein",
+      "enterUsername": "Benutzernamen eingeben",
+      "unavailable": "Nicht verfügbar"
+    },
+    "errors": {
+      "notLoaded": "Benutzerdaten sind noch nicht geladen.",
+      "revokeFailed": "Adminrechte konnten nicht entzogen werden. Bitte versuchen Sie es erneut.",
+      "promoteFailed": "Benutzer konnte nicht zum Admin gemacht werden. Bitte versuchen Sie es erneut.",
+      "deleteFailed": "Benutzer konnte nicht gelöscht werden. Bitte versuchen Sie es erneut.",
+      "updateFailed": "Benutzername konnte nicht aktualisiert werden. Bitte versuchen Sie es erneut.",
+      "fetchFailed": "Benutzerdetails konnten nicht geladen werden. Bitte versuchen Sie es erneut."
+    }
+  },
+  "validation": {
+    "required": "{label} ist erforderlich.",
+    "loginLength": "{label} muss {min}-{max} Zeichen lang sein.",
+    "loginChars": "{label} darf nur Buchstaben, Zahlen und Unterstriche enthalten.",
+    "emailLength": "{label} darf höchstens {max} Zeichen lang sein.",
+    "invalidEmail": "Ungültiges E-Mail-Format.",
+    "passwordLength": "{label} muss {min}-{max} Zeichen lang sein.",
+    "otpDigits": "{label} darf nur Ziffern enthalten.",
+    "maxLength": "{label} darf höchstens {max} Zeichen lang sein.",
+    "searchMax": "Der Suchbegriff darf höchstens {max} Zeichen lang sein."
+  },
+  "errors": {
+    "sessionExpired": "Benutzersitzung abgelaufen",
+    "oauth": {
+      "unsupportedProvider": "Nicht unterstützter Anmeldeanbieter.",
+      "duplicateParams": "Ungültiger OAuth-Callback: doppelte Parameter.",
+      "invalidState": "Ungültiger OAuth-Status. Bitte starten Sie die Anmeldung erneut.",
+      "sessionMissing": "Ihre Anmeldesitzung fehlt, ist ungültig oder abgelaufen. Bitte starten Sie erneut.",
+      "callbackMismatch": "Dieser Callback passt nicht zu Ihrer Anmeldesitzung. Bitte starten Sie erneut.",
+      "storageUnavailable": "Der Browserspeicher ist nicht verfügbar. Bitte starten Sie die Anmeldung erneut.",
+      "signInCancelled": "Die Anmeldung wurde abgebrochen.",
+      "providerFailed": "Der Anbieter konnte die Anmeldung nicht abschließen. Bitte versuchen Sie es erneut.",
+      "invalidCode": "Ungültiger Autorisierungscode. Bitte starten Sie die Anmeldung erneut."
+    }
   }
 }

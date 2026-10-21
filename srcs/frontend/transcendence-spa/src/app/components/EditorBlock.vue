@@ -26,7 +26,7 @@
     <span
       v-if="locked"
       class="editor-block__lock pointer-events-auto absolute top-1 right-2 rounded bg-danger px-2 py-0.5 text-[10px] font-bold tracking-[0.05em] text-danger-contrast uppercase shadow-[0_1px_3px_rgba(0,0,0,0.2)]"
-      title="$t('editor.lockedTitle')"
+      :title="$t('editor.lockedTitle')"
     >
       {{ $t('editor.lockedBadge') }}
     </span>

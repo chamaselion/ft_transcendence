@@ -77,9 +77,9 @@ const handleRegister = async () => {
     <div class="flex flex-col gap-6">
       <Toast v-model="errorFlag" type="alert" :message="msg" :duration="6000" fluid />
       <form class="flex flex-col gap-4" @submit.prevent="handleRegister">
-        <Input label="{{ $t('auth.register.usernameLabel') }}" type="text" v-model="username" required :error="errors.username" @blur="validateField('username')"/>
-        <Input label="{{ $t('auth.register.emailLabel') }}" type="email" v-model="email" required :error="errors.email" @blur="validateField('email')"/>
-        <Input label="{{ $t('auth.register.passwordLabel') }}" type="password" v-model="password" required :error="errors.password" @blur="validateField('password')" />
+        <Input :label="$t('auth.register.usernameLabel')" type="text" v-model="username" required :error="errors.username" @blur="validateField('username')"/>
+        <Input :label="$t('auth.register.emailLabel')" type="email" v-model="email" required :error="errors.email" @blur="validateField('email')"/>
+        <Input :label="$t('auth.register.passwordLabel')" type="password" v-model="password" required :error="errors.password" @blur="validateField('password')" />
         <Button type="submit" size="large" class="w-full">{{ $t('auth.register.submit') }}</Button>
       </form>
     </div>

@@ -36,8 +36,12 @@ export async function loadLocaleMessages(locale: AppLocale): Promise<void> {
 }
 
 export function resolveInitialLocale(): AppLocale {
-  const stored = localStorage.getItem(LOCALE_STORAGE_KEY)
-  if (isSupportedLocale(stored)) return stored
+  try {
+    const stored = localStorage.getItem(LOCALE_STORAGE_KEY)
+    if (isSupportedLocale(stored)) return stored
+  } catch {
+    // Storage can be unavailable (e.g. privacy settings); fall back to the browser locale.
+  }
 
   const browserLocale = navigator.language.split('-')[0]
   if (isSupportedLocale(browserLocale)) return browserLocale
@@ -49,16 +53,36 @@ function applyDocumentLocale(locale: AppLocale): void {
   document.documentElement.setAttribute('lang', locale)
 }
 
+async function loadLocaleWithFallback(locale: AppLocale): Promise<void> {
+  await Promise.all([
+    loadLocaleMessages(DEFAULT_LOCALE),
+    locale === DEFAULT_LOCALE ? Promise.resolve() : loadLocaleMessages(locale),
+  ])
+}
+
 export async function setI18nLocale(locale: AppLocale): Promise<void> {
-  await loadLocaleMessages(locale)
+  await loadLocaleWithFallback(locale)
   i18n.global.locale.value = locale
-  localStorage.setItem(LOCALE_STORAGE_KEY, locale)
+  try {
+    localStorage.setItem(LOCALE_STORAGE_KEY, locale)
+  } catch {
+    // Locale persistence is best-effort; the active locale still applies for this session.
+  }
   applyDocumentLocale(locale)
 }
 
 export async function initI18n(): Promise<AppLocale> {
   const locale = resolveInitialLocale()
-  await loadLocaleMessages(locale)
+  try {
+    await loadLocaleWithFallback(locale)
+  } catch (error) {
+    console.error('Failed to load locale messages:', error)
+    try {
+      await loadLocaleMessages(DEFAULT_LOCALE)
+    } catch (fallbackError) {
+      console.error('Failed to load default locale messages:', fallbackError)
+    }
+  }
   i18n.global.locale.value = locale
   applyDocumentLocale(locale)
   return locale

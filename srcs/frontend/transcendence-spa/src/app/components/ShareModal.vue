@@ -182,7 +182,7 @@ const error = ref<string | null>(null)
 const emailError = ref('')
 
 const validateCollaboratorEmail = () => {
-  const result = validateEmail(email.value, 'Collaborator email')
+  const result = validateEmail(email.value, t('share.emailLabel'))
   emailError.value = result.error ?? ''
   return result
 }

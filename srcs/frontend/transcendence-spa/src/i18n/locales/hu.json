@@ -6,7 +6,8 @@
     "cancel": "Mégse",
     "remove": "Eltávolítás",
     "retry": "Újra",
-    "somethingWentWrong": "Valami hiba történt"
+    "somethingWentWrong": "Valami hiba történt",
+    "alreadyLoggedIn": "Már be van jelentkezve."
   },
   "nav": {
     "home": "Főoldal",
@@ -46,9 +47,9 @@
     "register": {
       "title": "Regisztráció",
       "subtitle": "Hozzon létre egy fiókot a kezdéshez.",
-      "usernameLabel": "Felhasználónév:",
-      "emailLabel": "E-mail:",
-      "passwordLabel": "Jelszó:",
+      "usernameLabel": "Felhasználónév",
+      "emailLabel": "E-mail",
+      "passwordLabel": "Jelszó",
       "submit": "Regisztráció",
       "footerText": "Már van fiókja?",
       "footerLink": "Jelentkezzen be itt"
@@ -98,14 +99,39 @@
     "signIn": "Bejelentkezés",
     "updateError": "Hiba történt a felhasználói adatok frissítése közben",
     "updateSuccess": "Adatai sikeresen frissültek.",
-    "confirmError": "Hiba történt az OTP megerősítése közben"
+    "confirmError": "Hiba történt az OTP megerősítése közben",
+    "addIcon": "Profilkép hozzáadása",
+    "changeIcon": "Profilkép módosítása",
+    "removeIcon": "Profilkép eltávolítása",
+    "iconHint": "JPEG, PNG vagy WebP, legfeljebb 2 MiB. Legfeljebb 16 millió pixel",
+    "iconTooLarge": "Az ikon legfeljebb 2 MiB lehet",
+    "iconUpdated": "A profilkép frissítve lett.",
+    "uploadFailed": "Nem sikerült feltölteni az ikont",
+    "removeFailed": "Nem sikerült eltávolítani az ikont",
+    "privacyGdpr": "Adatvédelem és GDPR",
+    "gdprDescription": "A GDPR 15. cikke szerint joga van személyes adatai másolatához.",
+    "exportGdpr": "GDPR-adatok exportálása",
+    "exportCsv": "Exportálás (CSV)",
+    "exportSuccess": "A GDPR-adatexport ({format}) sikeresen letöltődött.",
+    "exportFailed": "Hiba történt a GDPR-adatok exportálása közben",
+    "goToAdmin": "Ugrás az admin panelre",
+    "deleteAccount": "Fiók törlése",
+    "deletionCodePrompt": "Adja meg az e-mailben kapott kódot fiókja végleges törléséhez.",
+    "deletionCodeLabel": "Törlést megerősítő kód",
+    "confirmDeletion": "Törlés megerősítése",
+    "deletionRequestFailed": "Nem sikerült kérni a fiók törlését.",
+    "deleteAccountFailed": "Nem sikerült törölni a fiókját.",
+    "roleAdmin": "Admin",
+    "roleUser": "Felhasználó"
   },
   "home": {
     "badge": "Új",
     "title": "Üdvözöljük a Trans Editben",
     "subtitle": "Csapatoknak készült együttműködő dokumentumszerkesztő. Hozzon létre, szerkesszen és osszon meg dokumentumokat valós időben a csapattagokkal.",
-    "getStarted": "Kezdés",
-    "login": "Bejelentkezés"
+    "getStarted": "Regisztráció",
+    "login": "Bejelentkezés",
+    "footerCopyright": "Trans Edit © 2026 · EU GDPR és ePrivacy megfelelő",
+    "cookiePolicy": "Cookie-szabályzat és beállítások"
   },
   "editor": {
     "clickToRename": "Kattintson a dokumentum átnevezéséhez",
@@ -116,6 +142,7 @@
     "roleLabel": "Szerep:",
     "share": "Megosztás",
     "newDocument": "+ Új dokumentum",
+    "generatePdf": "PDF létrehozása",
     "initializing": "Dokumentumszoba inicializálása...",
     "addBlock": "{type} hozzáadása",
     "alignLeft": "Balra igazítás",
@@ -129,6 +156,21 @@
     "deleteBlock": "Aktív blokk törlése",
     "lockedTitle": "Ezt a blokkot egy másik felhasználó zárolta",
     "lockedBadge": "Zárolva",
+    "yourRole": "Az Ön szerepe",
+    "translating": "AI fordítás...",
+    "translationFailed": "A fordítás nem sikerült",
+    "titleTooLong": "A cím legfeljebb {max} karakter lehet.",
+    "emptyDocument": "Ez a dokumentum üres. Adjon hozzá egy blokkot az eszköztárból.",
+    "unsavedChanges": "A függőben lévő módosításokat nem sikerült elmenteni a szerverre. Biztosan elhagyja az oldalt?",
+    "previewDraft": "Piszkozat",
+    "previewSynced": "Szinkronizálva",
+    "previewDirtyTooltip": "Függőben lévő visszafordítás a mező elhagyásakor",
+    "previewSyncedTooltip": "Szinkronizálva az adatbázissal",
+    "roles": {
+      "owner": "Tulajdonos",
+      "editor": "Szerkesztő",
+      "viewer": "Megtekintő"
+    },
     "blockType": {
       "p": "Bekezdés",
       "li": "Lista",
@@ -147,7 +189,8 @@
   "documents": {
     "title": "Dokumentumok",
     "newDocument": "Új dokumentum",
-    "searchPlaceholder": "Dokumentumok keresése cím szerint...",
+    "searchPlaceholder": "Keresés cím és tartalom szerint...",
+    "searchAria": "Dokumentumok keresése cím és tartalom szerint",
     "clearSearch": "Keresés törlése",
     "filterAll": "Összes",
     "filterOwned": "Saját",
@@ -172,6 +215,7 @@
     "roleTitle": "Az Ön szerepe: {role}",
     "shareDocument": "Dokumentum megosztása",
     "deleteDocument": "Dokumentum törlése",
+    "idLabel": "ID:",
     "paginationShowing": "{from}–{to} megjelenítése, összesen {total}",
     "firstPage": "Első oldal",
     "previousPage": "Előző oldal",
@@ -186,12 +230,19 @@
     "deletedToast": "\"{title}\" törölve.",
     "deleteFailed": "Nem sikerült törölni a dokumentumot.",
     "timeUnknown": "Ismeretlen",
-    "timeJustNow": "Épp most"
+    "timeJustNow": "Épp most",
+    "timeMinuteAgo": "1 perce",
+    "timeMinutesAgo": "{count} perce",
+    "timeHourAgo": "1 órája",
+    "timeHoursAgo": "{count} órája",
+    "timeYesterday": "Tegnap",
+    "timeDayAgo": "1 napja",
+    "timeDaysAgo": "{count} napja"
   },
   "share": {
     "title": "Dokumentum megosztása",
     "inviteTitle": "Munkatárs meghívása",
-    "emailPlaceholder": "Adja meg a felhasználó e-mail-címét (pl. bob@example.com)",
+    "emailPlaceholder": "Adja meg a felhasználó e-mail-címét (pl. bob{'@'}example.com)",
     "emailLabel": "Munkatárs e-mail-címe",
     "permission": "Jogosultság",
     "permissionEditorLong": "Szerkesztő (Szerkeszthet és írhat)",
@@ -211,5 +262,113 @@
     "failedShare": "Nem sikerült megosztani a dokumentumot",
     "failedUpdate": "Nem sikerült frissíteni a megosztást",
     "failedRevoke": "Nem sikerült visszavonni a megosztást"
+  },
+  "cookie": {
+    "ariaLabel": "EU cookie-tájékoztató",
+    "title": "EU cookie- és adatvédelmi tájékoztató",
+    "badge": "ePrivacy- és GDPR-megfelelő",
+    "description": "A Trans Edit kizárólag funkcionális cookie-kat és helyi tárolót használ az olyan alapvető szolgáltatásokhoz, mint a felhasználói hitelesítés, a munkamenet biztonsága és a megjelenési beállítások. A 2002/58/EK irányelv (ePrivacy) és a GDPR 6. cikke szerint a webhelyen használt összes cookie szükséges az alapvető működéshez.",
+    "descriptionStrong": "Nem használunk reklám-, profilalkotó vagy harmadik féltől származó nyomkövető cookie-kat.",
+    "detailsTitle": "Aktív tárolók és cookie-k listája",
+    "detailsSubtitle": "A webhely az alábbi technikai tárolóelemeket állítja be az alapvető működéshez:",
+    "columnName": "Név",
+    "columnMechanism": "Mechanizmus",
+    "columnCategory": "Kategória",
+    "columnDuration": "Időtartam",
+    "columnPurpose": "Cél",
+    "columnStatus": "Állapot",
+    "alwaysActive": "Mindig aktív",
+    "essential": "A webhely működéséhez szükséges",
+    "hideDetails": "Részletek elrejtése",
+    "viewDetails": "Cookie-részletek megtekintése",
+    "accept": "Értem és elfogadom a funkcionális cookie-kat",
+    "categories": {
+      "strictlyNecessary": "Feltétlenül szükséges",
+      "functionality": "Funkcionalitás"
+    },
+    "types": {
+      "cookie": "Cookie",
+      "localStorage": "Helyi tároló"
+    },
+    "durations": {
+      "sevenDays": "7 nap",
+      "persistent": "Állandó",
+      "oneYear": "1 év"
+    },
+    "items": {
+      "token": {
+        "purpose": "Tárolja a hitelesített munkamenetét (JWT), hogy bejelentkezve maradjon, és biztosítsa a valós idejű együttműködést."
+      },
+      "theme": {
+        "purpose": "Megjegyzi a felület megjelenési témáját (világos vagy sötét mód) a böngészőlátogatások között."
+      },
+      "consent": {
+        "purpose": "Megjegyzi, hogy tudomásul vette ezt az EU-s cookie-tájékoztatót, hogy elkerülje az ismétlődő felugró ablakokat."
+      }
+    }
+  },
+  "admin": {
+    "title": "Admin nézet",
+    "users": {
+      "showing": "{from}–{to} megjelenítése, összesen {total} felhasználó",
+      "perPage": "Felhasználók oldalanként:",
+      "nextPage": "Következő oldal",
+      "previousPage": "Előző oldal",
+      "sortBy": "Rendezés:",
+      "createdAt": "Létrehozva",
+      "username": "Felhasználónév",
+      "userEmail": "E-mail",
+      "userId": "Felhasználói azonosító",
+      "role": "Szerep"
+    },
+    "modal": {
+      "title": "Felhasználó kezelése",
+      "createdAt": "Létrehozva",
+      "updatedAt": "Frissítve",
+      "promote": "Adminná tétel",
+      "revoke": "Adminjogok visszavonása",
+      "delete": "Felhasználó törlése",
+      "updateUsernamePlaceholder": "Felhasználónév frissítése",
+      "updateUsername": "Felhasználónév frissítése",
+      "deleteTitle": "Felhasználó törlése",
+      "permanentlyDelete": "{login} végleges törlése?",
+      "deleteWarning": "Ez a fiók és minden kapcsolódó adat törlődik. Ez a művelet nem vonható vissza.",
+      "typeToConfirm": "A megerősítéshez írja be: „{login}”",
+      "enterUsername": "Adja meg a felhasználónevet",
+      "unavailable": "Nem elérhető"
+    },
+    "errors": {
+      "notLoaded": "A felhasználói adatok még nincsenek betöltve.",
+      "revokeFailed": "Nem sikerült visszavonni az adminjogokat. Kérjük, próbálja újra.",
+      "promoteFailed": "Nem sikerült adminná tenni a felhasználót. Kérjük, próbálja újra.",
+      "deleteFailed": "Nem sikerült törölni a felhasználót. Kérjük, próbálja újra.",
+      "updateFailed": "Nem sikerült frissíteni a felhasználónevet. Kérjük, próbálja újra.",
+      "fetchFailed": "Nem sikerült betölteni a felhasználói adatokat. Kérjük, próbálja újra."
+    }
+  },
+  "validation": {
+    "required": "{label} megadása kötelező.",
+    "loginLength": "{label} hossza {min}-{max} karakter kell legyen.",
+    "loginChars": "{label} csak betűket, számokat és aláhúzásjelet tartalmazhat.",
+    "emailLength": "{label} legfeljebb {max} karakter lehet.",
+    "invalidEmail": "Érvénytelen e-mail-formátum.",
+    "passwordLength": "{label} hossza {min}-{max} karakter kell legyen.",
+    "otpDigits": "{label} csak számjegyeket tartalmazhat.",
+    "maxLength": "{label} legfeljebb {max} karakter lehet.",
+    "searchMax": "A keresési kifejezés legfeljebb {max} karakter lehet."
+  },
+  "errors": {
+    "sessionExpired": "A felhasználói munkamenet lejárt",
+    "oauth": {
+      "unsupportedProvider": "Nem támogatott bejelentkezési szolgáltató.",
+      "duplicateParams": "Érvénytelen OAuth-visszahívás: ismétlődő paraméterek.",
+      "invalidState": "Érvénytelen OAuth-állapot. Kérjük, kezdje újra a bejelentkezést.",
+      "sessionMissing": "A bejelentkezési munkamenete hiányzik, érvénytelen vagy lejárt. Kérjük, kezdje újra.",
+      "callbackMismatch": "Ez a visszahívás nem egyezik a bejelentkezési munkamenetével. Kérjük, kezdje újra.",
+      "storageUnavailable": "A böngésző tárhelye nem elérhető. Kérjük, kezdje újra a bejelentkezést.",
+      "signInCancelled": "A bejelentkezés megszakítva.",
+      "providerFailed": "A szolgáltató nem tudta befejezni a bejelentkezést. Kérjük, próbálja újra.",
+      "invalidCode": "Érvénytelen engedélyezési kód. Kérjük, kezdje újra a bejelentkezést."
+    }
   }
 }

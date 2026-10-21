@@ -46,11 +46,11 @@ function validateLoginField() {
 }
 
 function validateOtpField() {
-  errors.value.otp = validateOtpCode(otpCode.value, 'OTP code').error ?? ''
+  errors.value.otp = validateOtpCode(otpCode.value, t('settings.otpCodeLabel')).error ?? ''
 }
 
 function validateDeletionField() {
-  errors.value.deletion = validateOtpCode(deletionCode.value, 'Deletion code').error ?? ''
+  errors.value.deletion = validateOtpCode(deletionCode.value, t('settings.deletionCodeLabel')).error ?? ''
 }
 
 const updateSuccess = ref(false)
@@ -68,7 +68,8 @@ const statusLabel = computed(() =>
 
 const roleLabel = computed(() => {
   const role = user.value?.role
-  return role ? role.charAt(0).toUpperCase() + role.slice(1) : ''
+  if (!role) return ''
+  return role === 'admin' ? t('settings.roleAdmin') : t('settings.roleUser')
 })
 
 async function loadProfile() {
@@ -128,7 +129,7 @@ async function confirmUpdateDetails() {
     return
   }
 
-  const codeResult = validateOtpCode(otpCode.value, 'OTP code')
+  const codeResult = validateOtpCode(otpCode.value, t('settings.otpCodeLabel'))
   errors.value.otp = codeResult.error ?? ''
   if (codeResult.error) return
 
@@ -165,7 +166,7 @@ async function changeAvatar(event: Event) {
   avatarPending.value = true
   errorFlag.value = false
   try {
-    if (file.size > 2 * 1024 * 1024) throw new Error('Icon must be at most 2 MiB')
+    if (file.size > 2 * 1024 * 1024) throw new Error(t('settings.iconTooLarge'))
     const body = new FormData()
     body.append('icon', file)
     const response = await httpClient.request<{ avatarUrl: string }>('me/icon', {
@@ -176,10 +177,10 @@ async function changeAvatar(event: Event) {
       user.value.avatarUrl = response.avatarUrl
       authStore.setUser({ ...user.value })
     }
-    updateSuccessMessage.value = 'Your profile icon has been updated.'
+    updateSuccessMessage.value = t('settings.iconUpdated')
     updateSuccess.value = true
   } catch (error) {
-    message.value = error instanceof Error ? error.message : 'Failed to upload icon'
+    message.value = error instanceof Error ? error.message : t('settings.uploadFailed')
     errorFlag.value = true
   } finally {
     input.value = ''
@@ -198,7 +199,7 @@ async function removeAvatar() {
       authStore.setUser({ ...user.value })
     }
   } catch (error) {
-    message.value = error instanceof Error ? error.message : 'Failed to remove icon'
+    message.value = error instanceof Error ? error.message : t('settings.removeFailed')
     errorFlag.value = true
   } finally {
     avatarPending.value = false
@@ -217,7 +218,7 @@ async function requestDeletion() {
     deletionConfirmationID.value = response.confirmationId
     deletionCode.value = ''
   } catch (error) {
-    message.value = error instanceof Error ? error.message : 'Failed to request account deletion.'
+    message.value = error instanceof Error ? error.message : t('settings.deletionRequestFailed')
     errorFlag.value = true
   } finally {
     deleting.value = false
@@ -241,13 +242,13 @@ async function exportGdprData(format: 'json' | 'csv' = 'json') {
     document.body.removeChild(link)
     window.URL.revokeObjectURL(url)
 
-    gdprSuccessMessage.value = `Your GDPR data export (${format.toUpperCase()}) has been downloaded successfully.`
+    gdprSuccessMessage.value = t('settings.exportSuccess', { format: format.toUpperCase() })
     gdprSuccess.value = true
   } catch (error) {
     console.error('Error exporting GDPR data:', error)
     errorFlag.value = true
     message.value =
-      error instanceof Error ? error.message : 'Something went wrong while exporting GDPR data'
+      error instanceof Error ? error.message : t('settings.exportFailed')
   } finally {
     gdprPending.value = false
   }
@@ -255,7 +256,7 @@ async function exportGdprData(format: 'json' | 'csv' = 'json') {
 
 async function confirmDeletion() {
   if (deleting.value || !deletionConfirmationID.value) return
-  const codeResult = validateOtpCode(deletionCode.value, 'Deletion code')
+  const codeResult = validateOtpCode(deletionCode.value, t('settings.deletionCodeLabel'))
   errors.value.deletion = codeResult.error ?? ''
   if (codeResult.error) return
   deleting.value = true
@@ -270,7 +271,7 @@ async function confirmDeletion() {
     user.value = null
     await router.replace('/login')
   } catch (error) {
-    message.value = error instanceof Error ? error.message : 'Failed to delete your account.'
+    message.value = error instanceof Error ? error.message : t('settings.deleteAccountFailed')
     errorFlag.value = true
   } finally {
     deleting.value = false
@@ -386,7 +387,7 @@ onMounted(loadProfile)
               @click="avatarInput?.click()"
               class="add"
             >
-              Add Profile Icon
+              {{ $t('settings.addIcon') }}
             </Button>
             <Button
               v-else
@@ -394,7 +395,7 @@ onMounted(loadProfile)
               :disabled="avatarPending"
               class="change"
             >
-              Change Profile Icon
+              {{ $t('settings.changeIcon') }}
             </Button>
             <Button
               v-if="user?.avatarUrl"
@@ -402,9 +403,9 @@ onMounted(loadProfile)
               @click="removeAvatar"
               class="remove"
             >
-              Remove profile icon
+              {{ $t('settings.removeIcon') }}
             </Button>
-            <p>JPEG, PNG or WebP, up to 2 MiB. Maximum 16 Million pixels</p>
+            <p>{{ $t('settings.iconHint') }}</p>
           </div>
           <span
             v-if="roleLabel"
@@ -418,7 +419,7 @@ onMounted(loadProfile)
       <dl v-if="user" class="flex flex-col">
         <div class="mb-2">
           <form class="grid gap-2" @submit.prevent="updateUserDetails(email, login)">
-            <Input :label="$t('settings.userId')" v-model="email" type="text" :error="errors.email" @blur="validateEmailField" />
+            <Input :label="$t('settings.emailLabel')" v-model="email" type="text" :error="errors.email" @blur="validateEmailField" />
             <Input :label="$t('settings.usernameLabel')" v-model="login" type="text" :error="errors.login" @blur="validateLoginField"/>
             <Button
               v-if="(isChanged(user.email, email) || isChanged(user.login, login)) && !displayOTP"
@@ -432,7 +433,7 @@ onMounted(loadProfile)
 
         <div v-if="displayOTP" class="mb-2">
           <form class="grid gap-2" @submit.prevent="confirmUpdateDetails">
-            <Input label="OTP Code" v-model="otpCode" type="text" :error="errors.otp" @blur="validateOtpField" />
+            <Input :label="$t('settings.otpCodeLabel')" v-model="otpCode" type="text" :error="errors.otp" @blur="validateOtpField" />
             <Button v-if="confirmationID" variant="elevated" type="submit">{{ $t('settings.confirmOtp') }}</Button>
           </form>
         </div>
@@ -440,9 +441,9 @@ onMounted(loadProfile)
 
       <div v-if="user" class="mt-6 flex flex-col gap-2.5 border-t border-line-subtle pt-4">
         <div class="flex flex-col gap-1.5">
-          <span class="font-semibold text-[0.875rem] text-brand">Privacy &amp; GDPR</span>
+          <span class="font-semibold text-[0.875rem] text-brand">{{ $t('settings.privacyGdpr') }}</span>
           <p class="m-0 text-[0.875rem] text-ink-secondary">
-            Under GDPR Art. 15, you have the right to obtain a copy of your personal data.
+            {{ $t('settings.gdprDescription') }}
           </p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
@@ -459,7 +460,7 @@ onMounted(loadProfile)
                 :size="18"
               />
             </template>
-            Export GDPR Data
+            {{ $t('settings.exportGdpr') }}
           </Button>
           <Button
             class="flex mt-2 items-center gap-2 flex-wrap"
@@ -469,7 +470,7 @@ onMounted(loadProfile)
             :loading="gdprPending"
             @click="exportGdprData('csv')"
           >
-          Export (CSV)
+          {{ $t('settings.exportCsv') }}
         </Button>
         </div>
         <p v-if="gdprSuccess" class="m-0 text-[0.875rem] text-success font-medium">
@@ -482,7 +483,7 @@ onMounted(loadProfile)
         color="primary"
         @click="router.push('/admin')"
       >
-        Go to Admin Panel
+        {{ $t('settings.goToAdmin') }}
       </Button>
       <Button
         v-if="!deletionConfirmationID"
@@ -492,25 +493,25 @@ onMounted(loadProfile)
         :loading="deleting"
         @click="requestDeletion"
       >
-        Delete account
+        {{ $t('settings.deleteAccount') }}
       </Button>
       <form v-else class="grid gap-2" @submit.prevent="confirmDeletion">
         <p class="m-0 mb-2 max-w-[34ch] text-sm leading-normal text-ink-secondary">
-          Enter the code sent to your email to permanently delete your account.
+          {{ $t('settings.deletionCodePrompt') }}
         </p>
         <Input
           v-model="deletionCode"
-          label="Deletion confirmation code"
+          :label="$t('settings.deletionCodeLabel')"
           type="text"
           :disabled="deleting"
           :error="errors.deletion"
           @blur="validateDeletionField"
         />
         <Button type="submit" color="alert" :loading="deleting" :disabled="!deletionCode.trim()">
-          Confirm deletion
+          {{ $t('settings.confirmDeletion') }}
         </Button>
         <Button variant="outlined" color="default" :disabled="deleting" @click="cancelDeletion">
-          Cancel
+          {{ $t('common.cancel') }}
         </Button>
       </form>
 

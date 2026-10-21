@@ -110,8 +110,8 @@ const handleLogin = async () => {
       <OAuth />
 
       <form class="flex flex-col gap-4" @submit.prevent="handleLogin">
-        <Input label="E-mail" type="email" v-model="email" required :error="errors.email" @blur="validateField('email')"/>
-        <Input label="Password" type="password" v-model="password" required :error="errors.password" @blur="validateField('password')"/>
+        <Input :label="$t('auth.login.emailLabel')" type="email" v-model="email" required :error="errors.email" @blur="validateField('email')"/>
+        <Input :label="$t('auth.login.passwordLabel')" type="password" v-model="password" required :error="errors.password" @blur="validateField('password')"/>
         <Button type="submit" size="large" class="w-full" :loading="isSubmitting">
           {{ isSubmitting ? $t('auth.login.submitting') : $t('auth.login.submit') }}
         </Button>

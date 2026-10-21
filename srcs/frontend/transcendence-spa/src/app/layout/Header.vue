@@ -27,7 +27,12 @@ const logoutLink = `${linkBase} border-[color:color-mix(in_srgb,var(--color-aler
     class="sticky top-0 z-20 flex items-center gap-2 border-b border-line bg-[color-mix(in_srgb,var(--bg-header)_88%,transparent)] px-6 py-2.5 shadow-[var(--shadow-sm)] backdrop-blur-[10px] max-sm:px-3"
   >
     <nav class="flex items-center gap-1">
-      <router-link to="/" :class="[navLink, isActive('/') ? navActive : navIdle]" aria-label="Home">
+      <router-link
+        to="/"
+        :class="[navLink, isActive('/') ? navActive : navIdle]"
+        :title="$t('nav.home')"
+        :aria-label="$t('nav.home')"
+      >
         <Icon name="Home" :size="18" />
         <span class="btn--lable max-sm:hidden">{{ $t('nav.home') }}</span>
       </router-link>
@@ -49,12 +54,18 @@ const logoutLink = `${linkBase} border-[color:color-mix(in_srgb,var(--color-aler
         <router-link
           to="/register"
           :class="[navLink, isActive('/register') ? navActive : navIdle]"
-          aria-label="Register"
+          :title="$t('nav.register')"
+          :aria-label="$t('nav.register')"
         >
           <Icon name="PencilPlus" :size="18" />
           <span class="btn--lable max-sm:hidden">{{ $t('nav.register') }}</span>
         </router-link>
-        <router-link to="/login" :class="primaryLink" aria-label="Login">
+        <router-link
+          to="/login"
+          :class="primaryLink"
+          :title="$t('nav.login')"
+          :aria-label="$t('nav.login')"
+        >
           <Icon name="Login" :size="18" />
           <span class="btn--lable max-sm:hidden">{{ $t('nav.login') }}</span>
         </router-link>
@@ -63,8 +74,8 @@ const logoutLink = `${linkBase} border-[color:color-mix(in_srgb,var(--color-aler
       <button
         v-else
         :class="logoutLink"
-        title="Log out of your account"
-        aria-label="Logout"
+        :title="$t('nav.logoutTitle')"
+        :aria-label="$t('nav.logout')"
         @click.prevent="authStore.logout"
       >
         <Icon name="Logout" :size="18" />

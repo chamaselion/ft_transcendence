@@ -30,7 +30,7 @@ function openCookieBanner() {
           <span>{{ $t('home.badge') }}</span>
         </div>
         <h1 class="m-0 mb-3 text-[2.4rem] leading-tight font-bold text-ink">
-          {{ $t('home.subtitle') }}
+          {{ $t('home.title') }}
         </h1>
         <p class="m-0 mb-8 text-[1.1rem] leading-relaxed text-ink-secondary">
           {{ $t('home.subtitle') }}
@@ -45,12 +45,12 @@ function openCookieBanner() {
     <footer
       class="mt-auto flex w-full flex-wrap items-center justify-between gap-4 border-t border-line-subtle pt-6 text-[0.8125rem] text-muted"
     >
-      <span>Trans Edit © 2026 · EU GDPR &amp; ePrivacy Compliant</span>
+      <span>{{ $t('home.footerCopyright') }}</span>
       <button
         class="ml-auto cursor-pointer border-0 bg-transparent p-0 text-[0.8125rem] font-medium text-brand underline underline-offset-[3px] transition-opacity duration-150 hover:opacity-80"
         @click="openCookieBanner"
       >
-        Cookie Policy &amp; Preferences
+        {{ $t('home.cookiePolicy') }}
       </button>
     </footer>
   </main>

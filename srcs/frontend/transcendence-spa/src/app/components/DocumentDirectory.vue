@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { useI18n } from 'vue-i18n'
 import Button from '@/app/components/Button.vue'
 import Icon from '@/app/components/Icon.vue'
 import Toast from '@/app/components/Toast.vue'
@@ -17,7 +16,6 @@ import {
 import type { DocumentData } from '@/app/editor/document.api'
 
 const router = useRouter()
-const { t, locale } = useI18n()
 
 const {
   documents,

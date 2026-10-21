@@ -45,12 +45,7 @@ function onPageSizeChange(event: Event) {
   >
     <!-- Range Information -->
     <div class="text-sm text-ink-secondary">
-      Showing
-      <strong class="font-semibold text-ink">{{ fromItem }}</strong>
-      –
-      <strong class="font-semibold text-ink">{{ toItem }}</strong>
-      of
-      <strong class="font-semibold text-ink">{{ props.total }}</strong>
+      {{ $t('documents.paginationShowing', { from: fromItem, to: toItem, total: props.total }) }}
     </div>
 
     <!-- Page Navigation Buttons -->
@@ -58,8 +53,8 @@ function onPageSizeChange(event: Event) {
       <button
         type="button"
         :class="[pageButtonBaseClass, pageButtonClass(false), 'px-1']"
-        title="First page"
-        aria-label="First page"
+        :title="$t('documents.firstPage')"
+        :aria-label="$t('documents.firstPage')"
         :disabled="currentPage === 1 || props.loading"
         @click="goToPage(1)"
       >
@@ -68,8 +63,8 @@ function onPageSizeChange(event: Event) {
       <button
         type="button"
         :class="[pageButtonBaseClass, pageButtonClass(false), 'px-1']"
-        title="Previous page"
-        aria-label="Previous page"
+        :title="$t('documents.previousPage')"
+        :aria-label="$t('documents.previousPage')"
         :disabled="currentPage === 1 || props.loading"
         @click="goToPage(currentPage - 1)"
       >
@@ -101,8 +96,8 @@ function onPageSizeChange(event: Event) {
       <button
         type="button"
         :class="[pageButtonBaseClass, pageButtonClass(false), 'px-1']"
-        title="Next page"
-        aria-label="Next page"
+        :title="$t('documents.nextPage')"
+        :aria-label="$t('documents.nextPage')"
         :disabled="currentPage >= totalPages || props.loading"
         @click="goToPage(currentPage + 1)"
       >
@@ -111,8 +106,8 @@ function onPageSizeChange(event: Event) {
       <button
         type="button"
         :class="[pageButtonBaseClass, pageButtonClass(false), 'px-1']"
-        title="Last page"
-        aria-label="Last page"
+        :title="$t('documents.lastPage')"
+        :aria-label="$t('documents.lastPage')"
         :disabled="currentPage >= totalPages || props.loading"
         @click="goToPage(totalPages)"
       >
@@ -123,7 +118,7 @@ function onPageSizeChange(event: Event) {
     <!-- Rows per page selector: 5, 10, 20 (default 10) -->
     <div class="flex items-center gap-2">
       <label for="page-size-select" class="text-[0.85rem] whitespace-nowrap text-ink-secondary"
-        >Rows:</label
+        >{{ $t('documents.rows') }}</label
       >
       <select
         id="page-size-select"

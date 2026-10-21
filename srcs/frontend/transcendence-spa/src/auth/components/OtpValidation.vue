@@ -16,7 +16,7 @@ const message = ref('')
 const codeError = ref('')
 
 const validateCode = () => {
-  const result = validateOtpCode(otp.value, 'OTP')
+  const result = validateOtpCode(otp.value, t('settings.otpCodeLabel'))
   codeError.value = result.error ?? ''
   return result
 }
@@ -46,7 +46,7 @@ const handleOtpConfirmation = async () => {
         ? error.message
         : typeof error === 'string'
           ? error
-          : 'Something went wrong'
+          : t('common.somethingWentWrong')
     loggedInSuccess.value = false
     if (error instanceof HttpError) {
       if (error.status === 400) {

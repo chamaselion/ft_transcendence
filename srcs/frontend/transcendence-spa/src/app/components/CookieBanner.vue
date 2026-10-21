@@ -1,52 +1,55 @@
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { useI18n } from 'vue-i18n'
 import Button from '@/app/components/Button.vue'
 import Icon from '@/app/components/Icon.vue'
 
 export interface CookieInfo {
   name: string
-  type: 'Cookie' | 'Local Storage'
+  type: string
   provider: string
   duration: string
   purpose: string
-  category: 'Strictly Necessary' | 'Functionality'
+  category: string
   required: boolean
 }
 
 const STORAGE_KEY = 'cookie-consent'
 
+const { t } = useI18n()
+
 const isVisible = ref(false)
 const showDetails = ref(false)
 
-const cookieInventory: CookieInfo[] = [
+const cookieInventory = computed<CookieInfo[]>(() => [
   {
     name: 'token',
-    type: 'Cookie',
+    type: t('cookie.types.cookie'),
     provider: 'Transcendence (1st party)',
-    duration: '7 days',
-    purpose: 'Stores your authenticated session (JWT) to keep you logged in and secure real-time collaboration.',
-    category: 'Strictly Necessary',
+    duration: t('cookie.durations.sevenDays'),
+    purpose: t('cookie.items.token.purpose'),
+    category: t('cookie.categories.strictlyNecessary'),
     required: true,
   },
   {
     name: 'app-theme',
-    type: 'Local Storage',
+    type: t('cookie.types.localStorage'),
     provider: 'Transcendence (1st party)',
-    duration: 'Persistent',
-    purpose: 'Remembers your interface display theme preference (light or dark mode) across browser visits.',
-    category: 'Functionality',
+    duration: t('cookie.durations.persistent'),
+    purpose: t('cookie.items.theme.purpose'),
+    category: t('cookie.categories.functionality'),
     required: true,
   },
   {
     name: 'cookie-consent',
-    type: 'Local Storage',
+    type: t('cookie.types.localStorage'),
     provider: 'Transcendence (1st party)',
-    duration: '1 year',
-    purpose: 'Remembers your acknowledgment of this EU cookie disclosure to prevent repeated popups.',
-    category: 'Strictly Necessary',
+    duration: t('cookie.durations.oneYear'),
+    purpose: t('cookie.items.consent.purpose'),
+    category: t('cookie.categories.strictlyNecessary'),
     required: true,
   },
-]
+])
 
 function checkConsent() {
   try {
@@ -105,7 +108,7 @@ defineExpose({
       v-if="isVisible"
       class="cookie-banner-overlay"
       role="region"
-      aria-label="EU Cookie Notice"
+      :aria-label="$t('cookie.ariaLabel')"
     >
       <div class="cookie-banner">
         <!-- Main Header & Notice -->
@@ -115,10 +118,10 @@ defineExpose({
               <Icon name="Cookie" :size="20" class="cookie-banner__icon" />
             </span>
             <div class="cookie-banner__titles">
-              <h2 class="cookie-banner__title">EU Cookie &amp; Privacy Notice</h2>
+              <h2 class="cookie-banner__title">{{ $t('cookie.title') }}</h2>
               <span class="cookie-banner__badge">
                 <Icon name="ShieldCheck" :size="13" />
-                ePrivacy &amp; GDPR Compliant
+                {{ $t('cookie.badge') }}
               </span>
             </div>
           </div>
@@ -126,10 +129,8 @@ defineExpose({
 
         <div class="cookie-banner__body">
           <p class="cookie-banner__description">
-            Trans Edit uses strictly functional cookies and local storage to provide essential services such as
-            user authentication, session security, and theme preferences. In accordance with EU Directive 2002/58/EC
-            (ePrivacy) and GDPR Art. 6, all cookies used on this site are strictly necessary for core functionality.
-            <strong>We do not use any advertising, profiling, or third-party tracking cookies.</strong>
+            {{ $t('cookie.description') }}
+            <strong>{{ $t('cookie.descriptionStrong') }}</strong>
           </p>
         </div>
 
@@ -139,10 +140,10 @@ defineExpose({
             <div class="cookie-banner__details-header">
               <h3 class="cookie-banner__details-title">
                 <Icon name="InfoCircle" :size="16" />
-                Active Storage &amp; Cookies Inventory
+                {{ $t('cookie.detailsTitle') }}
               </h3>
               <p class="cookie-banner__details-subtitle">
-                The following technical storage items are set by this website for core site functionality:
+                {{ $t('cookie.detailsSubtitle') }}
               </p>
             </div>
 
@@ -150,12 +151,12 @@ defineExpose({
               <table class="cookie-banner__table">
                 <thead>
                   <tr>
-                    <th>Name</th>
-                    <th>Mechanism</th>
-                    <th>Category</th>
-                    <th>Duration</th>
-                    <th>Purpose</th>
-                    <th>Status</th>
+                    <th>{{ $t('cookie.columnName') }}</th>
+                    <th>{{ $t('cookie.columnMechanism') }}</th>
+                    <th>{{ $t('cookie.columnCategory') }}</th>
+                    <th>{{ $t('cookie.columnDuration') }}</th>
+                    <th>{{ $t('cookie.columnPurpose') }}</th>
+                    <th>{{ $t('cookie.columnStatus') }}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -170,8 +171,8 @@ defineExpose({
                     <td>{{ cookie.duration }}</td>
                     <td class="cookie-purpose">{{ cookie.purpose }}</td>
                     <td>
-                      <span class="status-pill status-pill--required" title="Essential for site operation">
-                        Always Active
+                      <span class="status-pill status-pill--required" :title="$t('cookie.essential')">
+                        {{ $t('cookie.alwaysActive') }}
                       </span>
                     </td>
                   </tr>
@@ -189,7 +190,7 @@ defineExpose({
             class="cookie-banner__btn-details"
             @click="toggleDetails"
           >
-            {{ showDetails ? 'Hide Details' : 'View Cookie Details' }}
+            {{ showDetails ? $t('cookie.hideDetails') : $t('cookie.viewDetails') }}
           </Button>
 
           <Button
@@ -199,7 +200,7 @@ defineExpose({
             class="cookie-banner__btn-accept"
             @click="acceptAll"
           >
-            Got it &amp; Accept Functional Cookies
+            {{ $t('cookie.accept') }}
           </Button>
         </div>
       </div>

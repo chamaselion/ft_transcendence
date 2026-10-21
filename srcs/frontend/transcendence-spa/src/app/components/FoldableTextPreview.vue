@@ -18,9 +18,9 @@
     <span
       class="canonical-status"
       :class="isDirty ? 'canonical-status--draft' : 'canonical-status--synced'"
-      :title="isDirty ? 'Pending back-translation on blur' : 'Synchronized with database'"
+      :title="isDirty ? $t('editor.previewDirtyTooltip') : $t('editor.previewSyncedTooltip')"
     >
-      {{ isDirty ? 'Draft' : 'Synced' }}
+      {{ isDirty ? $t('editor.previewDraft') : $t('editor.previewSynced') }}
     </span>
   </div>
 </template>

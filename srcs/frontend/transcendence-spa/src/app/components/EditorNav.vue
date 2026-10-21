@@ -132,7 +132,7 @@
           color="alert"
           size="small"
           square
-          title="Delete active block"
+          :title="$t('editor.deleteBlock')"
           :disabled="!activeBlockId || deleteDisabled"
           @click="$emit('delete')"
         >
