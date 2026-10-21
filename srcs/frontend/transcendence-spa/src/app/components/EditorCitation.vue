@@ -1,13 +1,13 @@
 <template>
-  <blockquote class="citation" :style="style">
-    <span class="citation__stripe" :style="{ backgroundColor: accent }" />
-    <div class="citation__body">
+  <blockquote class="citation flex gap-3.5 rounded-lg px-4 py-3.5 italic [margin:0]" :style="style">
+    <span class="citation__stripe w-1 shrink-0 rounded-full" :style="{ backgroundColor: accent }" />
+    <div class="citation__body min-w-0 flex-1">
       <div
         ref="element"
-        class="citation__text"
+        class="citation__text rounded outline-none [overflow-wrap:anywhere]"
         :class="{
           'citation__text--editable': isEditable,
-          'citation__text--locked': locked,
+          'citation__text--locked cursor-not-allowed opacity-70': locked,
           'citation__text--empty': isEmpty,
         }"
         :data-placeholder="placeholder"
@@ -20,7 +20,12 @@
       >
         <slot v-if="!editable">{{ text }}</slot>
       </div>
-      <footer v-if="source" class="citation__source">— {{ source }}</footer>
+      <footer
+        v-if="source"
+        class="citation__source mt-2 text-[0.85em] font-normal text-muted not-italic"
+      >
+        — {{ source }}
+      </footer>
     </div>
   </blockquote>
 </template>
@@ -82,49 +87,11 @@ const style = computed(() => ({
 }))
 </script>
 
-<style lang="css" scoped>
-.citation {
-  display: flex;
-  gap: 14px;
-  margin: 0;
-  padding: 14px 16px;
-  border-radius: 8px;
-  font-style: italic;
-}
-
-.citation__stripe {
-  flex-shrink: 0;
-  width: 4px;
-  border-radius: 999px;
-}
-
-.citation__body {
-  flex: 1;
-  min-width: 0;
-}
-
-.citation__text {
-  outline: none;
-  border-radius: 4px;
-  overflow-wrap:anywhere;
-}
-
+<style scoped>
 .citation__text--editable.citation__text--empty:not(:focus)::before {
   content: attr(data-placeholder);
   color: var(--text-muted);
   pointer-events: none;
-  font-style: normal;
-}
-
-.citation__text--locked {
-  opacity: 0.7;
-  cursor: not-allowed;
-}
-
-.citation__source {
-  margin-top: 8px;
-  color: var(--text-muted);
-  font-size: 0.85em;
   font-style: normal;
 }
 </style>

@@ -2,15 +2,18 @@
   <component
     :is="ordered ? 'ol' : 'ul'"
     :ref="setElement"
-    class="list"
-    :class="{ 'list--editable': isEditable, 'list--locked': locked, 'list--empty': isEmpty }"
+    class="list space-y-1 pl-[1.5em] leading-relaxed [margin:0]"
+    :class="{
+      'list--editable rounded outline-none': isEditable,
+      'list--locked cursor-not-allowed opacity-70': locked,
+      'list--empty': isEmpty,
+    }"
     :style="style"
-    :data-placeholder="placeholder"
     v-bind="attributes"
     @input="onInput"
     @focus="onFocus"
     @blur="onBlur"
-    @keydown="onKeydown"
+    @keydown="handleKeydown"
     @paste="onPaste"
   >
     <template v-if="!editable">
@@ -33,7 +36,6 @@ const props = withDefaults(
     marker?: string
     editable?: boolean
     locked?: boolean
-    placeholder?: string
     typeface?: string
     color?: string
     bgColor?: string
@@ -46,7 +48,6 @@ const props = withDefaults(
     marker: '',
     editable: false,
     locked: false,
-    placeholder: 'List item',
     typeface: 'inherit',
     color: 'var(--text-primary)',
     bgColor: 'transparent',
@@ -92,6 +93,22 @@ const { attributes, onInput, onFocus, onBlur, onKeydown, onPaste } = useEditable
   },
 )
 
+const handleKeydown = (event: KeyboardEvent) =>{
+  if (event.key === 'Backspace' || event.key === 'Delete') {
+    const el = element.value
+    const items = el ? Array.from(el.querySelectorAll('li')) : []
+    const onlyEmptyItem =
+      items.length <= 1 && items.every((item) => item.innerText.trim() === '')
+
+    if (onlyEmptyItem) {
+      event.preventDefault()
+      return
+    }
+  }
+
+  onKeydown(event)
+}
+
 const style = computed(() => ({
   fontFamily: props.typeface,
   color: props.color,
@@ -100,34 +117,3 @@ const style = computed(() => ({
   listStyleType: props.marker || (props.ordered ? 'decimal' : 'disc'),
 }))
 </script>
-
-<style lang="css" scoped>
-.list {
-  margin: 0;
-  padding-left: 1.5em;
-}
-
-.list--editable {
-  outline: none;
-  border-radius: 4px;
-}
-
-.list--editable.list--empty:not(:focus)::before {
-  content: attr(data-placeholder);
-  color: var(--text-muted);
-  pointer-events: none;
-}
-
-.list--locked {
-  opacity: 0.7;
-  cursor: not-allowed;
-}
-
-.list__item {
-  line-height: 1.6;
-}
-
-.list__item + .list__item {
-  margin-top: 4px;
-}
-</style>

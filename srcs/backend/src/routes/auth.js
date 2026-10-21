@@ -14,7 +14,7 @@ const { createDataRequestHandler } = require('../controllers/gdpr/dataRequest');
 const { createDataExportHandler } = require('../controllers/gdpr/dataExport');
 const { createDataExportCsvHandler } = require('../controllers/gdpr/dataExportCsv');
 const { createDataDeletionRequestHandler } = require('../controllers/gdpr/dataDeletionRequest');
-// const { createDevFillDataHandler } = require('../controllers/auth/devFillData');
+const { createDataDeletionConfirmHandler } = require('../controllers/gdpr/dataDeletionConfirm');
 const { createRateLimiter, getClientIp, normalizeIdentity } = require('../middleware/rateLimit');
 const { createRequireAuth } = require('../middleware/requireAuth');
 const { iconUpload } = require('../middleware/iconUpload');
@@ -36,7 +36,7 @@ const { dataRequest } = createDataRequestHandler();
 const { dataExport } = createDataExportHandler();
 const { dataExportCsv } = createDataExportCsvHandler();
 const { dataDeletionRequest } = createDataDeletionRequestHandler();
-// const { fillData } = createDevFillDataHandler();
+const { dataDeletionConfirm } = createDataDeletionConfirmHandler();
 const { requireAuth } = createRequireAuth();
 const { replaceIcon, getIcon, deleteIcon } = createUserIconController();
 
@@ -94,7 +94,6 @@ router.post('/me/data-request', dataRequest);
 router.get('/me/data-export', dataExport);
 router.get('/me/data-export/csv', dataExportCsv);
 router.post('/me/data-deletion/request', authRequestLimiter, otpIssueLimiter, dataDeletionRequest);
-router.post('/me/data-deletion/confirm', authRequestLimiter, otpVerifyLimiter);
-// router.post('/me/dev/fill-data', authRequestLimiter, fillData);
+router.post('/me/data-deletion/confirm', authRequestLimiter, otpVerifyLimiter, dataDeletionConfirm);
 
 module.exports = router;

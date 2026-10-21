@@ -24,14 +24,29 @@ Success response (`202`):
 - Method: `GET`
 - Path: `/me/data-export`
 
-Returns a downloadable JSON file containing user account data and export metadata.
+Returns a downloadable JSON file containing export metadata and all user-related
+backend data currently associated with the account.
+
+The payload includes:
+
+- `exportDate`
+- `userData.profile`
+- `userData.authSessions`
+- `userData.oauthAccounts`
+- `userData.oneTimeChallenges`
+- `userData.oauthStateIntents`
+- `userData.gdprExportQuota`
+- `userData.gdprAuditEvents`
+- `userData.documentsOwned`
+- `userData.documentSharesReceived`
 
 ## Data export (CSV)
 
 - Method: `GET`
 - Path: `/me/data-export/csv`
 
-Returns a downloadable CSV file with the same data grouped into readable sections.
+Returns a downloadable CSV file with the same data as JSON export, flattened into
+`section`, `field`, `value` rows.
 
 Both export endpoints return rate-limit headers:
 
@@ -84,12 +99,19 @@ Success response (`200`):
   "message": "Your data has been deleted.",
   "deletedRecords": {
     "user": 1,
-    "authSessions": "all",
-    "gdprExportQuota": "all",
-    "gdprAuditEvents": "all"
+    "authSessions": 2,
+    "gdprExportQuota": 1,
+    "gdprAuditEvents": 4,
+    "userOauthAccounts": 1,
+    "oauthStateIntents": 1,
+    "oneTimeChallenges": 2,
+    "documentShares": 3,
+    "documents": 2
   }
 }
 ```
+
+`deletedRecords` values are delete counts for this request.
 
 Common errors across GDPR endpoints:
 

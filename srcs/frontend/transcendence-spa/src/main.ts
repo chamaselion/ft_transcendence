@@ -2,6 +2,8 @@ import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import { useAuthStore } from '@/stores/auth'
 
+import '@/assets/tailwind.css'
+
 import App from './App.vue'
 import router from './router'
 

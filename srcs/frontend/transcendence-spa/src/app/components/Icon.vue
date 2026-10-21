@@ -157,13 +157,11 @@ const currentIcon = computed(() => iconMap[props.name] ?? IconSparkles)
 </script>
 
 <template>
-  <component :is="currentIcon" :size="size" :color="color" :stroke="stroke" class="icon" />
+  <component
+    :is="currentIcon"
+    :size="size"
+    :color="color"
+    :stroke="stroke"
+    class="icon inline-block shrink-0 align-middle"
+  />
 </template>
-
-<style scoped>
-.icon {
-  display: inline-block;
-  vertical-align: middle;
-  flex-shrink: 0;
-}
-</style>

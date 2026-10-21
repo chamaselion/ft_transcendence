@@ -69,10 +69,7 @@ const handleLogin = async () => {
 </script>
 
 <template>
-  <div
-    v-if="registerRedirectFlag"
-    class="login-notice"
-  >
+  <div v-if="registerRedirectFlag" class="mx-auto mb-5 w-full max-w-[400px]">
     <Toast
       v-model="registerRedirectFlag"
       type="info"
@@ -84,129 +81,33 @@ const handleLogin = async () => {
   </div>
 
   <div
-    class="login-card"
     v-if="!otpConfirmationRequired"
+    class="box-border w-full max-w-[400px] rounded-xl border border-line-subtle bg-surface p-8 shadow-card"
   >
-    <header class="login-card__header">
-      <h1 class="login-card__title">Login</h1>
-      <p class="login-card__subtitle">Sign in to continue to your account.</p>
+    <header class="text-center">
+      <h1 class="m-0 mb-1.5 text-[26px] leading-tight font-semibold text-ink">Login</h1>
+      <p class="m-0 text-sm text-ink-secondary">Sign in to continue to your account.</p>
     </header>
-    <div class="login-card__body">
-      <Toast
-        v-model="errorFlag"
-        type="alert"
-        :message="message"
-        :duration="6000"
-        fluid
-      />
+    <div class="mt-6 flex flex-col gap-6">
+      <Toast v-model="errorFlag" type="alert" :message="message" :duration="6000" fluid />
       <OAuth />
-      <form @submit.prevent="handleLogin">
-        <Input
-          label="E-mail"
-          type="email"
-          v-model="email"
-          required
-        />
-        <Input
-          label="Password"
-          type="password"
-          v-model="password"
-          required
-        />
-        <Button
-          type="submit"
-          size="large"
-          class="login-card__submit"
-          :loading="isSubmitting"
-        >
+      <form class="flex flex-col gap-4" @submit.prevent="handleLogin">
+        <Input label="E-mail" type="email" v-model="email" required />
+        <Input label="Password" type="password" v-model="password" required />
+        <Button type="submit" size="large" class="w-full" :loading="isSubmitting">
           {{ isSubmitting ? 'Signing in' : 'Login' }}
         </Button>
       </form>
     </div>
-    <p
-      v-if="!registerRedirectFlag"
-      class="login-card__footer"
-    >
-      Don't have an account? <router-link to="/register">Register here</router-link>
+    <p v-if="!registerRedirectFlag" class="mt-5 text-center text-sm text-ink-secondary">
+      Don't have an account?
+      <router-link
+        to="/register"
+        class="font-medium text-brand no-underline hover:text-brand-hover hover:underline"
+        >Register here</router-link
+      >
     </p>
   </div>
 
-  <OtpValidation
-    v-if="otpConfirmationRequired"
-    :email="email"
-    :challengeID="challengeID"
-  />
+  <OtpValidation v-if="otpConfirmationRequired" :email="email" :challengeID="challengeID" />
 </template>
-
-<style scoped>
-.login-notice {
-  width: 100%;
-  max-width: 400px;
-  margin: 0 auto 20px;
-}
-
-.login-card {
-  box-sizing: border-box;
-  width: 100%;
-  max-width: 400px;
-  padding: 32px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 12px;
-  background-color: var(--bg-surface);
-  box-shadow: var(--shadow-md);
-}
-
-.login-card__header {
-  text-align: center;
-}
-
-.login-card__title {
-  margin: 0 0 6px;
-  font-size: 26px;
-  font-weight: 600;
-  line-height: 1.2;
-  color: var(--text-primary);
-}
-
-.login-card__subtitle {
-  margin: 0;
-  font-size: 14px;
-  color: var(--text-secondary);
-}
-
-.login-card__body {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-  margin-top: 24px;
-}
-
-.login-card__body form {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.login-card__submit {
-  width: 100%;
-  margin: 0;
-}
-
-.login-card__footer {
-  margin: 20px 0 0;
-  font-size: 14px;
-  text-align: center;
-  color: var(--text-secondary);
-}
-
-.login-card__footer :deep(a) {
-  color: var(--color-primary);
-  font-weight: 500;
-  text-decoration: none;
-}
-
-.login-card__footer :deep(a):hover {
-  color: var(--color-primary-hover);
-  text-decoration: underline;
-}
-</style>

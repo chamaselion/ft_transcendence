@@ -1,6 +1,6 @@
 const { Op } = require('sequelize');
 const sequelize = require('../../db');
-const { purgeSessionsForUser } = require('../auth/helpers');
+const { purgeUserData } = require('../auth/helpers');
 const { validateEmail, validateLogin, validateUuid } = require('../auth/validation');
 const { pick } = require('../../utils/pick');
 const { parseListQuery, likePattern, paginationOf } = require('../../utils/listQuery');
@@ -159,33 +159,8 @@ const createUsersController = ({ userModel } = {}) => {
       const user = await users.findByPk(id);
       if (!user) return res.status(404).json({ error: 'User not found' });
 
-      const { gdprExportQuota, gdprAuditEvent } = sequelize.models;
-
-      await sequelize.transaction(async (dbTransaction) => {
-        await users.findByPk(user.id, { transaction: dbTransaction, lock: dbTransaction.LOCK.UPDATE });
-        await deleteUserIcon(iconKey(user.id));
-        if (gdprExportQuota) {
-          await gdprExportQuota.destroy({
-            where: { userId: user.id },
-            transaction: dbTransaction,
-          });
-        }
-
-        if (gdprAuditEvent) {
-          await gdprAuditEvent.destroy({
-            where: { userId: user.id },
-            transaction: dbTransaction,
-          });
-        }
-
-        await users.destroy({
-          where: { id: user.id },
-          transaction: dbTransaction,
-        });
-      });
-
-
-      await purgeSessionsForUser(user.id);
+      await deleteUserIcon(iconKey(user.id));
+      await purgeUserData(user.id, { userModel: users });
 
       return res.status(204).send();
     } catch (err) {

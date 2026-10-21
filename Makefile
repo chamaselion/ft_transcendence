@@ -10,7 +10,7 @@ dev: up
 
 
 up:
-	$(COMPOSE) -f $(COMPOSE_FILE) up --build
+	$(COMPOSE) -f $(COMPOSE_FILE) up --build -d
 
 down:
 	$(COMPOSE) -f $(COMPOSE_FILE) down

@@ -11,14 +11,23 @@ const createRegisterHandler = ({ userModel, hashLib = bcrypt } = {}) => {
 
   const register = async (req, res) => {
     try {
-      console.log(`[AUTH] POST /register from ${req.ip}`, { body: { login: req.body.login, email: req.body.email } });
-      const loginValidation = validateLogin(req.body?.login);
+      const body = req.body && typeof req.body === 'object' ? req.body : null;
+      if (!body || Object.keys(body).length === 0) {
+        return res.status(400).json({ error: 'Request body is required' });
+      }
+
+      console.log(`[AUTH] POST /register from ${req.ip}`, {
+        bodyReceived: true,
+        bodyKeys: Object.keys(body),
+      });
+
+      const loginValidation = validateLogin(body.login);
       if (!loginValidation.ok) return res.status(400).json({ error: loginValidation.error });
 
-      const emailValidation = validateEmail(req.body?.email);
+      const emailValidation = validateEmail(body.email);
       if (!emailValidation.ok) return res.status(400).json({ error: emailValidation.error });
 
-      const passwordValidation = validatePassword(req.body?.password);
+      const passwordValidation = validatePassword(body.password);
       if (!passwordValidation.ok) return res.status(400).json({ error: passwordValidation.error });
 
       const login = loginValidation.value;

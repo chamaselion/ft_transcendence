@@ -248,10 +248,10 @@ onMounted(loadProfile)
 </script>
 
 <template>
-  <div class="user-settings">
-    <header class="user-settings__header">
-      <h1 class="user-settings__title">User Settings</h1>
-      <p class="user-settings__subtitle">Your account details and session status.</p>
+  <div class="box-border mx-auto w-full max-w-[1080px] px-6 py-12">
+    <header class="mb-6">
+      <h1 class="m-0 mb-1.5 text-[1.6rem] font-bold text-ink">User Settings</h1>
+      <p class="m-0 text-sm text-ink-secondary">Your account details and session status.</p>
     </header>
 
     <Toast
@@ -260,7 +260,7 @@ onMounted(loadProfile)
       :message="message"
       :duration="6000"
       fluid
-      class="user-settings__toast"
+      class="mb-4"
     />
 
     <Toast
@@ -269,7 +269,7 @@ onMounted(loadProfile)
       :message="updateSuccessMessage"
       :duration="6000"
       fluid
-      class="user-settings__toast"
+      class="mb-4"
     />
 
     <Toast
@@ -278,51 +278,39 @@ onMounted(loadProfile)
       :message="gdprSuccessMessage"
       :duration="6000"
       fluid
-      class="user-settings__toast"
+      class="mb-4"
     />
 
     <Card
       v-if="pending"
-      class="user-settings__card"
+      class="w-full :deep(.btn):mr-0"
     >
-      <p class="skeleton__caption">Loading your profile…</p>
+      <p class="m-0 mt-4 text-[0.75rem] text-muted text-center">Loading your profile…</p>
     </Card>
 
-    <Card
-      v-else-if="failed"
-      class="user-settings__card"
-    >
-      <div class="state">
+    <Card v-else-if="failed" class="w-full">
+      <div class="flex flex-col items-center gap-2.5 px-0 pt-3 pb-1 text-center">
         <span
-          class="state__badge state__badge--alert"
+          class="mb-1 inline-flex h-10 w-10 items-center justify-center rounded-full bg-danger/15 text-xl leading-none font-bold text-danger"
           aria-hidden="true"
           >!</span
         >
-        <p class="state__title">We couldn't load your profile</p>
-        <p class="state__text">Something went wrong while contacting the server.</p>
-        <Button
-          variant="elevated"
-          color="primary"
-          @click="loadProfile"
-          >Try again</Button
-        >
+        <p class="m-0 text-base font-semibold text-ink">We couldn't load your profile</p>
+        <p class="m-0 mb-2 max-w-[34ch] text-sm leading-normal text-ink-secondary">
+          Something went wrong while contacting the server.
+        </p>
+        <Button variant="elevated" color="primary" @click="loadProfile">Try again</Button>
       </div>
     </Card>
 
-    <Card
-      v-else-if="loggedIn"
-      class="user-settings__card"
-    >
-      <div class="profile__identity">
-        <div
-          class="profile__meta"
-          style="width: 100%"
-        >
-          <div
-            style="display: flex; align-items: center; justify-content: space-between; width: 100%"
-          >
-            <span class="profile__login">{{ user?.login }}</span>
-            <div class="profile__avatar">
+    <Card v-else-if="loggedIn" class="w-full">
+      <div class="flex items-center gap-4 border-b border-line-subtle pb-4">
+        <div class="flex w-full min-w-0 flex-col items-start gap-1.5">
+          <div class="flex w-full items-center justify-between">
+            <span class="text-lg font-semibold text-ink wrap-anywhere">{{
+              user?.login
+            }}</span>
+            <div class="group relative inline-flex shrink-0 overflow-hidden rounded-full">
               <input
                 ref="avatarInput"
                 type="file"
@@ -346,7 +334,7 @@ onMounted(loadProfile)
                 />
               </Button>
               <span
-                class="profile__avatar-overlay"
+                class="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/25 text-[28px] leading-none text-white opacity-0 transition-opacity duration-[180ms] group-hover:opacity-100"
                 aria-hidden="true"
                 >+</span
               >
@@ -381,29 +369,18 @@ onMounted(loadProfile)
           </div>
           <span
             v-if="roleLabel"
-            class="profile__role"
-            :class="`profile__role--${user?.role}`"
+            class="rounded-full px-2.5 py-0.5 text-xs font-semibold tracking-wide uppercase"
+            :class="user?.role === 'admin' ? 'bg-danger/12 text-danger' : 'bg-brand/12 text-brand'"
             >{{ roleLabel }}</span
           >
         </div>
       </div>
 
-      <dl
-        v-if="user"
-        class="profile__details"
-      >
-        <div class="profile__detail">
-          <form @submit.prevent="updateUserDetails(email, login)">
-            <Input
-              label="Email"
-              v-model="email"
-              type="text"
-            />
-            <Input
-              label="Username"
-              v-model="login"
-              type="text"
-            />
+      <dl v-if="user" class="flex flex-col">
+        <div class="mb-2">
+          <form class="grid gap-2" @submit.prevent="updateUserDetails(email, login)">
+            <Input label="Email" v-model="email" type="text" />
+            <Input label="Username" v-model="login" type="text" />
             <Button
               v-if="(isChanged(user.email, email) || isChanged(user.login, login)) && !displayOTP"
               variant="elevated"
@@ -414,40 +391,24 @@ onMounted(loadProfile)
           </form>
         </div>
 
-        <div
-          v-if="displayOTP"
-          class="profile__detail"
-        >
-          <form @submit.prevent="confirmUpdateDetails">
-            <Input
-              label="OTP Code"
-              v-model="otpCode"
-              type="text"
-            />
-            <Button
-              v-if="confirmationID"
-              variant="elevated"
-              type="submit"
-            >
-              Confirm OTP
-            </Button>
+        <div v-if="displayOTP" class="mb-2">
+          <form class="grid gap-2" @submit.prevent="confirmUpdateDetails">
+            <Input label="OTP Code" v-model="otpCode" type="text" />
+            <Button v-if="confirmationID" variant="elevated" type="submit">Confirm OTP</Button>
           </form>
         </div>
       </dl>
 
-      <div
-        v-if="user"
-        class="profile__gdpr"
-      >
-        <div class="profile__gdpr-info">
-          <span class="profile__gdpr-title">Privacy &amp; GDPR</span>
-          <p class="profile__gdpr-description">
+      <div v-if="user" class="mt-6 flex flex-col gap-2.5 border-t border-line-subtle pt-4">
+        <div class="flex flex-col gap-1.5">
+          <span class="font-semibold text-[0.875rem] text-brand">Privacy &amp; GDPR</span>
+          <p class="m-0 text-[0.875rem] text-ink-secondary">
             Under GDPR Art. 15, you have the right to obtain a copy of your personal data.
           </p>
         </div>
-        <div class="profile__gdpr-actions">
+        <div class="flex flex-wrap items-center gap-2">
           <Button
-            id="request-gdpr-btn"
+            class="flex mt-2 items-center gap-2 flex-wrap"
             variant="outlined"
             color="primary"
             :loading="gdprPending"
@@ -462,19 +423,17 @@ onMounted(loadProfile)
             Export GDPR Data
           </Button>
           <Button
+            class="flex mt-2 items-center gap-2 flex-wrap"
             id="export-gdpr-csv-btn"
             variant="outlined"
             color="primary"
             :loading="gdprPending"
             @click="exportGdprData('csv')"
           >
-            Export (CSV)
-          </Button>
+          Export (CSV)
+        </Button>
         </div>
-        <p
-          v-if="gdprSuccess"
-          class="profile__gdpr-success"
-        >
+        <p v-if="gdprSuccess" class="m-0 text-[0.875rem] text-success font-medium">
           {{ gdprSuccessMessage }}
         </p>
       </div>
@@ -486,9 +445,9 @@ onMounted(loadProfile)
       >
         Go to Admin Panel
       </Button>
-
       <Button
         v-if="!deletionConfirmationID"
+        class="flex mt-2 items-center gap-2 flex-wrap"
         color="alert"
         variant="outlined"
         :loading="deleting"
@@ -496,11 +455,8 @@ onMounted(loadProfile)
       >
         Delete account
       </Button>
-      <form
-        v-else
-        @submit.prevent="confirmDeletion"
-      >
-        <p class="state__text">
+      <form v-else class="grid gap-2" @submit.prevent="confirmDeletion">
+        <p class="m-0 mb-2 max-w-[34ch] text-sm leading-normal text-ink-secondary">
           Enter the code sent to your email to permanently delete your account.
         </p>
         <Input
@@ -509,378 +465,42 @@ onMounted(loadProfile)
           type="text"
           :disabled="deleting"
         />
-        <Button
-          type="submit"
-          color="alert"
-          :loading="deleting"
-          :disabled="!deletionCode.trim()"
-        >
+        <Button type="submit" color="alert" :loading="deleting" :disabled="!deletionCode.trim()">
           Confirm deletion
         </Button>
-        <Button
-          variant="outlined"
-          color="default"
-          :disabled="deleting"
-          @click="cancelDeletion"
-        >
+        <Button variant="outlined" color="default" :disabled="deleting" @click="cancelDeletion">
           Cancel
         </Button>
       </form>
 
       <template #footer>
         <div
-          class="status"
-          :class="`status--${status}`"
+          class="flex items-center gap-2 text-sm font-medium"
+          :class="status === 'good' ? 'text-success' : 'text-warning'"
           role="status"
         >
           <span
-            class="status__dot"
+            class="h-2.5 w-2.5 shrink-0 rounded-full bg-current shadow-[0_0_0_3px_color-mix(in_srgb,currentColor_22%,transparent)]"
             aria-hidden="true"
           />
-          <span class="status__text">{{ statusLabel }}</span>
+          <span>{{ statusLabel }}</span>
         </div>
       </template>
     </Card>
 
-    <Card
-      v-else
-      class="user-settings__card"
-    >
-      <div class="state">
+    <Card v-else class="w-full">
+      <div class="flex flex-col items-center gap-2.5 px-0 pt-3 pb-1 text-center">
         <span
-          class="state__badge state__badge--warn"
+          class="mb-1 inline-flex h-10 w-10 items-center justify-center rounded-full bg-warning/[18%] text-xl leading-none font-bold text-warning"
           aria-hidden="true"
           >!</span
         >
-        <p class="state__title">You're not logged in</p>
-        <p class="state__text">Sign in to view and manage your account settings.</p>
-        <Button
-          variant="elevated"
-          color="primary"
-          @click="goToLogin"
-          >Sign in</Button
-        >
+        <p class="m-0 text-base font-semibold text-ink">You're not logged in</p>
+        <p class="m-0 mb-2 max-w-[34ch] text-sm leading-normal text-ink-secondary">
+          Sign in to view and manage your account settings.
+        </p>
+        <Button variant="elevated" color="primary" @click="goToLogin">Sign in</Button>
       </div>
     </Card>
   </div>
 </template>
-
-<style lang="css" scoped>
-.profile__icon-options {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.add {
-  background-color: var(--color-good);
-}
-
-.change {
-  background-color: var(--color-warn);
-  color: var(--color-primary-contrast);
-}
-
-.remove {
-  background-color: var(--color-alert) !important;
-}
-
-form {
-  display: grid;
-  gap: 8px;
-}
-
-.user-settings {
-  box-sizing: border-box;
-  width: 100%;
-  max-width: 520px;
-  margin: 0 auto;
-  padding: 48px 24px;
-}
-
-.user-settings__header {
-  margin-bottom: 24px;
-}
-
-.user-settings__title {
-  margin: 0 0 6px;
-  font-size: 1.6rem;
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
-.user-settings__subtitle {
-  margin: 0;
-  font-size: 14px;
-  color: var(--text-secondary);
-}
-
-.user-settings__toast {
-  margin-bottom: 16px;
-}
-
-.user-settings__card {
-  width: 100%;
-}
-
-.user-settings :deep(.btn) {
-  margin-right: 0;
-}
-
-.profile__identity {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.profile__meta {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
-  min-width: 0;
-}
-
-.profile__avatar {
-  position: relative;
-  display: inline-flex;
-  flex-shrink: 0;
-  border-radius: 50%;
-  overflow: hidden;
-}
-
-.profile__avatar-icon {
-  transition: filter 180ms ease;
-}
-
-.profile__avatar-button {
-  border: 0;
-  padding: 0;
-  background: transparent;
-  cursor: pointer;
-}
-
-.profile__avatar-button:disabled {
-  cursor: wait;
-  opacity: 0.6;
-}
-
-.profile__avatar-overlay {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: rgb(0 0 0 / 25%);
-  color: #fff;
-  font-size: 28px;
-  line-height: 1;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 180ms ease;
-}
-
-.profile__avatar:hover .profile__avatar-icon {
-  filter: blur(2px);
-}
-
-.profile__avatar:hover .profile__avatar-overlay {
-  opacity: 1;
-}
-
-.profile__login {
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--text-primary);
-  overflow-wrap: anywhere;
-}
-
-.profile__role {
-  padding: 2px 10px;
-  border-radius: 999px;
-  background-color: color-mix(in srgb, var(--color-primary) 12%, transparent);
-  color: var(--color-primary);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-}
-
-.profile__role--admin {
-  background-color: color-mix(in srgb, var(--color-alert) 12%, transparent);
-  color: var(--color-alert);
-}
-
-.profile__details {
-  display: flex;
-  flex-direction: column;
-}
-
-.profile__id-detail {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 14px 2px;
-  background-color: var(--bg-subtle);
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-}
-
-.profile__detail {
-  align-items: baseline;
-  margin-bottom: 8px;
-}
-
-.profile__detail-label {
-  flex-shrink: 0;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-secondary);
-}
-
-.profile__detail-value {
-  margin: 0;
-  min-width: 0;
-  padding: 4px 8px;
-  border: 1px solid var(--border-default);
-  border-radius: 6px;
-  font-size: 14px;
-  color: var(--text-primary);
-  text-align: right;
-  overflow-wrap: anywhere;
-}
-
-.status {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.status__dot {
-  flex-shrink: 0;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background-color: var(--status-color);
-}
-
-.status--good {
-  --status-color: var(--color-good);
-  color: var(--color-good);
-}
-
-.status--warn {
-  --status-color: var(--color-warn);
-  color: var(--color-warn-contrast);
-}
-
-.status--good .status__dot,
-.status--warn .status__dot {
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--status-color) 22%, transparent);
-}
-
-.state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 0 4px;
-  text-align: center;
-}
-
-.state__badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  margin-bottom: 4px;
-  border-radius: 50%;
-  color: var(--badge-contrast);
-  font-size: 20px;
-  font-weight: 700;
-  line-height: 1;
-}
-
-.state__badge--alert {
-  --badge-contrast: var(--color-alert-contrast);
-  background-color: color-mix(in srgb, var(--color-alert) 15%, transparent);
-  color: var(--color-alert);
-}
-
-.state__badge--warn {
-  --badge-contrast: var(--color-warn-contrast);
-  background-color: color-mix(in srgb, var(--color-warn) 18%, transparent);
-  color: var(--color-warn);
-}
-
-.state__title {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.state__text {
-  margin: 0 0 8px;
-  max-width: 34ch;
-  font-size: 14px;
-  line-height: 1.5;
-  color: var(--text-secondary);
-}
-
-.skeleton__caption {
-  margin: 16px 0 0;
-  font-size: 13px;
-  color: var(--text-muted);
-  text-align: center;
-}
-
-.profile__gdpr {
-  margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border-subtle);
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.profile__gdpr-info {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.profile__gdpr-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.profile__gdpr-description {
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.4;
-  color: var(--text-secondary);
-}
-
-.profile__gdpr-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.profile__gdpr-success {
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.4;
-  color: var(--color-good);
-  font-weight: 500;
-}
-</style>

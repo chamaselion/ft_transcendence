@@ -30,6 +30,15 @@ const connectionStatus = ref<'connecting' | 'connected' | 'disconnected'>('conne
 const errorMessage = ref<string | null>(null)
 const isLoading = ref<boolean>(true)
 
+const statusClass = computed(
+  () =>
+    ({
+      connected: 'bg-success/15 text-success',
+      connecting: 'bg-warning/15 text-warning',
+      disconnected: 'bg-danger/15 text-danger',
+    })[connectionStatus.value],
+)
+
 function openRoom(docId: string, initialTitle?: string) {
   if (initialTitle) documentTitle.value = initialTitle
   documentId.value = docId
@@ -154,7 +163,6 @@ async function loadEditor(idParam?: string) {
   const id = idParam || (route.params.id as string | undefined)
 
   if (!id) {
-    // Route /editor called -> create new document and open room automatically
     try {
       const defaultBlocks = [createBlock('h', 'Untitled document'), createBlock('p', '')]
       const newDoc = await createDocument('Untitled document', defaultBlocks)
@@ -172,7 +180,6 @@ async function loadEditor(idParam?: string) {
       isLoading.value = false
     }
   } else {
-    // Route /editor/:id called -> open document if known, else push to /
     try {
       const doc = await getDocument(id)
       if (!doc || !doc.id) {
@@ -215,13 +222,18 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="page-container editor-view">
-    <div class="editor-view__header">
-      <div class="editor-view__meta">
+  <div
+    class="box-border mx-auto flex min-h-[calc(100vh_-_61px)] w-full max-w-[920px] flex-col gap-4 px-4 py-6"
+  >
+    <div class="flex items-center justify-between border-b border-line-subtle pb-3">
+      <div class="flex flex-col gap-1">
         <h1
           ref="titleEl"
-          class="editor-view__title"
-          :class="{ 'editor-view__title--editable': isTitleEditable }"
+          class="m-0 text-2xl font-bold text-ink"
+          :class="{
+            'cursor-text rounded p-0.5 px-1.5 -ml-1.5 outline-none transition-[background-color,box-shadow] hover:bg-subtle focus:bg-surface focus:shadow-[0_0_0_2px_var(--color-primary)]':
+              isTitleEditable,
+          }"
           :contenteditable="isTitleEditable"
           spellcheck="false"
           :title="isTitleEditable ? 'Click to rename document' : undefined"
@@ -230,8 +242,11 @@ onBeforeUnmount(() => {
         >
           {{ documentTitle }}
         </h1>
-        <div class="editor-view__badges">
-          <span class="status-badge" :class="`status-badge--${connectionStatus}`">
+        <div class="flex items-center gap-2">
+          <span
+            class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold"
+            :class="statusClass"
+          >
             {{
               connectionStatus === 'connected'
                 ? 'Multiuser Room Live'
@@ -240,23 +255,28 @@ onBeforeUnmount(() => {
                   : 'Disconnected'
             }}
           </span>
-          <span
-            v-if="documentId"
-            class="doc-id-badge"
-          >
+          <span v-if="documentId" class="font-mono text-xs text-muted">
             Room: {{ documentId.slice(0, 8) }}...
           </span>
-          <span v-if="userPermission" class="permission-badge"> Role: {{ userPermission }} </span>
+          <span
+            v-if="userPermission"
+            class="inline-flex items-center rounded-full bg-subtle px-2 py-0.5 text-xs font-semibold text-ink-secondary capitalize"
+          >
+            Role: {{ userPermission }}
+          </span>
         </div>
       </div>
-      <div class="editor-view__actions">
-        <div class="lang-selector-group" title="AI Document Translation (EU AI Act Compliant)">
-          <span v-if="editorStore.isTranslating" class="lang-translating-pill">
+      <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2" title="AI Document Translation (EU AI Act Compliant)">
+          <span
+            v-if="editorStore.isTranslating"
+            class="flex items-center gap-1 rounded-full bg-brand/15 px-2 py-0.5 text-xs font-semibold whitespace-nowrap text-brand"
+          >
             AI Translating...
           </span>
-          <div class="lang-selector-wrapper">
+          <div class="relative flex items-center">
             <select
-              class="lang-selector"
+              class="cursor-pointer rounded-md border border-line bg-surface px-2 py-1 text-sm font-medium text-ink outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand disabled:cursor-not-allowed disabled:opacity-60"
               :value="editorStore.activeLanguage"
               :disabled="editorStore.isTranslating"
               title="Select document display language"
@@ -268,24 +288,31 @@ onBeforeUnmount(() => {
             </select>
           </div>
         </div>
-
         <Button v-if="documentId" variant="outlined" size="small" @click="showShareModal = true">
           <template #icon>
             <Icon name="Share" :size="16" />
           </template>
           Share
         </Button>
+        <Button v-if="documentId" variant="outlined" size="small" @click="handleCreateNew">
+          <template #icon>
+            <Icon name="Plus" :size="16" />
+          </template>
+          New Document
+        </Button>
       </div>
     </div>
 
     <div
       v-if="errorMessage"
-      class="editor-view__error"
+      class="rounded-lg border border-danger bg-danger/12 px-3.5 py-2.5 text-sm text-danger"
     >
       {{ errorMessage }}
     </div>
 
-    <div v-if="isLoading" class="editor-view__loading">Initializing document room...</div>
+    <div v-if="isLoading" class="px-4 py-12 text-center text-muted italic">
+      Initializing document room...
+    </div>
 
     <Editor
       v-else-if="provider"
@@ -296,7 +323,6 @@ onBeforeUnmount(() => {
       @error="errorMessage = $event"
     />
 
-    <!-- Share Modal for inviting collaborators and managing access -->
     <ShareModal
       v-if="documentId"
       v-model="showShareModal"
@@ -305,208 +331,3 @@ onBeforeUnmount(() => {
     />
   </div>
 </template>
-
-<style scoped>
-.editor-view {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  width: 100%;
-  max-width: 920px;
-  margin: 0 auto;
-  padding: 24px 16px;
-}
-
-.editor-view__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.editor-view__meta {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.editor-view__title {
-  margin: 0;
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--text-base);
-}
-
-.editor-view__title--editable {
-  outline: none;
-  border-radius: 4px;
-  padding: 2px 6px;
-  margin-left: -6px;
-  transition:
-    background-color 0.2s,
-    box-shadow 0.2s;
-  cursor: text;
-}
-
-.editor-view__title--editable:hover {
-  background-color: var(--bg-subtle, rgba(0, 0, 0, 0.05));
-}
-
-.editor-view__title--editable:focus {
-  background-color: var(--bg-surface, #fff);
-  box-shadow: 0 0 0 2px var(--color-primary, #3b82f6);
-}
-
-.editor-view__badges {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.status-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 8px;
-  border-radius: 9999px;
-  font-size: 0.75rem;
-  font-weight: 600;
-}
-
-.status-badge--connected {
-  background-color: color-mix(in srgb, var(--color-success, #22c55e) 15%, transparent);
-  color: var(--color-success, #22c55e);
-}
-
-.status-badge--connecting {
-  background-color: color-mix(in srgb, var(--color-warn, #eab308) 15%, transparent);
-  color: var(--color-warn, #eab308);
-}
-
-.status-badge--disconnected {
-  background-color: color-mix(in srgb, var(--color-alert, #ef4444) 15%, transparent);
-  color: var(--color-alert, #ef4444);
-}
-
-.doc-id-badge {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  font-family: monospace;
-}
-
-.permission-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 8px;
-  border-radius: 9999px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  background-color: var(--bg-subtle);
-  color: var(--text-secondary);
-  text-transform: capitalize;
-}
-
-.editor-view__actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.lang-selector-group {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.lang-selector-wrapper {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-}
-
-.lang-sparkle-icon {
-  position: absolute;
-  left: 8px;
-  pointer-events: none;
-  color: var(--color-primary, #3b82f6);
-}
-
-.lang-selector {
-  background-color: var(--bg-surface);
-  color: var(--text-primary);
-  border: 1px solid var(--border-default);
-  border-radius: 6px;
-  padding: 5px 10px 5px 28px;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  outline: none;
-  cursor: pointer;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.lang-selector option {
-  background-color: var(--bg-surface);
-  color: var(--text-primary);
-}
-
-.lang-selector:focus {
-  border-color: var(--color-primary, #3b82f6);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary, #3b82f6) 20%, transparent);
-}
-
-.lang-selector:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.lang-translating-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  padding: 3px 9px;
-  border-radius: 9999px;
-  background-color: color-mix(in srgb, var(--color-primary, #3b82f6) 18%, transparent);
-  color: var(--color-primary, #3b82f6);
-}
-
-.ai-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 0.7rem;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 9999px;
-  background-color: color-mix(in srgb, var(--color-warn, #f59e0b) 15%, transparent);
-  color: var(--color-warn, #f59e0b);
-  border: 1px solid color-mix(in srgb, var(--color-warn, #f59e0b) 30%, transparent);
-}
-
-.sparkle-pulse {
-  animation: spin-pulse 2s infinite linear;
-}
-
-@keyframes spin-pulse {
-  0% { transform: scale(1) rotate(0deg); }
-  50% { transform: scale(1.15) rotate(180deg); }
-  100% { transform: scale(1) rotate(360deg); }
-}
-
-.editor-view__error {
-  padding: 10px 14px;
-  border-radius: 8px;
-  background-color: color-mix(in srgb, var(--color-alert, #ef4444) 12%, transparent);
-  border: 1px solid var(--color-alert, #ef4444);
-  color: var(--color-alert, #ef4444);
-  font-size: 0.875rem;
-}
-
-.editor-view__loading {
-  padding: 48px 16px;
-  text-align: center;
-  color: var(--text-muted);
-  font-style: italic;
-}
-</style>
