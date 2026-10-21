@@ -8,10 +8,6 @@ import { useAuthStore } from '@/stores/auth'
 const { currentTheme, toggleTheme } = useTheme()
 const route = useRoute()
 const authStore = useAuthStore()
-const currentUser = {
-  avatarUrl: 'https://thispersondoesnotexist.com/random-person.jpeg',
-  name: 'John Doe',
-}
 
 const isActive = (path: string) => (path === '/' ? route.path === '/' : route.path.startsWith(path))
 
@@ -68,8 +64,11 @@ const logoutLink = `${linkBase} border-[color:color-mix(in_srgb,var(--color-aler
         <span>{{ currentTheme === 'light' ? 'Dark' : 'Light' }}</span>
       </button>
     </nav>
-    <router-link v-if="authStore.isAuthenticated" to="/profile">
-      <UserIcon :avatar-url="currentUser.avatarUrl" />
+    <router-link
+      v-if="authStore.isAuthenticated"
+      to="/profile"
+    >
+      <UserIcon :avatar-url="authStore.user?.avatarUrl ?? undefined" :name="authStore.user?.login" />
     </router-link>
     <router-link v-else to="/login">
       <UserIcon avatar-url="/user-default-avatar.png" />

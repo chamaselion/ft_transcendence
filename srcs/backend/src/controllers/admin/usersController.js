@@ -4,6 +4,7 @@ const { purgeUserData } = require('../auth/helpers');
 const { validateEmail, validateLogin, validateUuid } = require('../auth/validation');
 const { pick } = require('../../utils/pick');
 const { parseListQuery, likePattern, paginationOf } = require('../../utils/listQuery');
+const { deleteUserIcon, iconKey } = require('../../services/userIconService');
 
 
 const ALLOWED_ROLES = ['admin', 'user'];
@@ -158,6 +159,7 @@ const createUsersController = ({ userModel } = {}) => {
       const user = await users.findByPk(id);
       if (!user) return res.status(404).json({ error: 'User not found' });
 
+      await deleteUserIcon(iconKey(user.id));
       await purgeUserData(user.id, { userModel: users });
 
       return res.status(204).send();

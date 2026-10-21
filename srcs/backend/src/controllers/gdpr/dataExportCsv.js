@@ -6,8 +6,42 @@ const { checkAndConsumeExportQuota } = require('./exportQuota');
 const { recordGdprAuditEvent } = require('./audit');
 const { buildGdprExportData, buildGdprExportCsv } = require('./exportData');
 const { createGdprNotificationService } = require('../../services/gdprNotificationService');
+const { getUserIcon, iconKey, isMissingIcon } = require('../../services/userIconService');
 
 const gdprNotificationService = createGdprNotificationService();
+
+const exportUserIcon = async (userId) => {
+  try {
+    const object = await getUserIcon(iconKey(userId));
+    const bytes = await object.Body.transformToByteArray();
+
+    return {
+      filename: `profile-icon-${userId}.webp`,
+      contentType: 'image/webp',
+      encoding: 'base64',
+      data: Buffer.from(bytes).toString('base64'),
+    };
+  } catch (error) {
+    if (isMissingIcon(error)) return null;
+    throw error;
+  }
+};
+
+
+
+const neutralizeCsvFormula = (value) => {
+  const text = value === null || value === undefined ? '' : String(value);
+  return /^\s*[=+\-@\t]/.test(text) ? `'${text}` : text;
+};
+
+const escapeCsvValue = (value) => {
+  if (value === null || value === undefined) return '';
+  const normalized = neutralizeCsvFormula(value).replace(/\r\n|\n|\r/g, '\\n');
+  const escaped = normalized.replace(/"/g, '""');
+  return `"${escaped}"`;
+};
+
+const toCsvRow = (fields) => fields.map((field) => escapeCsvValue(field)).join(',');
 
 const createDataExportCsvHandler = ({ userModel, tokenLib = jwt, secret = requireEnv('JWT_SECRET') } = {}) => {
   const resolvedUserModel = userModel || sequelize.models.user;
@@ -72,6 +106,7 @@ const createDataExportCsvHandler = ({ userModel, tokenLib = jwt, secret = requir
 
       if (!user) return res.status(401).json({ error: 'Unauthorized' });
       await ensureSession({ token, user });
+      const profileIcon = await exportUserIcon(user.id);
 
       const exportData = await buildGdprExportData(user);
 
@@ -86,6 +121,20 @@ const createDataExportCsvHandler = ({ userModel, tokenLib = jwt, secret = requir
       res.write('\uFEFF');
       res.write(buildGdprExportCsv(exportData));
 
+      res.write('\n');
+      res.write(toCsvRow(['section', 'field', 'value']) + '\n');
+      res.write(
+        toCsvRow(['profileIcon', 'present', profileIcon !== null]) + '\n',
+      );
+
+      if (profileIcon) {
+        for (const field of ['filename', 'contentType', 'encoding', 'data']) {
+          res.write(
+            toCsvRow(['profileIcon', field, profileIcon[field]]) + '\n',
+          );
+        }
+      }
+
       res.once('finish', () => {
         void recordGdprAuditEvent({
           userId: user.id,
@@ -97,7 +146,7 @@ const createDataExportCsvHandler = ({ userModel, tokenLib = jwt, secret = requir
           metadata: {
             endpoint: '/me/data-export/csv',
             format: 'csv',
-            sections: ['meta', 'user'],
+            sections: ['meta', 'user', 'profileIcon'],
           },
         });
 

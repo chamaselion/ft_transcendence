@@ -120,9 +120,54 @@ async function confirmUpdateDetails() {
   }
 }
 
-async function changeAvatar() {
-  // NOTE: Placeholder for avatar change functionality
-  console.log('Change avatar clicked')
+const avatarInput = ref<HTMLInputElement | null>(null)
+const avatarPending = ref(false)
+
+async function changeAvatar(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file || avatarPending.value) return
+  avatarPending.value = true
+  errorFlag.value = false
+  try {
+    if (file.size > 2 * 1024 * 1024) throw new Error('Icon must be at most 2 MiB')
+    const body = new FormData()
+    body.append('icon', file)
+    const response = await httpClient.request<{ avatarUrl: string }>('me/icon', {
+      method: 'PUT',
+      body,
+    })
+    if (user.value) {
+      user.value.avatarUrl = response.avatarUrl
+      authStore.setUser({ ...user.value })
+    }
+    updateSuccessMessage.value = 'Your profile icon has been updated.'
+    updateSuccess.value = true
+  } catch (error) {
+    message.value = error instanceof Error ? error.message : 'Failed to upload icon'
+    errorFlag.value = true
+  } finally {
+    input.value = ''
+    avatarPending.value = false
+  }
+}
+
+async function removeAvatar() {
+  if (avatarPending.value) return
+  avatarPending.value = true
+  errorFlag.value = false
+  try {
+    await httpClient.delete('me/icon')
+    if (user.value) {
+      user.value.avatarUrl = null
+      authStore.setUser({ ...user.value })
+    }
+  } catch (error) {
+    message.value = error instanceof Error ? error.message : 'Failed to remove icon'
+    errorFlag.value = true
+  } finally {
+    avatarPending.value = false
+  }
 }
 
 async function requestDeletion() {
@@ -262,22 +307,65 @@ onMounted(loadProfile)
       <div class="flex items-center gap-4 border-b border-line-subtle pb-4">
         <div class="flex w-full min-w-0 flex-col items-start gap-1.5">
           <div class="flex w-full items-center justify-between">
-            <span class="text-lg font-semibold text-ink [overflow-wrap:anywhere]">{{
+            <span class="text-lg font-semibold text-ink wrap-anywhere">{{
               user?.login
             }}</span>
             <div class="group relative inline-flex shrink-0 overflow-hidden rounded-full">
-              <UserIcon
-                class="transition-[filter] duration-[180ms] group-hover:blur-[2px]"
-                avatar-url="https://thispersondoesnotexist.com/random-person.jpeg"
-                size="large"
-                @click="changeAvatar"
+              <input
+                ref="avatarInput"
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                hidden
+                :disabled="avatarPending"
+                @change="changeAvatar"
               />
+              <!-- <Button
+                type="button"
+                class="profile__avatar-button"
+                aria-label="Change profile icon"
+                :disabled="avatarPending"
+              > -->
+                <UserIcon
+                  class="profile__avatar-icon"
+                  :avatar-url="user?.avatarUrl ?? undefined"
+                  :name="user?.login"
+                @click="avatarInput?.click()"
+                  size="large"
+                />
+              <!-- </Button> -->
               <span
                 class="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/25 text-[28px] leading-none text-white opacity-0 transition-opacity duration-[180ms] group-hover:opacity-100"
                 aria-hidden="true"
                 >+</span
               >
             </div>
+          </div>
+          <div class="profile__icon-options">
+            <Button
+              v-if="authStore.isAuthenticated && !user?.avatarUrl"
+              :disabled="avatarPending"
+              @click="avatarInput?.click()"
+              class="add"
+            >
+              Add Profile Icon
+            </Button>
+            <Button
+              v-else
+              @click="avatarInput?.click()"
+              :disabled="avatarPending"
+              class="change"
+            >
+              Change Profile Icon
+            </Button>
+            <Button
+              v-if="user?.avatarUrl"
+              :disabled="avatarPending"
+              @click="removeAvatar"
+              class="remove"
+            >
+              Remove profile icon
+            </Button>
+            <p>JPEG, PNG or WebP, up to 2 MiB. Maximum 16 Million pixels</p>
           </div>
           <span
             v-if="roleLabel"
@@ -327,7 +415,10 @@ onMounted(loadProfile)
             @click="exportGdprData('json')"
           >
             <template #prepend>
-              <Icon name="ShieldCheck" :size="18" />
+              <Icon
+                name="ShieldCheck"
+                :size="18"
+              />
             </template>
             Export GDPR Data
           </Button>
@@ -346,7 +437,6 @@ onMounted(loadProfile)
           {{ gdprSuccessMessage }}
         </p>
       </div>
-      <!-- Admin panel entry point: uncomment to expose it only to admins.
       <Button
         v-if="authStore.isAdmin()"
         variant="outlined"
@@ -355,8 +445,6 @@ onMounted(loadProfile)
       >
         Go to Admin Panel
       </Button>
-      -->
-      <span></span>
       <Button
         v-if="!deletionConfirmationID"
         class="flex mt-2 items-center gap-2 flex-wrap"

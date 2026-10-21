@@ -6,8 +6,26 @@ const { checkAndConsumeExportQuota } = require('./exportQuota');
 const { recordGdprAuditEvent } = require('./audit');
 const { buildGdprExportData } = require('./exportData');
 const { createGdprNotificationService } = require('../../services/gdprNotificationService');
+const { getUserIcon, iconKey, isMissingIcon } = require('../../services/userIconService');
 
 const gdprNotificationService = createGdprNotificationService();
+
+const exportUserIcon = async (userId) => {
+  try {
+    const object = await getUserIcon(iconKey(userId));
+    const bytes = await object.Body.transformToByteArray();
+
+    return {
+      filename: `profile-icon-${userId}.webp`,
+      contentType: 'image/webp',
+      encoding: 'base64',
+      data: Buffer.from(bytes).toString('base64'),
+    };
+  } catch (error) {
+    if (isMissingIcon(error)) return null;
+    throw error;
+  }
+};
 
 const createDataExportHandler = ({ userModel, tokenLib = jwt, secret = requireEnv('JWT_SECRET') } = {}) => {
   const resolvedUserModel = userModel || sequelize.models.user;
@@ -73,8 +91,10 @@ const createDataExportHandler = ({ userModel, tokenLib = jwt, secret = requireEn
       if (!user) return res.status(401).json({ error: 'Unauthorized' });
       await ensureSession({ token, user });
 
-      const exportData = await buildGdprExportData(user);
-
+      const exportData = {
+        ...(await buildGdprExportData(user)),
+        profileIcon: await exportUserIcon(user.id),
+      };
       const exportReference = `export-${user.id}-${Date.now()}`;
 
       // Set headers for secure download
@@ -93,7 +113,7 @@ const createDataExportHandler = ({ userModel, tokenLib = jwt, secret = requireEn
           userAgent: req.get('user-agent'),
           metadata: {
             endpoint: '/me/data-export',
-            fields: ['exportDate', 'userData'],
+            fields: ['exportDate', 'userData', 'profileIcon'],
           },
         });
 

@@ -8,7 +8,7 @@ export interface User {
   login: string
   email: string
   role: string
-  avatarUrl?: string // NOTE: Temporary ICON/Avatar URL for Profile Icon
+  avatarUrl?: string | null
 }
 
 export interface UserDetailed {
@@ -16,7 +16,7 @@ export interface UserDetailed {
   login: string
   email: string
   role: string
-  avatarUrl?: string // NOTE: Temporary ICON/Avatar URL for Profile Icon
+  avatarUrl?: string | null
   createdAt: string
   updatedAt: string
 }
