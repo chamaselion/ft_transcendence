@@ -5,9 +5,11 @@
       :active-block-id="store.activeBlockId"
       :active-block="store.activeBlock"
       :delete-disabled="isDeleteDisabled"
+      :is-elaborating="isElaborating"
       :position="navPosition"
       @add="onAdd"
       @delete="onDelete"
+      @elaborate="onElaborate"
       @update:decorator="onUpdateDecorator(store.activeBlock, $event)"
     />
 
@@ -64,9 +66,11 @@
       :active-block-id="store.activeBlockId"
       :active-block="store.activeBlock"
       :delete-disabled="isDeleteDisabled"
+      :is-elaborating="isElaborating"
       :position="navPosition"
       @add="onAdd"
       @delete="onDelete"
+      @elaborate="onElaborate"
       @update:decorator="onUpdateDecorator(store.activeBlock, $event)"
     />
   </div>
@@ -84,6 +88,7 @@ import {
   backTranslateBlock,
   type SupportedLanguage,
 } from '@/app/editor/translation.api'
+import { elaborateBlock, type PersonaKey } from '@/app/editor/elaboration.api'
 import { isStandardText, type EditableInsertEvent } from '@/app/editor/useEditable'
 import {
   createBlock,
@@ -403,8 +408,7 @@ async function translateDocumentTo(targetLang: string) {
   } catch (err) {
     if (requestId !== translationRequestId) return
     console.error('Document translation failed:', err)
-    store.translationError =
-      err instanceof Error ? err.message : t('editor.translationFailed')
+    store.translationError = err instanceof Error ? err.message : t('editor.translationFailed')
     emit('error', store.translationError)
   } finally {
     if (requestId === translationRequestId) store.isTranslating = false
@@ -416,6 +420,7 @@ const isDeleteDisabled = computed(() => {
   return store.isLockedByOther(store.activeBlock)
 })
 
+const isElaborating = ref(false)
 const filename = computed(() => props.filename)
 
 const EDIT_DEBOUNCE_MS = 2000
@@ -890,6 +895,97 @@ const onBlur = async (block: Block) => {
     clearLockTimers()
     store.unlock(block.id)
     await props.provider.sendBlockUnlock?.(block.id)
+  }
+}
+
+const onElaborate = async (personaKey: PersonaKey) => {
+  const block = store.activeBlock
+  if (!block || store.isLockedByOther(block)) return
+  const decorator = parseDecorator(block.decorator)
+  if (decorator.type !== 'p') return
+
+  // Re-acquire lock if needed
+  if (block.lockedBy !== store.clientId) {
+    const lockSuccess = await props.provider.sendBlockLock?.(block.id)
+    if (lockSuccess === false) return
+    store.lock(block.id)
+  }
+  resetLockTimeout(block.id)
+
+  // Flush any pending text edit first
+  await flushPendingEdit()
+
+  // Always get the text in the database canonical language (English)
+  let englishText = store.getCanonicalText(block.id)
+  if (!englishText && store.activeLanguage === 'en') {
+    englishText = block.text
+  }
+
+  // If currently in non-English mode and block has local edits (dirty), back-translate to English first
+  if (store.activeLanguage !== 'en' && store.isBlockDirty(block.id)) {
+    try {
+      const surroundingContext = getSurroundingContext(block.id)
+      englishText = await backTranslateBlock(
+        block.text,
+        store.activeLanguage,
+        'en',
+        surroundingContext,
+      )
+      store.setCanonicalText(block.id, englishText)
+      store.clearBlockDirty(block.id)
+    } catch (err) {
+      console.error('Back-translation before elaboration failed:', err)
+    }
+  }
+
+  if (!englishText.trim()) {
+    return
+  }
+
+  isElaborating.value = true
+  try {
+    const surroundingContext = getSurroundingContext(block.id)
+    // 1. Elaborate block in English (database language) using the new endpoint
+    const elaboratedEnglish = await elaborateBlock(englishText, personaKey, surroundingContext)
+
+    if (!elaboratedEnglish) return
+
+    // 2. Update canonical English in store
+    store.setCanonicalText(block.id, elaboratedEnglish)
+
+    if (store.activeLanguage === 'en') {
+      store.updateBlockText(block.id, elaboratedEnglish)
+      store.clearBlockDirty(block.id)
+      await props.provider.sendEdit({
+        blockId: block.id,
+        text: elaboratedEnglish,
+        decorator: block.decorator,
+      })
+    } else {
+      // In non-English mode: persist elaborated English to backend via provider
+      await props.provider.sendEdit({
+        blockId: block.id,
+        text: elaboratedEnglish,
+        decorator: block.decorator,
+      })
+
+      // 3. Translate elaborated English to the user's active display language using existing translate endpoint
+      const translated = await translateBlocks(
+        [{ id: block.id, text: elaboratedEnglish }],
+        'en',
+        store.activeLanguage,
+      )
+      const targetText = translated[0]?.text ?? elaboratedEnglish
+      store.updateBlockText(block.id, targetText)
+      store.clearBlockDirty(block.id)
+    }
+
+    resetLockTimeout(block.id)
+  } catch (err) {
+    console.error('AI elaboration failed:', err)
+    emit('error', err instanceof Error ? err.message : t('editor.elaborate.failed'))
+  } finally {
+    isElaborating.value = false
   }
 }
 

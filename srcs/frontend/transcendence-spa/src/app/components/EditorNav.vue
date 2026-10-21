@@ -47,6 +47,12 @@
             <Icon :name="alignIcons[align]" :size="18" />
           </template>
         </Button>
+        <span class="editor-nav__divider" :class="dividerClass" />
+        <EditorElaborateDropdown
+          :disabled="deleteDisabled || isElaborating"
+          :loading="isElaborating"
+          @select="$emit('elaborate', $event)"
+        />
       </div>
 
       <div
@@ -106,7 +112,9 @@
         class="editor-nav__group editor-nav__group--formatting flex flex-wrap items-center gap-1"
         :class="{ 'flex-col': position === 'left' }"
       >
-        <span class="editor-nav__label mr-0.5 text-[0.75rem] font-semibold text-muted">{{ $t('editor.languageLabel') }}</span>
+        <span class="editor-nav__label mr-0.5 text-[0.75rem] font-semibold text-muted">{{
+          $t('editor.languageLabel')
+        }}</span>
         <select
           class="editor-nav__select cursor-pointer rounded-md border border-line-subtle bg-surface px-1.5 py-[3px] text-[0.75rem] font-medium text-ink outline-none transition-colors duration-150 focus:border-brand disabled:cursor-not-allowed disabled:opacity-50"
           :disabled="deleteDisabled"
@@ -159,18 +167,22 @@ import {
   type ParagraphAlignment,
 } from '@/app/editor/types'
 import { supportedLanguages } from '@/app/components/EditorCode.vue'
+import EditorElaborateDropdown from '@/app/components/EditorElaborateDropdown.vue'
+import type { PersonaKey } from '@/app/editor/elaboration.api'
 
 const props = withDefaults(
   defineProps<{
     activeBlockId?: string | null
     activeBlock?: Block | null
     deleteDisabled?: boolean
+    isElaborating?: boolean
     position?: 'top' | 'left' | 'bottom'
   }>(),
   {
     activeBlockId: null,
     activeBlock: null,
     deleteDisabled: false,
+    isElaborating: false,
     position: 'top',
   },
 )
@@ -178,6 +190,7 @@ const props = withDefaults(
 const emit = defineEmits<{
   add: [type: BlockType]
   delete: []
+  elaborate: [personaKey: PersonaKey]
   'update:decorator': [decorator: BlockDecorator]
 }>()
 
@@ -240,7 +253,6 @@ function onNavLanguageChange(e: Event) {
   emit('update:decorator', { ...activeDecorator.value, language: target.value })
 }
 </script>
-
 <style scoped>
 .editor-nav :deep(.btn) {
   flex-shrink: 0;

@@ -204,6 +204,56 @@
     "yourRole": "Ihre Rolle",
     "translating": "KI übersetzt...",
     "translationFailed": "Übersetzung fehlgeschlagen",
+    "elaborate": {
+      "trigger": "KI ausarbeiten",
+      "triggerLoading": "Wird ausgearbeitet…",
+      "triggerTitle": "Absatz mit KI-Persona umschreiben oder ausarbeiten",
+      "triggerLoadingTitle": "Block wird mit KI ausgearbeitet...",
+      "menuTitle": "KI-Block-Persona auswählen",
+      "nativeLabel": "KI-Persona",
+      "nativePlaceholder": "Mit KI ausarbeiten",
+      "failed": "KI-Ausarbeitung fehlgeschlagen",
+      "loadFailed": "KI-Personas konnten nicht geladen werden.",
+      "categories": {
+        "structural": "Strukturelle & analytische Personas",
+        "tone": "Ton- & Stimm-Personas",
+        "action": "Aktions- & Umsetzungs-Personas"
+      },
+      "personas": {
+        "devils_advocate": {
+          "name": "Der Advocatus Diaboli (Red Teamer)",
+          "description": "Stresstestet den Text. Schreibt Argumente neu, indem Gegenargumente proaktiv behandelt, logische Fehlschlüsse erkannt, verborgene Annahmen hervorgehoben und Caveat-Frameworks eingefügt werden."
+        },
+        "summarizer": {
+          "name": "TL;DR",
+          "description": "Verdichtet langen Inhalt."
+        },
+        "storyteller": {
+          "name": "Der Geschichtenerzähler",
+          "description": "Verwandelt Erklärungen oder Beschreibungen in einen fesselnden narrativen Bogen (Haken, Konflikt/Herausforderung, Reise, Auflösung) mit eindrucksvollen Metaphern und Rhythmus."
+        },
+        "pragmatist": {
+          "name": "Der direkte Pragmatiker (Nüchtern / Minimalistisch)",
+          "description": "Reduziert die Wortzahl um 40–60 %."
+        },
+        "diplomat": {
+          "name": "Der Diplomat / Einfühlsamer Vermittler",
+          "description": "Entschärft konfrontative, mehrdeutige oder direkte Aussagen."
+        },
+        "marketer": {
+          "name": "Der Vermarkter",
+          "description": "Schärft den Text mit Conversion-Frameworks und klaren Wertversprechen."
+        },
+        "auditor": {
+          "name": "Der Auditor",
+          "description": "Verwandelt übergeordnete Ziele in Schritt-für-Schritt-Standardarbeitsanweisungen (SOPs), einschließlich Voraussetzungen, Sonderfällen, Ein-/Ausgabeprüfung und Checklisten."
+        },
+        "specifier": {
+          "name": "Der Spezifizierer",
+          "description": "Übersetzt konzeptionelle Geschäfts- oder Nutzerideen in technische Abnahmekriterien, User Stories, Edge-Case-Parameter und Systemanforderungen."
+        }
+      }
+    },
     "titleTooLong": "Der Titel darf höchstens {max} Zeichen lang sein.",
     "emptyDocument": "Dieses Dokument ist leer. Fügen Sie über die Werkzeugleiste einen Block hinzu.",
     "unsavedChanges": "Ausstehende Änderungen konnten nicht auf dem Server gespeichert werden. Möchten Sie die Seite wirklich verlassen?",

@@ -204,6 +204,56 @@
     "yourRole": "Your Role",
     "translating": "AI Translating...",
     "translationFailed": "Translation failed",
+    "elaborate": {
+      "trigger": "AI Elaborate",
+      "triggerLoading": "Elaborating…",
+      "triggerTitle": "Rewrite or elaborate paragraph with AI persona",
+      "triggerLoadingTitle": "Elaborating block with AI...",
+      "menuTitle": "Select AI Block Persona",
+      "nativeLabel": "AI Persona",
+      "nativePlaceholder": "Elaborate with AI",
+      "failed": "AI elaboration failed",
+      "loadFailed": "Unable to load AI personas.",
+      "categories": {
+        "structural": "Structural & Analytical Personas",
+        "tone": "Tone & Voice Personas",
+        "action": "Action & Delivery Personas"
+      },
+      "personas": {
+        "devils_advocate": {
+          "name": "The Devil’s Advocate (Red Teamer)",
+          "description": "Stress-tests the text. Rewrites arguments by proactively addressing counterarguments, spotting logical fallacies, highlighting hidden assumptions, and inserting caveat frameworks."
+        },
+        "summarizer": {
+          "name": "TL;DR",
+          "description": "Condenses long-form content."
+        },
+        "storyteller": {
+          "name": "The Storyteller",
+          "description": "Turns explanations or descriptions into an engaging narrative arc (hook, conflict/challenge, journey, resolution) using evocative metaphors and rhythm."
+        },
+        "pragmatist": {
+          "name": "The Direct Pragmatist (No-Nonsense / Minimalist)",
+          "description": "Cuts word count by 40–60%."
+        },
+        "diplomat": {
+          "name": "The Diplomat / Empathetic Resolver",
+          "description": "Softens confrontational, ambiguous, or blunt statements."
+        },
+        "marketer": {
+          "name": "The Marketer",
+          "description": "Sharpens the text with conversion frameworks and clear value propositions."
+        },
+        "auditor": {
+          "name": "The Auditor",
+          "description": "Transforms high-level goals into step-by-step Standard Operating Procedures (SOPs), complete with prerequisites, edge cases, input/output validation, and checklists."
+        },
+        "specifier": {
+          "name": "The Specifier",
+          "description": "Translates conceptual business or user ideas into technical acceptance criteria, user stories, edge-case parameters and system requirements."
+        }
+      }
+    },
     "titleTooLong": "Title must be at most {max} characters long.",
     "emptyDocument": "This document is empty. Add a block from the toolbar.",
     "unsavedChanges": "Pending changes could not be saved to the server. Are you sure you want to leave?",

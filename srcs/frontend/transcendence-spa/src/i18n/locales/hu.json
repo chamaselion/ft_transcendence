@@ -204,6 +204,56 @@
     "yourRole": "Az Ön szerepe",
     "translating": "AI fordítás...",
     "translationFailed": "A fordítás nem sikerült",
+    "elaborate": {
+      "trigger": "AI kidolgozás",
+      "triggerLoading": "Kidolgozás…",
+      "triggerTitle": "Bekezdés átírása vagy kidolgozása AI-személyiséggel",
+      "triggerLoadingTitle": "Blokk kidolgozása AI-val...",
+      "menuTitle": "AI-blokk-személyiség kiválasztása",
+      "nativeLabel": "AI-személyiség",
+      "nativePlaceholder": "Kidolgozás AI-val",
+      "failed": "Az AI-kidolgozás nem sikerült",
+      "loadFailed": "Nem sikerült betölteni az AI-személyiségeket.",
+      "categories": {
+        "structural": "Strukturális és elemző személyiségek",
+        "tone": "Hangnem- és stílus-személyiségek",
+        "action": "Cselekvési és átadási személyiségek"
+      },
+      "personas": {
+        "devils_advocate": {
+          "name": "Az ördög ügyvédje (Red Teamer)",
+          "description": "Stresszteszteli a szöveget. Újraírja az érveket az ellenérvek proaktív kezelésével, a logikai hibák felismerésével, a rejtett feltevések kiemelésével és fenntartási keretek beillesztésével."
+        },
+        "summarizer": {
+          "name": "TL;DR",
+          "description": "Tömöríti a hosszú tartalmat."
+        },
+        "storyteller": {
+          "name": "A mesemondó",
+          "description": "Magával ragadó narratív ívvé alakítja a magyarázatokat vagy leírásokat (horog, konfliktus/kihívás, utazás, megoldás) kifejező metaforákkal és ritmussal."
+        },
+        "pragmatist": {
+          "name": "A közvetlen pragmatikus (Tárgyilagos / Minimalista)",
+          "description": "40–60%-kal csökkenti a szószámot."
+        },
+        "diplomat": {
+          "name": "A diplomata / Empátiás közvetítő",
+          "description": "Tompítja a konfrontatív, kétértelmű vagy nyers állításokat."
+        },
+        "marketer": {
+          "name": "A marketinges",
+          "description": "Élesíti a szöveget konverziós keretrendszerekkel és világos értékajánlatokkal."
+        },
+        "auditor": {
+          "name": "Az auditor",
+          "description": "A magas szintű célokat lépésről lépésre haladó szabványos működési eljárásokká (SOP) alakítja, beleértve az előfeltételeket, szélsőséges eseteket, bemenet/kimenet ellenőrzést és ellenőrzőlistákat."
+        },
+        "specifier": {
+          "name": "A specifikáló",
+          "description": "A fogalmi üzleti vagy felhasználói ötleteket technikai elfogadási kritériumokká, felhasználói történetekké, szélsőséges esetparaméterekké és rendszerkövetelményekké fordítja."
+        }
+      }
+    },
     "titleTooLong": "A cím legfeljebb {max} karakter lehet.",
     "emptyDocument": "Ez a dokumentum üres. Adjon hozzá egy blokkot az eszköztárból.",
     "unsavedChanges": "A függőben lévő módosításokat nem sikerült elmenteni a szerverre. Biztosan elhagyja az oldalt?",
