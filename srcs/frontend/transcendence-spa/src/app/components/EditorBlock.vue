@@ -13,6 +13,7 @@
       :is="component"
       v-bind="componentProps"
       @update:text="!locked && $emit('update:text', $event)"
+      @insert-blocks="!locked && $emit('insert-blocks', $event)"
       @update:language="!locked && onUpdateLanguage($event)"
       @focus="!locked && $emit('focus')"
       @blur="$emit('blur')"
@@ -41,12 +42,14 @@ import EditorCitation from '@/app/components/EditorCitation.vue'
 import EditorCode from '@/app/components/EditorCode.vue'
 import FoldableTextPreview from '@/app/components/FoldableTextPreview.vue'
 import { parseDecorator, serializeDecorator, type Block, type BlockType } from '@/app/editor/types'
+import type { EditableInsertEvent } from '@/app/editor/useEditable'
 import { useEditorStore } from '@/stores/editor'
 
 const props = defineProps<{
   block: Block
   active?: boolean
   locked?: boolean
+  exportMode?: boolean
 }>()
 
 const store = useEditorStore()
@@ -56,6 +59,7 @@ const isDirty = computed(() => store.isBlockDirty(props.block.id))
 
 const emit = defineEmits<{
   'update:text': [value: string]
+  'insert-blocks': [event: EditableInsertEvent]
   'update:decorator': [value: string]
   focus: []
   blur: []
@@ -91,6 +95,7 @@ const componentProps = computed(() => {
         text: props.block.text,
         ordered: decoratorValue.ordered,
         marker: decoratorValue.marker,
+        exportMode: props.exportMode,
       }
     case 'cit':
       return { ...base, text: props.block.text, source: decoratorValue.source }

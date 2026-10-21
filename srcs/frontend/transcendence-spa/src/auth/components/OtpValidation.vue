@@ -4,11 +4,19 @@ import { httpClient, HttpError } from '../auth.api'
 import Toast from '@/app/components/Toast.vue'
 import Input from '@/app/components/Input.vue'
 import Button from '@/app/components/Button.vue'
+import { validateOtpCode } from '@/utils/validation'
 
 const otp = ref('')
 const loggedInSuccess = ref(false)
 const errorFlag = ref(false)
 const message = ref('')
+const codeError = ref('')
+
+const validateCode = () => {
+  const result = validateOtpCode(otp.value, 'OTP')
+  codeError.value = result.error ?? ''
+  return result
+}
 
 const props = defineProps<{
   email: string
@@ -16,11 +24,12 @@ const props = defineProps<{
 }>()
 
 const handleOtpConfirmation = async () => {
+  if (validateCode().error) return
   try {
     await httpClient.post('login/confirm', {
       challengeId: props.challengeID,
       email: props.email,
-      code: otp.value,
+      code: otp.value.trim(),
     })
     console.log('OTP confirmed successfully')
     loggedInSuccess.value = true
@@ -59,7 +68,7 @@ const handleOtpConfirmation = async () => {
     <div class="mt-6 flex flex-col gap-6">
       <Toast v-model="errorFlag" type="alert" :message="message" :duration="6000" fluid />
       <form class="flex flex-col gap-4" @submit.prevent="handleOtpConfirmation">
-        <Input label="Enter OTP" type="text" v-model="otp" required />
+        <Input label="Enter OTP" type="text" v-model="otp" required :error="codeError" @blur="validateCode"/>
         <Button type="submit" class="w-full">Confirm OTP</Button>
       </form>
     </div>

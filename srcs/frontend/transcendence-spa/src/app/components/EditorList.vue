@@ -1,5 +1,24 @@
 <template>
   <component
+    v-if="exportMode"
+    :is="ordered ? 'ol' : 'ul'"
+    class="list list--export"
+    :style="style"
+  >
+    <li
+      v-for="(item, index) in lines"
+      :key="index"
+      class="list__item"
+    >
+      <span
+        class="list__marker"
+        aria-hidden="true"
+      >{{ markerLabel(index) }}</span>{{ item }}
+    </li>
+  </component>
+
+  <component
+    v-else
     :is="ordered ? 'ol' : 'ul'"
     :ref="setElement"
     class="list space-y-1 pl-[1.5em] leading-relaxed [margin:0]"
@@ -26,7 +45,7 @@
 
 <script lang="ts" setup>
 import { computed, ref, type ComponentPublicInstance } from 'vue'
-import { useEditable } from '@/app/editor/useEditable'
+import { useEditable, type EditableInsertEvent } from '@/app/editor/useEditable'
 
 const props = withDefaults(
   defineProps<{
@@ -40,6 +59,7 @@ const props = withDefaults(
     color?: string
     bgColor?: string
     size?: string
+    exportMode?: boolean
   }>(),
   {
     items: () => [],
@@ -52,11 +72,13 @@ const props = withDefaults(
     color: 'var(--text-primary)',
     bgColor: 'transparent',
     size: '1rem',
+    exportMode: false,
   },
 )
 
 const emit = defineEmits<{
   'update:text': [value: string]
+  'insert-blocks': [event: EditableInsertEvent]
   focus: []
   blur: []
 }>()
@@ -78,6 +100,7 @@ const { attributes, onInput, onFocus, onBlur, onKeydown, onPaste } = useEditable
   emit,
   {
     multiline: true,
+    pasteMode: 'list',
     write: (el, text) => {
       el.replaceChildren()
       text.split('\n').forEach((line) => {
@@ -114,6 +137,15 @@ const style = computed(() => ({
   color: props.color,
   backgroundColor: props.bgColor,
   fontSize: props.size,
-  listStyleType: props.marker || (props.ordered ? 'decimal' : 'disc'),
+  listStyleType: props.exportMode
+    ? 'none'
+    : props.marker || (props.ordered ? 'decimal' : 'disc'),
 }))
+
+function markerLabel(index: number): string {
+  if (props.ordered) return `${index + 1}.`
+  if (props.marker === 'circle') return '◦'
+  if (props.marker === 'square') return '▪'
+  return '•'
+}
 </script>

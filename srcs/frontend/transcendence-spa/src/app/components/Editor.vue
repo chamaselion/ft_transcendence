@@ -1,5 +1,4 @@
 <template>
-  <Button @click="onGeneratePdf">Generate PDF</Button>
   <div class="editor w-full [margin:0_auto]" :class="layoutClass">
     <EditorNav
       v-if="navPosition !== 'bottom'"
@@ -32,7 +31,7 @@
         :paginate-elements-by-height="usablePageHeightPx"
       >
         <template #pdf-content>
-          <div class="pdf-content box-border w-full bg-app px-6 py-3.5 [word-spacing:0.4em]">
+          <div class="pdf-content box-border w-full bg-transparent px-6 py-3.5 [word-spacing:0.4em]">
             <EditorBlock
               v-for="block in store.blocks"
               :key="block.id"
@@ -40,9 +39,11 @@
               :block="block"
               :active="block.id === store.activeBlockId && !store.isLockedByOther(block)"
               :locked="store.isLockedByOther(block)"
+              :export-mode="isExporting"
               @focus="onFocus(block)"
               @blur="onBlur(block)"
               @update:text="onUpdateText(block, $event)"
+              @insert-blocks="onInsertBlocks(block, $event)"
               @update:decorator="onUpdateDecorator(block, parseDecorator($event))"
             />
           </div>
@@ -74,12 +75,12 @@ import { computed, onBeforeUnmount, ref, onMounted, watch, nextTick } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
 import EditorBlock from '@/app/components/EditorBlock.vue'
 import EditorNav from '@/app/components/EditorNav.vue'
-import Button from '@/app/components/Button.vue'
 import { useEditorStore } from '@/stores/editor'
-import { isStandardText } from '@/app/editor/useEditable'
 import { translateBlocks, backTranslateBlock } from '@/app/editor/translation.api'
+import { isStandardText, type EditableInsertEvent } from '@/app/editor/useEditable'
 import {
   createBlock,
+  defaultDecorator,
   isCodeOrCitation,
   parseDecorator,
   serializeDecorator,
@@ -92,6 +93,7 @@ import { Html2Pdf, type Html2PdfOptions, type PdfStylingOptions } from 'vue-pdf-
 import 'vue-pdf-export/style.css'
 
 const pdfRef = ref<InstanceType<typeof Html2Pdf> | null>(null)
+const isExporting = ref(false)
 
 const pdfPageMm = { width: 210, height: 297 }
 const pdfMarginsMm = { top: 20, right: 20, bottom: 20, left: 20 }
@@ -165,6 +167,7 @@ const pdfStyling: PdfStylingOptions = {
       color: #202833 !important;
       background: transparent !important;
       opacity: 1 !important;
+      border-radius: 0 !important;
     }
 
     .pdf-content .paragraph,
@@ -232,6 +235,26 @@ const pdfStyling: PdfStylingOptions = {
     .pdf-content .list li::marker {
       color: #334e75;
       font-weight: 700;
+    }
+
+    .pdf-content .list--export {
+      list-style: none !important;
+      padding: 0 0 0 18pt !important;
+    }
+
+    .pdf-content .list--export .list__item {
+      padding-left: 0 !important;
+      text-indent: -18pt !important;
+    }
+
+    .pdf-content .list--export .list__marker {
+      display: inline-block !important;
+      width: 18pt !important;
+      padding-right: 4pt !important;
+      text-indent: 0 !important;
+      text-align: right !important;
+      font-weight: 700;
+      color: #334e75;
     }
 
     .pdf-content .citation {
@@ -305,8 +328,13 @@ const pdfStyling: PdfStylingOptions = {
 
 const onGeneratePdf = async () => {
   store.setActive('')
+  isExporting.value = true
   await nextTick()
-  await pdfRef.value?.generatePdf()
+  try {
+    await pdfRef.value?.generatePdf()
+  } finally {
+    isExporting.value = false
+  }
 }
 
 const props = withDefaults(
@@ -597,6 +625,86 @@ const onAdd = async (type: BlockType) => {
   resetLockTimeout(block.id)
 }
 
+function focusBlock(blockId: string, position: 'start' | 'end' = 'start') {
+  nextTick(() => {
+    const root = document.querySelector<HTMLElement>(`[data-block-id="${blockId}"]`)
+    const target = root?.querySelector<HTMLElement>('[contenteditable="true"]')
+    if (!target) return
+
+    target.focus()
+    const range = document.createRange()
+    range.selectNodeContents(target)
+    range.collapse(position === 'start')
+    const selection = window.getSelection()
+    selection?.removeAllRanges()
+    selection?.addRange(range)
+  })
+}
+
+const onInsertBlocks = async (block: Block, event: EditableInsertEvent) => {
+  if (store.isLockedByOther(block)) return
+
+  if (block.lockedBy !== store.clientId) {
+    const lockSuccess = await props.provider.sendBlockLock?.(block.id)
+    if (lockSuccess === false) return
+    store.lock(block.id)
+  }
+
+  // The split/paste payload is authoritative; drop any debounced edit.
+  if (pendingEditBlockId === block.id) {
+    if (editDebounceTimer) {
+      clearTimeout(editDebounceTimer)
+      editDebounceTimer = null
+    }
+    pendingEditBlockId = null
+    pendingEditText = null
+    pendingEditDecorator = null
+  }
+
+  store.updateBlockText(block.id, event.currentText)
+  await props.provider.sendEdit({
+    blockId: block.id,
+    text: event.currentText,
+    decorator: block.decorator,
+  })
+
+  clearLockTimers()
+  store.unlock(block.id)
+  await props.provider.sendBlockUnlock?.(block.id)
+
+  let afterBlockId: string = block.id
+  let firstCreated: Block | null = null
+
+  for (const spec of event.blocks) {
+    const newBlock = createBlock(spec.type, spec.text)
+    if (spec.type === 'li') {
+      newBlock.decorator = serializeDecorator({
+        ...defaultDecorator('li'),
+        ordered: Boolean(spec.ordered),
+      })
+    }
+
+    store.insertBlock(newBlock, afterBlockId)
+    await props.provider.sendBlockCreate({
+      block: newBlock,
+      afterBlockId,
+      type: spec.type,
+      text: newBlock.text,
+      decorator: newBlock.decorator,
+    })
+    afterBlockId = newBlock.id
+    if (!firstCreated) firstCreated = newBlock
+  }
+
+  if (!firstCreated) return
+
+  store.setActive(firstCreated.id)
+  store.lock(firstCreated.id)
+  await props.provider.sendBlockLock?.(firstCreated.id)
+  resetLockTimeout(firstCreated.id)
+  focusBlock(firstCreated.id, 'start')
+}
+
 const onDelete = async () => {
   const blockId = store.activeBlockId
   if (!blockId) return
@@ -716,6 +824,11 @@ const onBlur = async (block: Block) => {
     await props.provider.sendBlockUnlock?.(block.id)
   }
 }
+
+defineExpose({
+  onGeneratePdf
+})
+
 </script>
 
 <style lang="css" scoped>

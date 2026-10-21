@@ -58,7 +58,7 @@ export const supportedLanguages = [
 
 <script lang="ts" setup>
 import { computed, ref } from 'vue'
-import { useEditable } from '@/app/editor/useEditable'
+import { useEditable, type EditableInsertEvent } from '@/app/editor/useEditable'
 
 const props = withDefaults(
   defineProps<{
@@ -87,6 +87,7 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   'update:text': [value: string]
+  'insert-blocks': [event: EditableInsertEvent]
   'update:language': [value: string]
   focus: []
   blur: []
@@ -106,7 +107,7 @@ const { attributes, onInput, onFocus, onBlur, onKeydown, onPaste } = useEditable
   () => props.code,
   () => isEditable.value,
   emit,
-  { raw: true, multiline: true },
+  { raw: true, multiline: true, pasteMode: 'text' },
 )
 
 const style = computed(() => ({

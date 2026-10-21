@@ -22,6 +22,7 @@ const {
   loading,
   errorMessage,
   searchQuery,
+  searchError,
   activeQuery,
   selectedScope,
   pageSize,
@@ -94,6 +95,7 @@ function openShareDialog(doc: DocumentData) {
     <!-- Filters and Search Bar -->
     <DocumentToolbar
       :search-query="searchQuery"
+      :search-error="searchError"
       :scope="selectedScope"
       :loading="loading"
       @search-input="handleSearchInput"

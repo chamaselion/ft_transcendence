@@ -48,6 +48,7 @@ export function getPendingOAuth(): PendingOAuth | null {
     if (
       isRecord(parsed) &&
       typeof parsed.nonce === 'string' &&
+      NONCE_PATTERN.test(parsed.nonce) &&
       isOAuthProvider(parsed.provider) &&
       parsed.mode === 'login' &&
       typeof parsed.createdAt === 'number' &&

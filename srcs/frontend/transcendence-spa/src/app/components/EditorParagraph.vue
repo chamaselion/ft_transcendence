@@ -22,7 +22,7 @@
 
 <script lang="ts" setup>
 import { computed, ref } from 'vue'
-import { useEditable } from '@/app/editor/useEditable'
+import { useEditable, type EditableInsertEvent } from '@/app/editor/useEditable'
 import type { ParagraphAlignment } from '@/app/editor/types'
 
 const props = withDefaults(
@@ -52,6 +52,7 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   'update:text': [value: string]
+  'insert-blocks': [event: EditableInsertEvent]
   focus: []
   blur: []
 }>()

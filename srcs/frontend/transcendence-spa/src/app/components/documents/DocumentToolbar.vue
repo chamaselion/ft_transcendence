@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import Icon from '@/app/components/Icon.vue'
 import type { DocumentScope } from '@/app/composables/useDocumentDirectory'
+import { SEARCH_QUERY_MAX_LENGTH } from '@/utils/validation'
 
 const props = defineProps<{
   searchQuery: string
+  searchError: string
   scope: DocumentScope
   loading: boolean
 }>()
@@ -29,26 +31,30 @@ const tabClass = (scope: DocumentScope) => [
 
 <template>
   <div class="flex flex-wrap items-center justify-between gap-3">
-    <div class="relative flex min-w-[260px] flex-1 items-center">
-      <Icon name="Search" :size="16" class="pointer-events-none absolute left-3 text-muted" />
-      <input
-        :value="props.searchQuery"
-        type="text"
-        class="w-full rounded-lg border border-line bg-surface py-2 pr-[34px] pl-9 text-[0.9rem] text-ink transition-[border-color,box-shadow] outline-none placeholder:text-muted focus:border-brand focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-primary)_20%,transparent)]"
-        placeholder="Search title and content..."
-        aria-label="Search documents by title and content"
-        @input="onInput"
-      />
-      <button
-        v-if="props.searchQuery"
-        type="button"
-        class="absolute right-2 flex h-[22px] w-[22px] cursor-pointer items-center justify-center rounded-full border-none bg-transparent p-0 text-lg leading-none text-muted hover:bg-subtle hover:text-ink"
-        title="Clear search"
-        aria-label="Clear search"
-        @click="emit('clear')"
-      >
-        ×
-      </button>
+    <div class="flex min-w-[260px] flex-1 flex-col gap-1">
+      <div class="relative flex items-center">
+        <Icon name="Search" :size="16" class="pointer-events-none absolute left-3 text-muted" />
+        <input
+          :value="props.searchQuery"
+          type="text"
+          :maxlength="SEARCH_QUERY_MAX_LENGTH"
+          class="w-full rounded-lg border border-line bg-surface py-2 pr-[34px] pl-9 text-[0.9rem] text-ink transition-[border-color,box-shadow] outline-none placeholder:text-muted focus:border-brand focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-primary)_20%,transparent)]"
+          placeholder="Search title and content..."
+          aria-label="Search documents by title and content"
+          @input="onInput"
+        />
+        <button
+          v-if="props.searchQuery"
+          type="button"
+          class="absolute right-2 flex h-[22px] w-[22px] cursor-pointer items-center justify-center rounded-full border-none bg-transparent p-0 text-lg leading-none text-muted hover:bg-subtle hover:text-ink"
+          title="Clear search"
+          aria-label="Clear search"
+          @click="emit('clear')"
+        >
+          ×
+        </button>
+      </div>
+      <span v-if="props.searchError" class="text-[13px] text-danger">{{ props.searchError }}</span>
     </div>
 
     <div class="flex items-center gap-1 rounded-lg bg-subtle p-1">

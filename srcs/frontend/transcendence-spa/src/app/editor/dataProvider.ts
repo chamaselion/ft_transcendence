@@ -5,6 +5,17 @@ import {
   type EditorInitEvent,
   createBlock,
 } from '@/app/editor/types'
+import { escapeHtml, unescapeHtml } from '@/app/editor/textCodec'
+
+const decodeBlock = (block: Block): Block => ({
+  ...block,
+  text: typeof block.text === 'string' ? unescapeHtml(block.text) : block.text,
+})
+
+const decodeBlocks = (blocks: Block[]): Block[] => blocks.map(decodeBlock)
+
+const decodeTitle = (title?: string): string | undefined =>
+  typeof title === 'string' ? unescapeHtml(title) : title
 
 export interface WebSocketProviderOptions {
   documentId: string
@@ -113,9 +124,9 @@ export class WebSocketEditorDataProvider implements EditorDataProvider {
             }
           }
           this.onInit({
-            blocks,
+            blocks: decodeBlocks(blocks),
             documentId: msg.document?.id,
-            title: msg.document?.title,
+            title: decodeTitle(msg.document?.title),
             permission: msg.permission,
           })
           break
@@ -123,7 +134,10 @@ export class WebSocketEditorDataProvider implements EditorDataProvider {
 
         case 'block_created':
           if (msg.block) {
-            this.onCreated({ block: msg.block, afterBlockId: msg.afterBlockId })
+            this.onCreated({
+              block: decodeBlock(msg.block),
+              afterBlockId: msg.afterBlockId,
+            })
           }
           break
 
@@ -131,7 +145,7 @@ export class WebSocketEditorDataProvider implements EditorDataProvider {
           if (msg.blockId) {
             this.onUpdated({
               blockId: msg.blockId,
-              text: msg.text,
+              text: typeof msg.text === 'string' ? unescapeHtml(msg.text) : msg.text,
               decorator: msg.decorator,
               userId: msg.userId,
             })
@@ -162,7 +176,7 @@ export class WebSocketEditorDataProvider implements EditorDataProvider {
 
         case 'title_updated':
           if (msg.title) {
-            this.onTitleUpdated({ title: msg.title, userId: msg.userId })
+            this.onTitleUpdated({ title: unescapeHtml(msg.title), userId: msg.userId })
           }
           break
 
@@ -172,7 +186,7 @@ export class WebSocketEditorDataProvider implements EditorDataProvider {
             try {
               const parsed = JSON.parse(msg.content)
               if (Array.isArray(parsed)) {
-                this.onInit({ blocks: parsed, documentId: msg.documentId })
+                this.onInit({ blocks: decodeBlocks(parsed), documentId: msg.documentId })
               }
             } catch {
               // Ignore non-block string updates
@@ -216,7 +230,7 @@ export class WebSocketEditorDataProvider implements EditorDataProvider {
       type: 'block_edit',
       documentId: this.documentId,
       blockId: e.blockId,
-      text: e.text,
+      text: typeof e.text === 'string' ? escapeHtml(e.text) : e.text,
       decorator: e.decorator,
     })
     return success
@@ -226,7 +240,12 @@ export class WebSocketEditorDataProvider implements EditorDataProvider {
     const success = this.sendRaw({
       type: 'block_create',
       documentId: this.documentId,
-      block: e.block,
+      block: e.block
+        ? {
+            ...e.block,
+            text: typeof e.block.text === 'string' ? escapeHtml(e.block.text) : e.block.text,
+          }
+        : e.block,
       afterBlockId: e.afterBlockId,
     })
     return success
@@ -265,7 +284,7 @@ export class WebSocketEditorDataProvider implements EditorDataProvider {
     const success = this.sendRaw({
       type: 'title_update',
       documentId: this.documentId,
-      title,
+      title: escapeHtml(title),
     })
     return success
   }

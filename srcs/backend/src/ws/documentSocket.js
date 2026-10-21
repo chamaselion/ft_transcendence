@@ -6,7 +6,14 @@ const { requireEnv } = require('../config');
 const sequelize = require('../db');
 const { getTokenFromCookie, isSessionActive } = require('../controllers/auth/helpers');
 const { validateUuid } = require('../controllers/auth/validation');
-const { stripTags } = require('../controllers/documents/sanitize');
+const {
+  DOCUMENT_TITLE_MAX_LENGTH,
+  EDITOR_BLOCK_MAX_LENGTH,
+  sanitizeText,
+  sanitizeContent,
+  validateTextLength,
+  validateContentLength,
+} = require('../controllers/documents/sanitize');
 const { resolvePermission, atLeast } = require('../controllers/documents/permissions');
 
 const parseDocBlocks = (content) => {
@@ -325,7 +332,7 @@ const attachDocumentSocket = (
         blocks = [
           {
             id: crypto.randomUUID(),
-            text: legacyText,
+            text: sanitizeText(legacyText),
             decorator: JSON.stringify({ type: 'p' }),
             lockedBy: null,
           },
@@ -366,12 +373,15 @@ const attachDocumentSocket = (
       if (typeof msg.content !== 'string') {
         return sendError(ws, 'content must be a string');
       }
+      if (!validateContentLength(msg.content)) {
+        return sendError(ws, `content blocks must be objects with string text of at most ${EDITOR_BLOCK_MAX_LENGTH} characters`);
+      }
 
       return withDocumentWriteLock(ws.documentId, async () => {
         const doc = await resolveModel().findByPk(ws.documentId);
         if (!doc) return sendError(ws, 'Document not found');
 
-        const sanitizedContent = stripTags(msg.content);
+        const sanitizedContent = sanitizeContent(msg.content);
 
         doc.content = sanitizedContent;
         await doc.save();
@@ -408,7 +418,10 @@ const attachDocumentSocket = (
         const target = blocks.find((b) => b && b.id === msg.blockId);
         if (!target) return sendError(ws, 'Block not found');
 
-        const sanitizedText = msg.text !== undefined ? stripTags(String(msg.text)) : target.text;
+        if (msg.text !== undefined && !validateTextLength(String(msg.text), EDITOR_BLOCK_MAX_LENGTH)) {
+          return sendError(ws, `block text must be at most ${EDITOR_BLOCK_MAX_LENGTH} characters`);
+        }
+        const sanitizedText = msg.text !== undefined ? sanitizeText(String(msg.text)) : target.text;
         target.text = sanitizedText;
         if (msg.decorator !== undefined && typeof msg.decorator === 'string') {
           target.decorator = msg.decorator;
@@ -447,7 +460,10 @@ const attachDocumentSocket = (
         typeof msg.block.id === 'string' && msg.block.id
           ? msg.block.id
           : (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()));
-      const sanitizedText = stripTags(String(msg.block.text ?? ''));
+      if (!validateTextLength(String(msg.block.text ?? ''), EDITOR_BLOCK_MAX_LENGTH)) {
+        return sendError(ws, `block text must be at most ${EDITOR_BLOCK_MAX_LENGTH} characters`);
+      }
+      const sanitizedText = sanitizeText(String(msg.block.text ?? ''));
       const decorator = typeof msg.block.decorator === 'string' ? msg.block.decorator : JSON.stringify({ type: 'p' });
       const newBlock = {
         id: blockId,
@@ -615,12 +631,15 @@ const attachDocumentSocket = (
       if (typeof msg.title !== 'string' || !msg.title.trim()) {
         return sendError(ws, 'title must be a non-empty string');
       }
+      if (!validateTextLength(msg.title.trim(), DOCUMENT_TITLE_MAX_LENGTH)) {
+        return sendError(ws, `title must be at most ${DOCUMENT_TITLE_MAX_LENGTH} characters long`);
+      }
 
       return withDocumentWriteLock(ws.documentId, async () => {
         const doc = await resolveModel().findByPk(ws.documentId);
         if (!doc) return sendError(ws, 'Document not found');
 
-        const sanitizedTitle = stripTags(msg.title.trim());
+        const sanitizedTitle = sanitizeText(msg.title.trim());
         doc.title = sanitizedTitle;
         await doc.save();
 

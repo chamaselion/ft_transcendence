@@ -10,6 +10,9 @@ import { useAuthStore } from '@/stores/auth'
 import { useEditorStore } from '@/stores/editor'
 import { translateBlocks, type SupportedLanguage } from '@/app/editor/translation.api'
 import { createDocument, getDocument, updateDocumentTitle } from '@/app/editor/document.api'
+import { insertPlainText } from '@/app/editor/plainTextPaste'
+import { DOCUMENT_TITLE_MAX_LENGTH } from '@/utils/validation'
+import { truncateTitle } from '@/utils/title'
 import ShareModal from '@/app/components/ShareModal.vue'
 
 const route = useRoute()
@@ -19,6 +22,7 @@ const editorStore = useEditorStore()
 
 const provider = ref<EditorDataProvider | null>(null)
 const documentTitle = ref<string>('Untitled Document')
+const displayTitle = computed(() => truncateTitle(documentTitle.value))
 const titleEl = ref<HTMLElement | null>(null)
 const documentId = ref<string | null>(null)
 const userPermission = ref<'owner' | 'editor' | 'viewer'>('viewer')
@@ -28,7 +32,9 @@ const isTitleEditable = computed(
 const showShareModal = ref(false)
 const connectionStatus = ref<'connecting' | 'connected' | 'disconnected'>('connecting')
 const errorMessage = ref<string | null>(null)
+const titleError = ref('')
 const isLoading = ref<boolean>(true)
+const editorElement = ref<typeof Editor | null>(null);
 
 const statusClass = computed(
   () =>
@@ -66,7 +72,7 @@ function openRoom(docId: string, initialTitle?: string) {
     if (e.title) {
       documentTitle.value = e.title
       if (titleEl.value && document.activeElement !== titleEl.value) {
-        titleEl.value.innerText = e.title
+        titleEl.value.innerText = truncateTitle(e.title)
       }
     }
     if (e.permission) userPermission.value = e.permission
@@ -77,7 +83,7 @@ function openRoom(docId: string, initialTitle?: string) {
     if (e.title) {
       documentTitle.value = e.title
       if (titleEl.value && document.activeElement !== titleEl.value) {
-        titleEl.value.innerText = e.title
+        titleEl.value.innerText = truncateTitle(e.title)
       }
     }
   }
@@ -124,8 +130,14 @@ async function onTitleBlur() {
   let newTitle = (titleEl.value.innerText || '').trim()
   if (!newTitle) {
     newTitle = documentTitle.value || 'Untitled Document'
-    titleEl.value.innerText = newTitle
   }
+  if (newTitle.length > DOCUMENT_TITLE_MAX_LENGTH) {
+    newTitle = newTitle.slice(0, DOCUMENT_TITLE_MAX_LENGTH)
+    titleError.value = `Title must be at most ${DOCUMENT_TITLE_MAX_LENGTH} characters long.`
+  } else {
+    titleError.value = ''
+  }
+  titleEl.value.innerText = truncateTitle(newTitle)
   if (newTitle !== documentTitle.value) {
     documentTitle.value = newTitle
     if (provider.value?.sendTitleUpdate) {
@@ -141,14 +153,50 @@ async function onTitleBlur() {
   }
 }
 
+function onTitleFocus() {
+  if (!isTitleEditable.value || !titleEl.value) return
+  titleEl.value.innerText = documentTitle.value
+  titleError.value = ''
+}
+
+function onTitlePaste(e: ClipboardEvent) {
+  if (!isTitleEditable.value || !titleEl.value) {
+    e.preventDefault()
+    return
+  }
+
+  e.preventDefault()
+  const currentLength = titleEl.value.innerText.length
+  const remaining = Math.max(0, DOCUMENT_TITLE_MAX_LENGTH - currentLength)
+  const text = e.clipboardData?.getData('text/plain') ?? ''
+  if (text.length > remaining) {
+    titleError.value = `Title must be at most ${DOCUMENT_TITLE_MAX_LENGTH} characters long.`
+  } else {
+    titleError.value = ''
+  }
+  insertPlainText(titleEl.value, text.slice(0, remaining), false)
+}
+
 function onTitleKeydown(e: KeyboardEvent) {
+  if (
+    e.key.length === 1 &&
+    !e.ctrlKey &&
+    !e.metaKey &&
+    !e.altKey &&
+    (titleEl.value?.innerText.length ?? 0) >= DOCUMENT_TITLE_MAX_LENGTH
+  ) {
+    e.preventDefault()
+    titleError.value = `Title must be at most ${DOCUMENT_TITLE_MAX_LENGTH} characters long.`
+    return
+  }
+
   if (e.key === 'Enter') {
     e.preventDefault()
     titleEl.value?.blur()
   } else if (e.key === 'Escape') {
     e.preventDefault()
     if (titleEl.value) {
-      titleEl.value.innerText = documentTitle.value
+      titleEl.value.innerText = truncateTitle(documentTitle.value)
     }
     titleEl.value?.blur()
   }
@@ -223,9 +271,11 @@ onBeforeUnmount(() => {
 
 <template>
   <div
-    class="box-border mx-auto flex min-h-[calc(100vh_-_61px)] w-full max-w-[920px] flex-col gap-4 px-4 py-6"
+    class="box-border mx-auto flex h-[calc(100dvh_-_var(--header-height))] w-full max-w-[920px] flex-col gap-4 overflow-x-hidden overflow-y-auto px-4 pb-6"
   >
-    <div class="flex items-center justify-between border-b border-line-subtle pb-3">
+    <div
+      class="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-line-subtle pt-6 pb-3"
+    >
       <div class="flex flex-col gap-1">
         <h1
           ref="titleEl"
@@ -237,11 +287,14 @@ onBeforeUnmount(() => {
           :contenteditable="isTitleEditable"
           spellcheck="false"
           :title="isTitleEditable ? 'Click to rename document' : undefined"
+          @focus="onTitleFocus"
           @blur="onTitleBlur"
+          @paste="onTitlePaste"
           @keydown="onTitleKeydown"
         >
-          {{ documentTitle }}
+          {{ displayTitle }}
         </h1>
+        <span v-if="titleError" class="text-sm text-alert">{{ titleError }}</span>
         <div class="flex items-center gap-2">
           <span
             class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold"
@@ -249,24 +302,24 @@ onBeforeUnmount(() => {
           >
             {{
               connectionStatus === 'connected'
-                ? 'Multiuser Room Live'
+                ? '🟢'
                 : connectionStatus === 'connecting'
-                  ? 'Connecting to Room...'
-                  : 'Disconnected'
+                  ? '🟡'
+                  : '🔴'
             }}
           </span>
-          <span v-if="documentId" class="font-mono text-xs text-muted">
-            Room: {{ documentId.slice(0, 8) }}...
-          </span>
-          <span
-            v-if="userPermission"
-            class="inline-flex items-center rounded-full bg-subtle px-2 py-0.5 text-xs font-semibold text-ink-secondary capitalize"
+          <!-- <span
+            v-if="documentId"
+            class="doc-id-badge"
           >
-            Role: {{ userPermission }}
+            Room: {{ documentId.slice(0, 8) }}...
+          </span> -->
+          <span v-if="userPermission" class="inline-flex items-center rounded-full bg-subtle px-2 py-0.5 text-xs font-semibold text-ink-secondary capitalize" title="Your Role">
+            {{ userPermission }}
           </span>
         </div>
       </div>
-      <div class="flex items-center gap-2">
+      <div class="flex flex-wrap items-center justify-end gap-2">
         <div class="flex items-center gap-2" title="AI Document Translation (EU AI Act Compliant)">
           <span
             v-if="editorStore.isTranslating"
@@ -292,20 +345,26 @@ onBeforeUnmount(() => {
           <template #icon>
             <Icon name="Share" :size="16" />
           </template>
-          Share
+          <span class="btn--lable max-sm:hidden">Share</span>
         </Button>
-        <Button v-if="documentId" variant="outlined" size="small" @click="handleCreateNew">
+        <Button variant="outlined" size="small" @click="handleCreateNew">
           <template #icon>
-            <Icon name="Plus" :size="16" />
+            <Icon name="Plus" />
           </template>
-          New Document
+          <span class="btn--lable max-sm:hidden">New Document</span>
+        </Button>
+        <Button variant="outlined" size="small" @click="editorElement?.onGeneratePdf()">
+          <template #icon>
+            <Icon name="FilePDF" />
+          </template>
+          <span class="btn--lable max-sm:hidden">Generate PDF</span>
         </Button>
       </div>
     </div>
 
     <div
       v-if="errorMessage"
-      class="rounded-lg border border-danger bg-danger/12 px-3.5 py-2.5 text-sm text-danger"
+      class="shrink-0 rounded-lg border border-danger bg-danger/12 px-3.5 py-2.5 text-sm text-danger"
     >
       {{ errorMessage }}
     </div>
@@ -316,11 +375,13 @@ onBeforeUnmount(() => {
 
     <Editor
       v-else-if="provider"
+      class="shrink-0"
       :provider="provider"
       :scrollable="false"
       nav-position="top"
       :filename="documentTitle"
       @error="errorMessage = $event"
+      ref="editorElement"
     />
 
     <ShareModal
@@ -331,3 +392,220 @@ onBeforeUnmount(() => {
     />
   </div>
 </template>
+
+<style scoped>
+/* .editor-view {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 24px 16px;
+}
+
+.editor-view__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.editor-view__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.editor-view__title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-base);
+}
+
+.editor-view__title-error {
+  color: var(--color-alert, #ef4444);
+  font-size: 0.8rem;
+}
+
+.editor-view__title--editable {
+  outline: none;
+  border-radius: 4px;
+  padding: 2px 6px;
+  margin-left: -6px;
+  transition:
+    background-color 0.2s,
+    box-shadow 0.2s;
+  cursor: text;
+}
+
+.editor-view__title--editable:hover {
+  background-color: var(--bg-subtle, rgba(0, 0, 0, 0.05));
+}
+
+.editor-view__title--editable:focus {
+  background-color: var(--bg-surface, #fff);
+  box-shadow: 0 0 0 2px var(--color-primary, #3b82f6);
+}
+
+.editor-view__badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.status-badge--connected {
+  background-color: color-mix(in srgb, var(--color-success, #22c55e) 15%, transparent);
+  color: var(--color-success, #22c55e);
+}
+
+.status-badge--connecting {
+  background-color: color-mix(in srgb, var(--color-warn, #eab308) 15%, transparent);
+  color: var(--color-warn, #eab308);
+}
+
+.status-badge--disconnected {
+  background-color: color-mix(in srgb, var(--color-alert, #ef4444) 15%, transparent);
+  color: var(--color-alert, #ef4444);
+}
+
+.doc-id-badge {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-family: monospace;
+}
+
+.permission-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background-color: var(--bg-subtle);
+  color: var(--text-secondary);
+  text-transform: capitalize;
+}
+
+.editor-view__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lang-selector-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lang-selector-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.lang-sparkle-icon {
+  position: absolute;
+  left: 8px;
+  pointer-events: none;
+  color: var(--color-primary, #3b82f6);
+}
+
+.lang-selector {
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  padding: 5px 10px 5px 28px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.lang-selector option {
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+}
+
+.lang-selector:focus {
+  border-color: var(--color-primary, #3b82f6);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary, #3b82f6) 20%, transparent);
+}
+
+.lang-selector:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.lang-translating-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 9999px;
+  background-color: color-mix(in srgb, var(--color-primary, #3b82f6) 18%, transparent);
+  color: var(--color-primary, #3b82f6);
+}
+
+.ai-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  background-color: color-mix(in srgb, var(--color-warn, #f59e0b) 15%, transparent);
+  color: var(--color-warn, #f59e0b);
+  border: 1px solid color-mix(in srgb, var(--color-warn, #f59e0b) 30%, transparent);
+}
+
+.sparkle-pulse {
+  animation: spin-pulse 2s infinite linear;
+}
+
+@keyframes spin-pulse {
+  0% { transform: scale(1) rotate(0deg); }
+  50% { transform: scale(1.15) rotate(180deg); }
+  100% { transform: scale(1) rotate(360deg); }
+}
+
+.editor-view__error {
+  padding: 10px 14px;
+  border-radius: 8px;
+  background-color: color-mix(in srgb, var(--color-alert, #ef4444) 12%, transparent);
+  border: 1px solid var(--color-alert, #ef4444);
+  color: var(--color-alert, #ef4444);
+  font-size: 0.875rem;
+}
+
+.editor-view__loading {
+  padding: 48px 16px;
+  text-align: center;
+  color: var(--text-muted);
+  font-style: italic;
+} */
+
+.btn--lable { display:block;}
+
+
+@media (max-width: 768px) {
+  .btn--lable { display: none;}
+}
+</style>

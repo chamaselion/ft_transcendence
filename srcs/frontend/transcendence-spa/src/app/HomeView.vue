@@ -37,7 +37,7 @@ function openCookieBanner() {
           real-time with your team members.
         </p>
         <div class="flex flex-wrap items-center justify-center gap-4">
-          <Button @click="router.push('/register')">Get Started</Button>
+          <Button @click="router.push('/register')">Register</Button>
           <Button @click="router.push('/login')">Login</Button>
         </div>
       </section>

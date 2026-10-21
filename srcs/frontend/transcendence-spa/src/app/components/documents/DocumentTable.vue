@@ -3,6 +3,7 @@ import Button from '@/app/components/Button.vue'
 import Icon from '@/app/components/Icon.vue'
 import type { DocumentData } from '@/app/editor/document.api'
 import { formatFullDate, formatRelativeTime } from '@/app/utils/date'
+import { truncateTitle } from '@/utils/title'
 
 const props = defineProps<{
   documents: DocumentData[]
@@ -122,7 +123,7 @@ const emit = defineEmits<{
                     class="truncate text-[0.95rem] font-semibold text-ink group-hover:text-brand"
                     :title="doc.title || 'Untitled Document'"
                   >
-                    {{ doc.title || 'Untitled Document' }}
+                    {{ truncateTitle(doc.title || 'Untitled Document') }}
                   </span>
                   <span class="font-mono text-xs text-muted">ID: {{ doc.id.slice(0, 8) }}...</span>
                 </div>

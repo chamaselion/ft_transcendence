@@ -4,6 +4,7 @@ import {
   listDocuments,
   type DocumentData,
 } from '@/app/editor/document.api'
+import { validateSearchQuery } from '@/utils/validation'
 
 export type DocumentScope = 'all' | 'own' | 'shared'
 export type ToastType = 'good' | 'alert' | 'info' | 'warn'
@@ -16,6 +17,7 @@ export function useDocumentDirectory() {
   const loading = ref(false)
   const errorMessage = ref<string | null>(null)
   const searchQuery = ref('')
+  const searchError = ref('')
   const activeQuery = ref('')
   const selectedScope = ref<DocumentScope>('all')
 
@@ -80,7 +82,12 @@ export function useDocumentDirectory() {
   }
 
   function onSearchInput() {
+    const result = validateSearchQuery(searchQuery.value)
+    searchError.value = result.error ?? ''
     clearTimeout(debounceTimer)
+
+    if (result.error) return
+
     debounceTimer = setTimeout(() => {
       currentPage.value = 1
       void fetchDocuments()
@@ -90,6 +97,7 @@ export function useDocumentDirectory() {
   function clearSearch() {
     clearTimeout(debounceTimer)
     searchQuery.value = ''
+    searchError.value = ''
     currentPage.value = 1
     void fetchDocuments()
   }
@@ -163,6 +171,7 @@ export function useDocumentDirectory() {
     loading,
     errorMessage,
     searchQuery,
+    searchError,
     activeQuery,
     selectedScope,
     pageSize,

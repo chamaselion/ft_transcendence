@@ -1,5 +1,6 @@
 import { httpClient } from '@/auth/auth.api'
 import type { Block } from '@/app/editor/types'
+import { escapeHtml, unescapeHtml } from '@/app/editor/textCodec'
 
 export interface DocumentOwner {
   id: string
@@ -57,20 +58,31 @@ export interface ShareResponse {
   share: ShareData
 }
 
+const decodeDocument = (document: DocumentData): DocumentData => ({
+  ...document,
+  title: unescapeHtml(document.title),
+})
+
+const encodeBlocks = (blocks: Block[]): Block[] =>
+  blocks.map((block) => ({
+    ...block,
+    text: typeof block.text === 'string' ? escapeHtml(block.text) : block.text,
+  }))
+
 export async function createDocument(
   title = 'Untitled Document',
   blocks: Block[] = [],
 ): Promise<DocumentData> {
   const res = await httpClient.post<DocumentResponse>('/api/documents', {
-    title,
-    content: JSON.stringify(blocks),
+    title: escapeHtml(title),
+    content: JSON.stringify(encodeBlocks(blocks)),
   })
-  return res.document
+  return decodeDocument(res.document)
 }
 
 export async function getDocument(id: string): Promise<DocumentData> {
   const res = await httpClient.get<DocumentResponse>(`/api/documents/${id}`)
-  return res.document
+  return decodeDocument(res.document)
 }
 
 export async function updateDocumentTitle(
@@ -78,9 +90,9 @@ export async function updateDocumentTitle(
   title: string,
 ): Promise<DocumentData> {
   const res = await httpClient.patch<DocumentResponse>(`/api/documents/${documentId}`, {
-    title,
+    title: escapeHtml(title),
   })
-  return res.document
+  return decodeDocument(res.document)
 }
 
 export async function listShares(documentId: string): Promise<ShareData[]> {
@@ -120,7 +132,7 @@ export async function listDocuments(
   options: ListDocumentsOptions = {},
 ): Promise<DocumentsListResponse> {
   const query: Record<string, string | number | undefined> = {}
-  if (options.q) query.q = options.q
+  if (options.q) query.q = escapeHtml(options.q)
   if (options.sort) query.sort = options.sort
   if (options.order) query.order = options.order
   if (options.limit !== undefined) query.limit = options.limit
@@ -131,7 +143,7 @@ export async function listDocuments(
     query,
   })
   return {
-    documents: res?.documents ?? [],
+    documents: (res?.documents ?? []).map(decodeDocument),
     pagination: res?.pagination,
   }
 }

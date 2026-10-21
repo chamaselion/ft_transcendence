@@ -4,18 +4,39 @@ import { httpClient, HttpError } from '../auth.api'
 import Toast from '@/app/components/Toast.vue'
 import Input from '@/app/components/Input.vue'
 import Button from '@/app/components/Button.vue'
+import { validateEmail, validateLogin, validatePassword } from '@/utils/validation'
 
 const username = ref('')
 const email = ref('')
 const password = ref('')
 const errorFlag = ref(false)
 const msg = ref('')
+const errors = ref({ username: '', email: '', password: '' })
+
+const validateField = (field: 'username' | 'email' | 'password') => {
+  const result =
+    field === 'username'
+      ? validateLogin(username.value)
+      : field === 'email'
+        ? validateEmail(email.value)
+        : validatePassword(password.value)
+  errors.value[field] = result.error ?? ''
+  return result
+}
+
+const validateForm = () => {
+  const usernameResult = validateField('username')
+  const emailResult = validateField('email')
+  const passwordResult = validateField('password')
+  return !usernameResult.error && !emailResult.error && !passwordResult.error
+}
 
 const handleRegister = async () => {
+  if (!validateForm()) return
   try {
     await httpClient.post('register', {
-      login: username.value,
-      email: email.value,
+      login: username.value.trim(),
+      email: email.value.trim(),
       password: password.value,
     })
     window.location.href = `/login?email=${email.value}&redirect=true`
@@ -53,9 +74,9 @@ const handleRegister = async () => {
     <div class="flex flex-col gap-6">
       <Toast v-model="errorFlag" type="alert" :message="msg" :duration="6000" fluid />
       <form class="flex flex-col gap-4" @submit.prevent="handleRegister">
-        <Input label="Username" type="text" v-model="username" required />
-        <Input label="Email" type="email" v-model="email" required />
-        <Input label="Password" type="password" v-model="password" required />
+        <Input label="Username" type="text" v-model="username" required :error="errors.username" @blur="validateField('username')"/>
+        <Input label="Email" type="email" v-model="email" required :error="errors.email" @blur="validateField('email')"/>
+        <Input label="Password" type="password" v-model="password" required :error="errors.password" @blur="validateField('password')" />
         <Button type="submit" size="large" class="w-full">Register</Button>
       </form>
     </div>

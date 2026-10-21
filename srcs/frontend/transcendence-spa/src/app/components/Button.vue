@@ -51,7 +51,7 @@ const variantClasses: Record<Variant, string> = {
 }
 
 const classes = computed(() => [
-  'btn',
+  'btn m-0',
   'inline-flex items-center justify-center gap-2 rounded-md border font-medium leading-normal cursor-pointer transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed',
   '[&_.icon]:h-[1.25em] [&_.icon]:w-[1.25em]',
   sizeClasses[props.size],
