@@ -13,6 +13,7 @@ import EditorHeading from '@/app/components/EditorHeading.vue'
 import EditorList from '@/app/components/EditorList.vue'
 import EditorHyperlink from '@/app/components/EditorHyperlink.vue'
 import Icon, { type IconName } from '@/app/components/Icon.vue'
+import { validateLogin } from '@/utils/validation'
 
 const iconList: { name: IconName; description: string }[] = [
   { name: 'H1', description: 'Heading 1 — Primary section heading' },
@@ -32,28 +33,37 @@ const headings = [1, 2, 3, 4, 5, 6] as const
 const toastTypes = ['info', 'good', 'warn', 'alert'] as const
 
 const inputValue = ref('')
+const inputError = ref('')
+
+const validateCatalogueInput = () => {
+  inputError.value = validateLogin(inputValue.value).error ?? ''
+}
 const modalOpen = ref(false)
 const toastOpen = ref(false)
 const toastType = ref<(typeof toastTypes)[number]>('good')
 </script>
 
 <template>
-  <div class="catalogue">
-    <h1 class="catalogue__title">Component Catalogue</h1>
+  <div class="box-border w-full px-12 py-8 pb-16 text-ink">
+    <h1 class="m-0 mb-6 text-[2rem]">Component Catalogue</h1>
 
-    <section class="catalogue__section">
-      <h2 class="catalogue__heading">Button &mdash; variants &times; sizes</h2>
-      <table class="catalogue__table">
+    <section class="mb-12">
+      <h2 class="m-0 mb-4 border-b border-line-subtle pb-2 text-xl">
+        Button &mdash; variants &times; sizes
+      </h2>
+      <table class="border-collapse">
         <thead>
           <tr>
-            <th scope="col"></th>
-            <th v-for="size in sizes" :key="size" scope="col">{{ size }}</th>
+            <th class="px-3 py-2 text-left" scope="col"></th>
+            <th v-for="size in sizes" :key="size" class="px-3 py-2 text-left" scope="col">
+              {{ size }}
+            </th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="variant in variants" :key="variant">
-            <th scope="row">{{ variant }}</th>
-            <td v-for="size in sizes" :key="size" class="catalogue__cell">
+            <th class="px-3 py-2 text-left" scope="row">{{ variant }}</th>
+            <td v-for="size in sizes" :key="size" class="px-3 py-2 text-left align-middle">
               <Button :variant="variant" :size="size">Button</Button>
             </td>
           </tr>
@@ -61,19 +71,19 @@ const toastType = ref<(typeof toastTypes)[number]>('good')
       </table>
     </section>
 
-    <section class="catalogue__section">
-      <h2 class="catalogue__heading">Button &mdash; colors</h2>
-      <div class="catalogue__row">
+    <section class="mb-12">
+      <h2 class="m-0 mb-4 border-b border-line-subtle pb-2 text-xl">Button &mdash; colors</h2>
+      <div class="mb-3 flex flex-wrap items-center gap-2.5">
         <Button v-for="color in colors" :key="color" :color="color">
           {{ color !== '' ? color : 'default' }}
         </Button>
       </div>
-      <div class="catalogue__row">
+      <div class="mb-3 flex flex-wrap items-center gap-2.5">
         <Button v-for="color in colors" :key="color" :color="color" variant="outlined">
           {{ color !== '' ? color : 'default' }}
         </Button>
       </div>
-      <div class="catalogue__row">
+      <div class="mb-3 flex flex-wrap items-center gap-2.5">
         <Button variant="flat">Flat</Button>
         <Button variant="elevated">Elevated</Button>
         <Button variant="outlined">Outlined</Button>
@@ -81,9 +91,9 @@ const toastType = ref<(typeof toastTypes)[number]>('good')
       </div>
     </section>
 
-    <section class="catalogue__section">
-      <h2 class="catalogue__heading">Card</h2>
-      <div class="catalogue__grid">
+    <section class="mb-12">
+      <h2 class="m-0 mb-4 border-b border-line-subtle pb-2 text-xl">Card</h2>
+      <div class="grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] items-start gap-4">
         <Card title="Elevated card">
           <p>A default elevated card with a title.</p>
           <template #footer>
@@ -97,20 +107,32 @@ const toastType = ref<(typeof toastTypes)[number]>('good')
       </div>
     </section>
 
-    <section class="catalogue__section">
-      <h2 class="catalogue__heading">Input</h2>
-      <div class="catalogue__grid">
-        <Input v-model="inputValue" label="Username" placeholder="Enter your username" hint="This is a hint" />
+    <section class="mb-12">
+      <h2 class="m-0 mb-4 border-b border-line-subtle pb-2 text-xl">Input</h2>
+      <div class="grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] items-start gap-4">
+        <Input
+          v-model="inputValue"
+          label="Username"
+          placeholder="Enter your username"
+          hint="This is a hint"
+          :error="inputError"
+          @blur="validateCatalogueInput"
+        />
         <Input model-value="you@example.com" label="Email" type="email" />
-        <Input model-value="bad input" label="Password" type="password" error="Password is too short" />
+        <Input
+          model-value="bad input"
+          label="Password"
+          type="password"
+          error="Password is too short"
+        />
         <Input model-value="Disabled" label="Disabled" disabled />
       </div>
-      <p class="catalogue__note">v-model value: {{ inputValue || '(empty)' }}</p>
+      <p class="text-sm text-muted">v-model value: {{ inputValue || '(empty)' }}</p>
     </section>
 
-    <section class="catalogue__section">
-      <h2 class="catalogue__heading">UserIcon</h2>
-      <div class="catalogue__row catalogue__row--center">
+    <section class="mb-12">
+      <h2 class="m-0 mb-4 border-b border-line-subtle pb-2 text-xl">UserIcon</h2>
+      <div class="mb-3 flex flex-wrap items-center gap-2.5">
         <UserIcon
           avatar-url="https://thispersondoesnotexist.com/random-person.jpeg"
           name="John Doe"
@@ -122,23 +144,20 @@ const toastType = ref<(typeof toastTypes)[number]>('good')
       </div>
     </section>
 
-    <section class="catalogue__section">
-      <h2 class="catalogue__heading">Icon</h2>
-      <div class="catalogue__row catalogue__row--wrap">
-        <Tooltip
-          v-for="item in iconList"
-          :key="item.name"
-          :text="item.description"
-          placement="top"
-        >
-          <div class="catalogue__icon-box">
+    <section class="mb-12">
+      <h2 class="m-0 mb-4 border-b border-line-subtle pb-2 text-xl">Icon</h2>
+      <div class="mb-3 flex flex-wrap items-center gap-2.5">
+        <Tooltip v-for="item in iconList" :key="item.name" :text="item.description" placement="top">
+          <div
+            class="flex min-w-20 cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-line-subtle bg-surface px-4 py-3 transition-[transform,box-shadow,border-color] duration-200 hover:-translate-y-0.5 hover:border-line hover:shadow-[var(--shadow-md)]"
+          >
             <Icon :name="item.name" :size="28" />
-            <span class="catalogue__icon-label">{{ item.name }}</span>
+            <span class="text-xs text-ink-secondary">{{ item.name }}</span>
           </div>
         </Tooltip>
       </div>
 
-      <div class="catalogue__row" style="margin-top: 1rem;">
+      <div class="mb-3 mt-4 flex flex-wrap items-center gap-2.5">
         <Button variant="elevated">
           <template #icon>
             <Icon name="Pencil" :size="18" />
@@ -169,15 +188,13 @@ const toastType = ref<(typeof toastTypes)[number]>('good')
       </div>
     </section>
 
-    <section class="catalogue__section">
-      <h2 class="catalogue__heading">Modal</h2>
-      <div class="catalogue__row">
+    <section class="mb-12">
+      <h2 class="m-0 mb-4 border-b border-line-subtle pb-2 text-xl">Modal</h2>
+      <div class="mb-3 flex flex-wrap items-center gap-2.5">
         <Button @click="modalOpen = true">Open modal</Button>
       </div>
       <Modal v-model="modalOpen" title="Example modal">
-        <p>
-          This is the modal body. Press Escape or click the overlay to close.
-        </p>
+        <p>This is the modal body. Press Escape or click the overlay to close.</p>
         <template #footer>
           <Button variant="outlined" @click="modalOpen = false">Cancel</Button>
           <Button @click="modalOpen = false">Confirm</Button>
@@ -185,9 +202,9 @@ const toastType = ref<(typeof toastTypes)[number]>('good')
       </Modal>
     </section>
 
-    <section class="catalogue__section">
-      <h2 class="catalogue__heading">Toast</h2>
-      <div class="catalogue__row">
+    <section class="mb-12">
+      <h2 class="m-0 mb-4 border-b border-line-subtle pb-2 text-xl">Toast</h2>
+      <div class="mb-3 flex flex-wrap items-center gap-2.5">
         <Button
           v-for="type in toastTypes"
           :key="type"
@@ -198,7 +215,7 @@ const toastType = ref<(typeof toastTypes)[number]>('good')
           {{ type }}
         </Button>
       </div>
-      <div class="catalogue__stack">
+      <div class="mb-4 flex flex-col items-start gap-2.5">
         <Toast
           v-for="type in toastTypes"
           :key="type"
@@ -211,9 +228,9 @@ const toastType = ref<(typeof toastTypes)[number]>('good')
       <Toast v-model="toastOpen" :type="toastType" :message="`A ${toastType} toast message`" />
     </section>
 
-    <section class="catalogue__section">
-      <h2 class="catalogue__heading">Tooltip</h2>
-      <div class="catalogue__row">
+    <section class="mb-12">
+      <h2 class="m-0 mb-4 border-b border-line-subtle pb-2 text-xl">Tooltip</h2>
+      <div class="mb-3 flex flex-wrap items-center gap-2.5">
         <Tooltip text="Tooltip on top">
           <Button variant="outlined">Top</Button>
         </Tooltip>
@@ -229,161 +246,61 @@ const toastType = ref<(typeof toastTypes)[number]>('good')
       </div>
     </section>
 
-    <section class="catalogue__section">
-      <h2 class="catalogue__heading">EditorHeading</h2>
-      <EditorHeading v-for="level in headings" :key="level" :level="level">
-        Heading level {{ level }}
-      </EditorHeading>
+    <section class="mb-12">
+      <h2 class="m-0 mb-4 border-b border-line-subtle pb-2 text-xl">EditorHeading</h2>
+      <EditorHeading
+        v-for="level in headings"
+        :key="level"
+        :level="level"
+        :text="`Heading level ${level}`"
+      />
     </section>
 
-    <section class="catalogue__section">
-      <h2 class="catalogue__heading">EditorList</h2>
-      <div class="catalogue__grid">
+    <section class="mb-12">
+      <h2 class="m-0 mb-4 border-b border-line-subtle pb-2 text-xl">EditorList</h2>
+      <div class="grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] items-start gap-4">
         <EditorList :items="['First item', 'Second item', 'Third item']" />
-        <EditorList
-          :items="['First item', 'Second item', 'Third item']"
-          ordered
-        />
-        <EditorList
-          :items="['Alpha', 'Beta', 'Gamma']"
-          marker="lower-alpha"
-        />
-        <EditorList
-          :items="['Dashed', 'Custom', 'Marker']"
-          marker="square"
-        />
+        <EditorList :items="['First item', 'Second item', 'Third item']" ordered />
+        <EditorList :items="['Alpha', 'Beta', 'Gamma']" marker="lower-alpha" />
+        <EditorList :items="['Dashed', 'Custom', 'Marker']" marker="square" />
       </div>
     </section>
 
-    <section class="catalogue__section">
-      <h2 class="catalogue__heading">EditorCitation</h2>
-      <EditorCitation source="Ada Lovelace">
-        That brain of mine is something more than merely mortal, as time will show.
-      </EditorCitation>
-      <EditorCitation accent="var(--color-good)" bg-color="var(--bg-subtle)">
-        A citation with a custom accent stripe.
-      </EditorCitation>
+    <section class="mb-12">
+      <h2 class="m-0 mb-4 border-b border-line-subtle pb-2 text-xl">EditorCitation</h2>
+      <EditorCitation
+        source="Ada Lovelace"
+        text="That brain of mine is something more than merely mortal, as time will show."
+      />
+      <EditorCitation
+        accent="var(--color-good)"
+        bg-color="var(--bg-subtle)"
+        text="A citation with a custom accent stripe."
+      />
     </section>
 
-    <section class="catalogue__section">
-      <h2 class="catalogue__heading">EditorCode</h2>
+    <section class="mb-12">
+      <h2 class="m-0 mb-4 border-b border-line-subtle pb-2 text-xl">EditorCode</h2>
       <EditorCode language="typescript" code="const answer: number = 42" />
       <EditorCode language="python" size="1rem">
-def greet(name):
-    print(f"Hello, {name}")
+        def greet(name): print(f"Hello, {name}")
       </EditorCode>
     </section>
 
-    <section class="catalogue__section">
-      <h2 class="catalogue__heading">EditorHyperlink</h2>
-      <div class="catalogue__row">
+    <section class="mb-12">
+      <h2 class="m-0 mb-4 border-b border-line-subtle pb-2 text-xl">EditorHyperlink</h2>
+      <div class="mb-3 flex flex-wrap items-center gap-2.5">
         <EditorHyperlink url="https://vuejs.org">Default link</EditorHyperlink>
-        <EditorHyperlink url="https://vuejs.org" color="var(--color-good)">Green link</EditorHyperlink>
+        <EditorHyperlink url="https://vuejs.org" color="var(--color-good)"
+          >Green link</EditorHyperlink
+        >
         <EditorHyperlink url="https://vuejs.org" size="1.25rem">Larger link</EditorHyperlink>
         <EditorHyperlink url="https://vuejs.org" :underline="false">No underline</EditorHyperlink>
       </div>
-      <div class="catalogue__row">
+      <div class="mb-3 flex flex-wrap items-center gap-2.5">
         <EditorHyperlink url="javascript:alert(1)">Rejected javascript: URL</EditorHyperlink>
         <EditorHyperlink url="/relative/path">Rejected relative URL</EditorHyperlink>
       </div>
     </section>
   </div>
-  
 </template>
-
-<style scoped>
-.catalogue {
-  box-sizing: border-box;
-  width: 100%;
-  padding: 2rem 3rem 4rem;
-  color: var(--text-primary);
-}
-
-.catalogue__title {
-  margin: 0 0 1.5rem;
-  font-size: 2rem;
-}
-
-.catalogue__section {
-  margin-bottom: 3rem;
-}
-
-.catalogue__heading {
-  margin: 0 0 1rem;
-  padding-bottom: .5rem;
-  border-bottom: 1px solid var(--border-subtle);
-  font-size: 1.25rem;
-}
-
-.catalogue__table {
-  border-collapse: collapse;
-}
-
-.catalogue__table th,
-.catalogue__table td {
-  padding: 8px 12px;
-  text-align: left;
-}
-
-.catalogue__cell {
-  vertical-align: middle;
-}
-
-.catalogue__row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 12px;
-}
-
-.catalogue__row--center {
-  align-items: center;
-}
-
-.catalogue__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 16px;
-  align-items: start;
-}
-
-.catalogue__stack {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 10px;
-  margin-bottom: 16px;
-}
-
-.catalogue__note {
-  color: var(--text-muted);
-  font-size: 14px;
-}
-
-.catalogue__icon-box {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 12px 16px;
-  min-width: 80px;
-  background-color: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
-  border-radius: 8px;
-  cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-}
-
-.catalogue__icon-box:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
-  border-color: var(--border-default);
-}
-
-.catalogue__icon-label {
-  font-size: 12px;
-  color: var(--text-secondary);
-}
-</style>

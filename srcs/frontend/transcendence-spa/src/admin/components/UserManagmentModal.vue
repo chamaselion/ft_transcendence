@@ -6,8 +6,16 @@ import Button from '@/app/components/Button.vue'
 import Input from '@/app/components/Input.vue'
 import Modal from '@/app/components/Modal.vue'
 import Toast from '@/app/components/Toast.vue'
+import { validateLogin } from '@/utils/validation'
 
 const username = ref('')
+const usernameError = ref('')
+
+const validateUsername = () => {
+  const result = validateLogin(username.value)
+  usernameError.value = result.error ?? ''
+  return result
+}
 
 const toastMessage = ref('')
 const toastVisible = ref(false)
@@ -44,6 +52,11 @@ const emit = defineEmits<{
 const canConfirmDelete = computed(
   () => user.value !== null && deleteConfirmationName.value.trim() === user.value.login,
 )
+
+const deleteConfirmationError = computed(() => {
+  if (!deleteConfirmationName.value.trim()) return ''
+  return canConfirmDelete.value ? '' : `Type “${user.value?.login ?? ''}” exactly to confirm.`
+})
 
 const openDeleteConfirmation = () => {
   deleteConfirmationName.value = ''
@@ -110,10 +123,12 @@ const updateUsername = async () => {
     showError(null, 'User data is not loaded yet.')
     return
   }
+  const result = validateUsername()
+  if (result.error) return
   toastVisible.value = false
   try {
     await httpClient.patch(`/api/users/${user.value.id}`, {
-      login: username.value,
+      login: result.value,
     })
     emit('close')
   } catch (error) {
@@ -141,49 +156,35 @@ onMounted(async () => {
   >
     <Toast
       v-model="toastVisible"
-      class="management-error"
+      class="management-error mb-4 min-w-0"
       :message="toastMessage"
       type="alert"
       :duration="0"
       fluid
       role="alert"
     />
-    <div
-      class="user-management-content"
-      v-if="user"
-    >
-      <p>{{ user.email }} - {{ user.login }}</p>
-      <dl class="user-timestamps">
+    <div v-if="user" class="flex flex-col gap-3">
+      <p
+        class="m-0 mb-1 rounded-lg bg-subtle p-3 text-sm leading-normal text-ink-secondary [overflow-wrap:anywhere]"
+      >
+        {{ user.email }} - {{ user.login }}
+      </p>
+      <dl
+        class="m-0 mb-1 grid grid-cols-[repeat(auto-fit,minmax(min(180px,100%),1fr))] gap-3 rounded-lg border border-line-subtle p-3 text-sm leading-normal"
+      >
         <div>
-          <dt>Created at</dt>
-          <dd>{{ formatDate(user.createdAt) }}</dd>
+          <dt class="mb-1 text-xs font-medium text-ink-secondary">Created at</dt>
+          <dd class="m-0 text-ink [overflow-wrap:anywhere]">{{ formatDate(user.createdAt) }}</dd>
         </div>
         <div>
-          <dt>Updated at</dt>
-          <dd>{{ formatDate(user.updatedAt) }}</dd>
+          <dt class="mb-1 text-xs font-medium text-ink-secondary">Updated at</dt>
+          <dd class="m-0 text-ink [overflow-wrap:anywhere]">{{ formatDate(user.updatedAt) }}</dd>
         </div>
       </dl>
-      <Button
-        v-if="user.role !== 'admin'"
-        @click="promoteToAdmin()"
-        >Promote to Admin</Button
-      >
-      <Button
-        v-if="user.role === 'admin'"
-        @click="revokeAdmin()"
-        >Revoke Admin</Button
-      >
-      <Button
-        color="alert"
-        variant="outlined"
-        @click="openDeleteConfirmation"
-        >Delete User</Button
-      >
-      <Input
-        type="text"
-        v-model="username"
-        placeholder="Update Username"
-      />
+      <Button v-if="user.role !== 'admin'" @click="promoteToAdmin()">Promote to Admin</Button>
+      <Button v-if="user.role === 'admin'" @click="revokeAdmin()">Revoke Admin</Button>
+      <Button color="alert" variant="outlined" @click="openDeleteConfirmation">Delete User</Button>
+      <Input class="mt-2" type="text" v-model="username" placeholder="Update Username" />
       <Button @click="updateUsername">Update Username</Button>
     </div>
 
@@ -194,13 +195,13 @@ onMounted(async () => {
       :close-on-overlay="!deleting"
       :close-on-esc="!deleting"
     >
-      <div class="delete-confirmation">
-        <p>
+      <div class="flex flex-col gap-3">
+        <p class="m-0 text-sm leading-normal">
           Permanently delete
           <strong>{{ user?.login }}</strong
           >?
         </p>
-        <p class="delete-confirmation__warning">
+        <p class="m-0 text-sm leading-normal text-ink-secondary">
           This account and all associated data will be deleted. This action cannot be undone.
         </p>
         <Input
@@ -209,6 +210,7 @@ onMounted(async () => {
           type="text"
           placeholder="Enter the username"
           :disabled="deleting"
+          :error="deleteConfirmationError"
         />
       </div>
       <template #footer>
@@ -220,84 +222,10 @@ onMounted(async () => {
         >
           Cancel
         </Button>
-        <Button
-          color="alert"
-          :loading="deleting"
-          :disabled="!canConfirmDelete"
-          @click="deleteUser"
-        >
+        <Button color="alert" :loading="deleting" :disabled="!canConfirmDelete" @click="deleteUser">
           Delete User
         </Button>
       </template>
     </Modal>
   </Modal>
 </template>
-
-<style scoped>
-.user-management-content {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.management-error {
-  min-width: 0;
-  margin-bottom: 16px;
-}
-
-.user-management-content p {
-  margin: 0 0 4px;
-  padding: 12px;
-  border-radius: 8px;
-  background-color: var(--bg-subtle);
-  color: var(--text-secondary);
-  font-size: 14px;
-  line-height: 1.5;
-  overflow-wrap: anywhere;
-}
-
-.user-management-content > .input {
-  margin-top: 8px;
-}
-
-.user-timestamps {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
-  gap: 12px;
-  margin: 0 0 4px;
-  padding: 12px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 8px;
-  font-size: 14px;
-  line-height: 1.5;
-}
-
-.user-timestamps dt {
-  margin-bottom: 4px;
-  color: var(--text-secondary);
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.user-timestamps dd {
-  margin: 0;
-  color: var(--text-primary);
-  overflow-wrap: anywhere;
-}
-
-.delete-confirmation {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.delete-confirmation p {
-  margin: 0;
-  font-size: 14px;
-  line-height: 1.5;
-}
-
-.delete-confirmation__warning {
-  color: var(--text-secondary);
-}
-</style>

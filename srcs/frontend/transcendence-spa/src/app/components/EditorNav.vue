@@ -1,14 +1,12 @@
 <template>
   <div
-    ref="nav"
-    class="editor-nav"
-    :class="[
-      `editor-nav--${position}`,
-      { 'editor-nav--floating': floating },
-    ]"
+    class="editor-nav sticky z-10 flex min-w-0 max-w-full shrink-0 items-center rounded-[10px] border border-line-subtle bg-surface px-2.5 py-1.5 shadow-[var(--shadow-sm)]"
+    :class="positionClass"
   >
-    <!-- Add block buttons -->
-    <div class="editor-nav__group">
+    <div
+      class="editor-nav__group flex flex-wrap items-center gap-1"
+      :class="{ 'flex-col': position === 'left' }"
+    >
       <Button
         v-for="type in blockTypes"
         :key="type"
@@ -24,14 +22,19 @@
       </Button>
     </div>
 
-    <!-- Contextual block formatting group -->
     <template v-if="activeBlock && activeDecorator">
-      <span class="editor-nav__divider" />
+      <span
+        class="editor-nav__divider"
+        :class="[dividerClass, position === 'left' ? '' : 'max-sm:hidden']"
+      />
 
-      <!-- Paragraph: Alignment (Left, Middle/Center, Right, Block/Justify) -->
-      <div v-if="activeDecorator.type === 'p'" class="editor-nav__group editor-nav__group--formatting">
+      <div
+        v-if="activeDecorator.type === 'p'"
+        class="editor-nav__group editor-nav__group--formatting flex flex-wrap items-center gap-1"
+        :class="{ 'flex-col': position === 'left' }"
+      >
         <Button
-          v-for="align in (['left', 'center', 'right', 'justify'] as const)"
+          v-for="align in ['left', 'center', 'right', 'justify'] as const"
           :key="align"
           :variant="(activeDecorator.align || 'left') === align ? 'elevated' : 'flat'"
           size="small"
@@ -46,10 +49,13 @@
         </Button>
       </div>
 
-      <!-- Heading: Level 1 to 6 (Size) -->
-      <div v-else-if="activeDecorator.type === 'h'" class="editor-nav__group editor-nav__group--formatting">
+      <div
+        v-else-if="activeDecorator.type === 'h'"
+        class="editor-nav__group editor-nav__group--formatting flex flex-wrap items-center gap-1"
+        :class="{ 'flex-col': position === 'left' }"
+      >
         <Button
-          v-for="lvl in ([1, 2, 3, 4, 5, 6] as const)"
+          v-for="lvl in [1, 2, 3, 4, 5, 6] as const"
           :key="lvl"
           :variant="(activeDecorator.level ?? 2) === lvl ? 'elevated' : 'flat'"
           size="small"
@@ -59,13 +65,16 @@
           @click="$emit('update:decorator', { ...activeDecorator, level: lvl })"
         >
           <template #icon>
-            <Icon :name="(`H${lvl}` as IconName)" :size="18" />
+            <Icon :name="`H${lvl}` as IconName" :size="18" />
           </template>
         </Button>
       </div>
 
-      <!-- List: Numbered vs Unnumbered switcher -->
-      <div v-else-if="activeDecorator.type === 'li'" class="editor-nav__group editor-nav__group--formatting">
+      <div
+        v-else-if="activeDecorator.type === 'li'"
+        class="editor-nav__group editor-nav__group--formatting flex flex-wrap items-center gap-1"
+        :class="{ 'flex-col': position === 'left' }"
+      >
         <Button
           :variant="!activeDecorator.ordered ? 'elevated' : 'flat'"
           size="small"
@@ -92,11 +101,14 @@
         </Button>
       </div>
 
-      <!-- Code: Language selector -->
-      <div v-else-if="activeDecorator.type === 'c'" class="editor-nav__group editor-nav__group--formatting">
-        <span class="editor-nav__label">{{ $t('editor.languageLabel') }}</span>
+      <div
+        v-else-if="activeDecorator.type === 'c'"
+        class="editor-nav__group editor-nav__group--formatting flex flex-wrap items-center gap-1"
+        :class="{ 'flex-col': position === 'left' }"
+      >
+        <span class="editor-nav__label mr-0.5 text-[0.75rem] font-semibold text-muted">{{ $t('editor.languageLabel') }}</span>
         <select
-          class="editor-nav__select"
+          class="editor-nav__select cursor-pointer rounded-md border border-line-subtle bg-surface px-1.5 py-[3px] text-[0.75rem] font-medium text-ink outline-none transition-colors duration-150 focus:border-brand disabled:cursor-not-allowed disabled:opacity-50"
           :disabled="deleteDisabled"
           :value="activeDecorator.language || 'plaintext'"
           @change="onNavLanguageChange"
@@ -106,32 +118,36 @@
           </option>
         </select>
       </div>
+
+      <span
+        v-if="activeDecorator.type !== 'cit'"
+        class="editor-nav__divider"
+        :class="position === 'left' ? '' : 'max-sm:hidden'"
+      />
+
+      <!-- Delete active block button -->
+      <div class="editor-nav__group flex flex-wrap items-center gap-1">
+        <Button
+          variant="outlined"
+          color="alert"
+          size="small"
+          square
+          title="Delete active block"
+          :disabled="!activeBlockId || deleteDisabled"
+          @click="$emit('delete')"
+        >
+          <template #icon>
+            <Icon name="Trash" :size="18" />
+          </template>
+        </Button>
+      </div>
     </template>
-
-    <span class="editor-nav__divider" />
-
-    <!-- Delete active block button -->
-    <div class="editor-nav__group">
-      <Button
-        variant="outlined"
-        color="alert"
-        size="small"
-        square
-        :title="$t('editor.deleteBlock')"
-        :disabled="!activeBlockId || deleteDisabled"
-        @click="$emit('delete')"
-      >
-        <template #icon>
-          <Icon name="Trash" :size="18" />
-        </template>
-      </Button>
-    </div>
   </div>
 </template>
 
 <script lang="ts" setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { computed } from 'vue'
 import Button from '@/app/components/Button.vue'
 import Icon, { type IconName } from '@/app/components/Icon.vue'
 import {
@@ -188,6 +204,21 @@ const activeDecorator = computed(() =>
   props.activeBlock ? parseDecorator(props.activeBlock.decorator) : null,
 )
 
+const positionClass = computed(
+  () =>
+    ({
+      top: 'top-0 mb-2 w-full flex-row flex-wrap justify-start gap-1 gap-y-1.5',
+      left: 'top-0 flex-col self-start',
+      bottom: 'bottom-0 mt-2 w-full flex-row flex-wrap gap-1 gap-y-1.5',
+    })[props.position],
+)
+
+const dividerClass = computed(() =>
+  props.position === 'left'
+    ? 'my-1.5 h-px w-full bg-line-subtle'
+    : 'mx-2 h-[22px] w-px bg-line-subtle',
+)
+
 const typeIcons: Record<BlockType, IconName> = {
   p: 'Paragraph',
   li: 'List',
@@ -208,119 +239,25 @@ function onNavLanguageChange(e: Event) {
   const target = e.target as HTMLSelectElement
   emit('update:decorator', { ...activeDecorator.value, language: target.value })
 }
-
-const nav = ref<HTMLElement | null>(null)
-const floating = ref(false)
-
-const onScroll = () => {
-  if (!nav.value) return
-  floating.value = nav.value.getBoundingClientRect().top <= 20
-}
-
-onMounted(() => window.addEventListener('scroll', onScroll, { passive: true }))
-onBeforeUnmount(() => window.removeEventListener('scroll', onScroll))
 </script>
 
-<style lang="css" scoped>
-.editor-nav {
-  position: sticky;
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  padding: 6px 10px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 10px;
-  background-color: var(--bg-surface);
-  box-shadow: var(--shadow-sm);
-  transition:
-    box-shadow 0.2s ease,
-    border-color 0.2s ease,
-    background-color 0.2s ease;
-}
-
-.editor-nav--top {
-  top: 12px;
-  flex-direction: row;
-  justify-content: flex-start;
-  width: 100%;
-  margin-bottom: 8px;
-}
-
-.editor-nav--left {
-  top: 16px;
-  flex-direction: column;
-  align-self: start;
-}
-
-.editor-nav--bottom {
-  bottom: 12px;
-  flex-direction: row;
-  width: 100%;
-  margin-top: 8px;
-}
-
-.editor-nav--floating {
-  border-color: var(--border-subtle);
-  box-shadow: var(--shadow-md);
-}
-
-.editor-nav__group {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.editor-nav--left .editor-nav__group {
-  flex-direction: column;
-}
-
-.editor-nav__divider {
-  background-color: var(--border-subtle);
-}
-
-.editor-nav--top .editor-nav__divider,
-.editor-nav--bottom .editor-nav__divider {
-  width: 1px;
-  height: 22px;
-  margin: 0 8px;
-}
-
-.editor-nav--left .editor-nav__divider {
-  width: 100%;
-  height: 1px;
-  margin: 6px 0;
-}
-
+<style scoped>
 .editor-nav :deep(.btn) {
-  margin: 0;
+  flex-shrink: 0;
 }
 
-.editor-nav__label {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--text-muted, #94a3b8);
-  margin-right: 2px;
-}
+@media (max-width: 639px) {
+  .editor-nav {
+    padding: 4px 6px;
+  }
 
-.editor-nav__select {
-  background-color: var(--bg-surface, #fff);
-  color: var(--text-base, #1e293b);
-  border: 1px solid var(--border-subtle, #cbd5e1);
-  border-radius: 6px;
-  padding: 3px 6px;
-  font-size: 0.75rem;
-  font-weight: 500;
-  outline: none;
-  cursor: pointer;
-  transition: border-color 0.15s ease;
-}
+  .editor-nav :deep(.btn) {
+    padding: 4px;
+  }
 
-.editor-nav__select:focus {
-  border-color: var(--color-primary, #3b82f6);
-}
-
-.editor-nav__select:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+  .editor-nav__select {
+    padding: 2px 4px;
+    font-size: 0.7rem;
+  }
 }
 </style>

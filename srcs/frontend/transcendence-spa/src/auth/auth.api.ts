@@ -74,11 +74,13 @@ export class HttpClient {
       ...DEFAULT_HEADERS,
       ...(config.headers ?? {}),
     }
+    const isFormData = config.body instanceof FormData
+    if (isFormData) delete headers['Content-Type']
 
     const response = await fetch(buildUrl(path, this.baseUrl, config.query), {
       method: config.method ?? 'GET',
       headers,
-      body: config.body ? JSON.stringify(config.body) : undefined,
+      body: isFormData ? config.body as FormData : config.body ? JSON.stringify(config.body) : undefined,
       signal: config.signal,
     })
     if (!response.ok) {
@@ -118,6 +120,50 @@ export class HttpClient {
 
   delete<TReponse>(path: string, config: RequestConfig = {}): Promise<TReponse> {
     return this.request<TReponse>(path, { ...config, method: 'DELETE' })
+  }
+
+  async download(
+    path: string,
+    config: RequestConfig = {}
+  ): Promise<{ blob: Blob; filename: string }> {
+    const headers: Record<string, string> = {
+      ...DEFAULT_HEADERS,
+      ...(config.headers ?? {}),
+    }
+
+    const response = await fetch(buildUrl(path, this.baseUrl, config.query), {
+      method: config.method ?? 'GET',
+      headers,
+      signal: config.signal,
+    })
+
+    if (!response.ok) {
+      let message = `HTTP ${response.status} ${response.statusText}`
+
+      try {
+        const errorResponse = (await response.json()) as ErrorResponseShape
+
+        if (errorResponse.error) {
+          message = errorResponse.error
+        }
+      } catch {
+        // Keep fallback message
+      }
+
+      throw new HttpError(message, response.status)
+    }
+
+    const disposition = response.headers.get('Content-Disposition')
+    let filename = 'user-data.json'
+    if (disposition) {
+      const match = disposition.match(/filename="?([^";]+)"?/)
+      if (match && match[1]) {
+        filename = match[1]
+      }
+    }
+
+    const blob = await response.blob()
+    return { blob, filename }
   }
 }
 

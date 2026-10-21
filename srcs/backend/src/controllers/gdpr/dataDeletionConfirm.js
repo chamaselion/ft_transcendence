@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 const { requireEnv } = require('../../config');
 const sequelize = require('../../db');
-const { clearAuthCookie, ensureSession, getTokenFromCookie, isSessionActive, purgeSessionsForUser } = require('../auth/helpers');
+const { clearAuthCookie, ensureSession, getTokenFromCookie, isSessionActive, purgeUserData } = require('../auth/helpers');
 const { oneTimeCodeService: defaultOneTimeCodeService } = require('../auth/oneTimeCodeToolkit');
 const { createGdprNotificationService } = require('../../services/gdprNotificationService');
 const { validateChallengeId, validateOtpCode } = require('../auth/validation');
@@ -56,33 +56,7 @@ const createDataDeletionConfirmHandler = ({ userModel, tokenLib = jwt, secret = 
         return res.status(401).json({ error: 'Unauthorized' });
       }
 
-      const { gdprExportQuota, gdprAuditEvent } = sequelize.models;
-
-      const deletionCounts = {
-        user: 1,
-        authSessions: 'all',
-        gdprExportQuota: 'all',
-        gdprAuditEvents: 'all',
-      };
-
-      await sequelize.transaction(async (dbTransaction) => {
-        await gdprExportQuota.destroy({
-          where: { userId: user.id },
-          transaction: dbTransaction,
-        });
-
-        await gdprAuditEvent.destroy({
-          where: { userId: user.id },
-          transaction: dbTransaction,
-        });
-
-        await resolvedUserModel.destroy({
-          where: { id: user.id },
-          transaction: dbTransaction,
-        });
-      });
-
-      await purgeSessionsForUser(user.id);
+      const deletionCounts = await purgeUserData(user.id, { userModel: resolvedUserModel });
       clearAuthCookie(res);
 
       void gdprNotificationService.sendDataDeletionConfirmation({

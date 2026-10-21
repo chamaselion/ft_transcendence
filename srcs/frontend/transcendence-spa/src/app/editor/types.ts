@@ -88,6 +88,16 @@ export function serializeDecorator(decorator: BlockDecorator): string {
   return JSON.stringify(decorator)
 }
 
+export function isCodeOrCitation(decorator: string): boolean {
+  if (decorator === 'c' || decorator === 'cit') return true
+  try {
+    const parsed = JSON.parse(decorator) as Partial<BlockDecorator>
+    return parsed?.type === 'c' || parsed?.type === 'cit'
+  } catch {
+    return false
+  }
+}
+
 export function createBlock(type: BlockType, text = ''): Block {
   return {
     id: crypto.randomUUID(),

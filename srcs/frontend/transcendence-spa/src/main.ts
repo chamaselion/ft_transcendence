@@ -3,6 +3,8 @@ import { createPinia } from 'pinia'
 import { useAuthStore } from '@/stores/auth'
 import { i18n, initI18n } from '@/i18n'
 
+import '@/assets/tailwind.css'
+
 import App from './App.vue'
 import router from './router'
 

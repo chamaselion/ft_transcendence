@@ -15,9 +15,10 @@ const { createDataExportHandler } = require('../controllers/gdpr/dataExport');
 const { createDataExportCsvHandler } = require('../controllers/gdpr/dataExportCsv');
 const { createDataDeletionRequestHandler } = require('../controllers/gdpr/dataDeletionRequest');
 const { createDataDeletionConfirmHandler } = require('../controllers/gdpr/dataDeletionConfirm');
-// const { createDevFillDataHandler } = require('../controllers/auth/devFillData');
 const { createRateLimiter, getClientIp, normalizeIdentity } = require('../middleware/rateLimit');
 const { createRequireAuth } = require('../middleware/requireAuth');
+const { iconUpload } = require('../middleware/iconUpload');
+const { createUserIconController } = require('../controllers/auth/userIcon');
 
 const { login } = createLoginHandler();
 const { register } = createRegisterHandler();
@@ -36,10 +37,16 @@ const { dataExport } = createDataExportHandler();
 const { dataExportCsv } = createDataExportCsvHandler();
 const { dataDeletionRequest } = createDataDeletionRequestHandler();
 const { dataDeletionConfirm } = createDataDeletionConfirmHandler();
-// const { fillData } = createDevFillDataHandler();
 const { requireAuth } = createRequireAuth();
+const { replaceIcon, getIcon, deleteIcon } = createUserIconController();
 
 const router = express.Router();
+const iconUploadLimiter = createRateLimiter({
+  name: 'icon-upload',
+  windowMs: 60 * 1000,
+  maxRequests: 10,
+  keyGenerator: (req) => req.user.id,
+});
 
 const authRequestLimiter = createRateLimiter({
 	name: 'auth-request',
@@ -77,6 +84,9 @@ router.get('/oauth/:provider/link', authRequestLimiter, requireAuth, startLinkPr
 router.post('/oauth/:provider/password', authRequestLimiter, requireAuth, setPassword);
 router.post('/logout', logout);
 router.get('/me', me);
+router.put('/me/icon', requireAuth, iconUploadLimiter, iconUpload, replaceIcon);
+router.get('/me/icon', requireAuth, getIcon);
+router.delete('/me/icon', requireAuth, iconUploadLimiter, deleteIcon);
 router.patch('/me', authRequestLimiter, otpIssueLimiter, updateMe);
 router.post('/me/update/confirm', authRequestLimiter, otpVerifyLimiter, updateMeConfirm);
 router.get('/sessions', authRequestLimiter, listSessions);
@@ -85,6 +95,5 @@ router.get('/me/data-export', dataExport);
 router.get('/me/data-export/csv', dataExportCsv);
 router.post('/me/data-deletion/request', authRequestLimiter, otpIssueLimiter, dataDeletionRequest);
 router.post('/me/data-deletion/confirm', authRequestLimiter, otpVerifyLimiter, dataDeletionConfirm);
-// router.post('/me/dev/fill-data', authRequestLimiter, fillData);
 
 module.exports = router;

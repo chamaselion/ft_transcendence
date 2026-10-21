@@ -9,83 +9,76 @@ import { useAuthStore } from '@/stores/auth'
 const { currentTheme, toggleTheme } = useTheme()
 const route = useRoute()
 const authStore = useAuthStore()
-const currentUser = {
-  avatarUrl: 'https://thispersondoesnotexist.com/random-person.jpeg',
-  name: 'John Doe',
-}
 
 const isActive = (path: string) => (path === '/' ? route.path === '/' : route.path.startsWith(path))
+
+const linkBase =
+  'inline-flex items-center gap-2 m-0 whitespace-nowrap rounded-lg border px-3.5 py-2 text-[15px] font-medium leading-[1.4] no-underline cursor-pointer transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand max-sm:gap-0 max-sm:px-2'
+const navLink = `${linkBase} border-transparent hover:bg-[color-mix(in_srgb,var(--text-primary)_8%,transparent)] hover:text-ink`
+const ghostLink = `${navLink} bg-transparent`
+const navIdle = 'border-transparent bg-transparent text-ink-secondary'
+const navActive = 'border-transparent bg-surface text-ink shadow-[var(--shadow-sm)]'
+const primaryLink = `${linkBase} border-transparent bg-brand text-brand-contrast shadow-card hover:bg-brand-hover hover:text-brand-contrast`
+const logoutLink = `${linkBase} border-[color:color-mix(in_srgb,var(--color-alert)_45%,transparent)] bg-transparent text-danger hover:border-danger hover:bg-[color-mix(in_srgb,var(--color-alert)_12%,transparent)] hover:text-danger-hover`
 </script>
 
 <template>
-  <header class="header">
-    <nav class="header__nav">
-      <router-link
-        to="/"
-        class="header__link"
-        :class="{ 'header__link--active': isActive('/') }"
-        :title="$t('nav.home')"
-        :aria-label="$t('nav.home')"
-      >
+  <header
+    class="sticky top-0 z-20 flex items-center gap-2 border-b border-line bg-[color-mix(in_srgb,var(--bg-header)_88%,transparent)] px-6 py-2.5 shadow-[var(--shadow-sm)] backdrop-blur-[10px] max-sm:px-3"
+  >
+    <nav class="flex items-center gap-1">
+      <router-link to="/" :class="[navLink, isActive('/') ? navActive : navIdle]" aria-label="Home">
         <Icon name="Home" :size="18" />
-        <span class="header__label">{{ $t('nav.home') }}</span>
+        <span class="btn--lable max-sm:hidden">{{ $t('nav.home') }}</span>
       </router-link>
       <router-link
         to="/editor"
-        class="header__link"
-        :class="{ 'header__link--active': isActive('/editor') }"
+        :class="[navLink, isActive('/editor') ? navActive : navIdle]"
         :title="$t('nav.editor')"
         :aria-label="$t('nav.editor')"
       >
         <Icon name="Pencil" :size="18" />
-        <span class="header__label">{{ $t('nav.editor') }}</span>
+        <span class="btn--lable max-sm:hidden">{{ $t('nav.editor') }}</span>
       </router-link>
     </nav>
 
-    <span class="header__spacer" />
+    <span class="flex-1" />
 
-    <nav class="header__nav header__nav--end">
+    <nav class="flex items-center gap-1">
       <template v-if="!authStore.isAuthenticated">
         <router-link
           to="/register"
-          class="header__link"
-          :class="{ 'header__link--active': isActive('/register') }"
-          :title="$t('nav.register')"
-          :aria-label="$t('nav.register')"
+          :class="[navLink, isActive('/register') ? navActive : navIdle]"
+          aria-label="Register"
         >
-          <Icon name="UserPlus" :size="18" />
-          <span class="header__label">{{ $t('nav.register') }}</span>
+          <Icon name="PencilPlus" :size="18" />
+          <span class="btn--lable max-sm:hidden">{{ $t('nav.register') }}</span>
         </router-link>
-        <router-link
-          to="/login"
-          class="header__link header__link--primary"
-          :title="$t('nav.login')"
-          :aria-label="$t('nav.login')"
-        >
+        <router-link to="/login" :class="primaryLink" aria-label="Login">
           <Icon name="Login" :size="18" />
-          <span class="header__label">{{ $t('nav.login') }}</span>
+          <span class="btn--lable max-sm:hidden">{{ $t('nav.login') }}</span>
         </router-link>
       </template>
 
       <button
         v-else
-        class="header__link header__link--logout"
-        :title="$t('nav.logoutTitle')"
-        :aria-label="$t('nav.logout')"
+        :class="logoutLink"
+        title="Log out of your account"
+        aria-label="Logout"
         @click.prevent="authStore.logout"
       >
         <Icon name="Logout" :size="18" />
-        <span class="header__label">{{ $t('nav.logout') }}</span>
+        <span class="btn--lable max-sm:hidden">{{ $t('nav.logout') }}</span>
       </button>
 
       <button
-        class="header__link header__link--ghost"
+        :class="ghostLink"
         :title="currentTheme === 'light' ? $t('nav.switchToDark') : $t('nav.switchToLight')"
         :aria-label="currentTheme === 'light' ? $t('nav.switchToDark') : $t('nav.switchToLight')"
         @click="toggleTheme"
       >
         <Icon :name="currentTheme === 'light' ? 'Moon' : 'Sun'" :size="18" />
-        <span class="header__label">{{ currentTheme === 'light' ? $t('nav.dark') : $t('nav.light') }}</span>
+        <span class="btn--lable max-sm:hidden">{{ currentTheme === 'light' ? $t('nav.dark') : $t('nav.light') }}</span>
       </button>
 
       <LanguageSwitcher />
@@ -94,134 +87,10 @@ const isActive = (path: string) => (path === '/' ? route.path === '/' : route.pa
       v-if="authStore.isAuthenticated"
       to="/profile"
     >
-      <UserIcon :avatar-url="currentUser.avatarUrl" />
+      <UserIcon :avatar-url="authStore.user?.avatarUrl ?? undefined" :name="authStore.user?.login" />
     </router-link>
-    <router-link
-      v-else
-      to="/login"
-    >
+    <router-link v-else to="/login">
       <UserIcon avatar-url="/user-default-avatar.png" />
     </router-link>
   </header>
 </template>
-
-<style scoped>
-.header {
-  position: sticky;
-  top: 0;
-  z-index: 20;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 24px;
-  background-color: color-mix(in srgb, var(--bg-header) 88%, transparent);
-  backdrop-filter: blur(10px);
-  border-bottom: 1px solid var(--border-default);
-  box-shadow: var(--shadow-sm);
-}
-
-.header__nav {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.header__spacer {
-  flex: 1;
-}
-
-/* Neutral pill shared by nav links and icon buttons */
-.header__link {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-  padding: 8px 14px;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  background-color: transparent;
-  color: var(--text-secondary);
-  font-family: inherit;
-  font-size: 15px;
-  font-weight: 500;
-  line-height: 1.4;
-  text-decoration: none;
-  white-space: nowrap;
-  cursor: pointer;
-  transition:
-    background-color 0.2s ease,
-    color 0.2s ease,
-    border-color 0.2s ease,
-    box-shadow 0.2s ease;
-}
-
-.header__link :deep(.icon) {
-  flex-shrink: 0;
-}
-
-.header__label {
-  white-space: nowrap;
-}
-
-.header__link:hover {
-  background-color: color-mix(in srgb, var(--text-primary) 8%, transparent);
-  color: var(--text-primary);
-}
-
-.header__link:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
-}
-
-.header__link--active {
-  background-color: var(--bg-surface);
-  color: var(--text-primary);
-  box-shadow: var(--shadow-sm);
-}
-
-/* Main call to action while logged out */
-.header__link--primary {
-  background-color: var(--color-primary);
-  color: var(--color-primary-contrast);
-  box-shadow: var(--shadow-md);
-}
-
-.header__link--primary:hover {
-  background-color: var(--color-primary-hover);
-  color: var(--color-primary-contrast);
-}
-
-/* Destructive action, deliberately not a nav link */
-.header__link--logout {
-  border-color: color-mix(in srgb, var(--color-alert) 45%, transparent);
-  color: var(--color-alert);
-}
-
-.header__link--logout:hover {
-  background-color: color-mix(in srgb, var(--color-alert) 12%, transparent);
-  border-color: var(--color-alert);
-  color: var(--color-alert-hover);
-}
-
-@media (max-width: 768px) {
-  .header {
-    gap: 4px;
-    padding: 8px 12px;
-  }
-
-  .header__nav {
-    gap: 2px;
-  }
-
-  .header__link {
-    justify-content: center;
-    min-width: 38px;
-    min-height: 38px;
-    padding: 8px;
-  }
-
-  .header__label {
-    display: none;
-  }
-}
-</style>

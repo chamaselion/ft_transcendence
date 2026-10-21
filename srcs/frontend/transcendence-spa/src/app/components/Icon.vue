@@ -22,6 +22,7 @@ export const iconNames = [
   'AlignCenter',
   'AlignRight',
   'AlignJustified',
+  'Home',
   'Login',
   'Logout',
   'Sun',
@@ -44,6 +45,10 @@ export const iconNames = [
   'InfoCircle',
   'Home',
   'UserPlus',
+  'FilePDF',
+  'Cookie',
+  'ShieldCheck',
+  'InfoCircle',
 ] as const
 
 export type IconName = (typeof iconNames)[number]
@@ -73,6 +78,7 @@ import {
   IconListNumbers,
   IconQuote,
   IconCode,
+  IconHome,
   IconLogin,
   IconLogout,
   IconSun,
@@ -90,11 +96,11 @@ import {
   IconChevronRight,
   IconChevronsLeft,
   IconChevronsRight,
+  IconUserPlus,
+  IconFileTypePdf,
   IconCookie,
   IconShieldCheck,
   IconInfoCircle,
-  IconHome,
-  IconUserPlus,
 } from '@tabler/icons-vue'
 
 const iconMap: Record<IconName, Component> = {
@@ -116,6 +122,7 @@ const iconMap: Record<IconName, Component> = {
   ListNumbers: IconListNumbers,
   Quote: IconQuote,
   Code: IconCode,
+  Home: IconHome,
   AlignLeft: IconAlignLeft,
   AlignCenter: IconAlignCenter,
   AlignRight: IconAlignRight,
@@ -140,8 +147,8 @@ const iconMap: Record<IconName, Component> = {
   Cookie: IconCookie,
   ShieldCheck: IconShieldCheck,
   InfoCircle: IconInfoCircle,
-  Home: IconHome,
   UserPlus: IconUserPlus,
+  FilePDF: IconFileTypePdf,
 }
 
 const props = withDefaults(
@@ -163,13 +170,11 @@ const currentIcon = computed(() => iconMap[props.name] ?? IconSparkles)
 </script>
 
 <template>
-  <component :is="currentIcon" :size="size" :color="color" :stroke="stroke" class="icon" />
+  <component
+    :is="currentIcon"
+    :size="size"
+    :color="color"
+    :stroke="stroke"
+    class="icon inline-block shrink-0 align-middle"
+  />
 </template>
-
-<style scoped>
-.icon {
-  display: inline-block;
-  vertical-align: middle;
-  flex-shrink: 0;
-}
-</style>

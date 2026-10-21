@@ -1,9 +1,10 @@
 <template>
   <div
-    class="editor-block"
+    class="editor-block relative rounded-md border-l-[3px] border-l-transparent px-3 py-1 transition-[background-color,border-color] duration-150"
     :class="{
-      'editor-block--active': active && !locked,
-      'editor-block--locked': locked,
+      'editor-block--active border-l-brand bg-subtle': active && !locked,
+      'editor-block--locked cursor-not-allowed border-2 border-l-2 border-danger bg-danger/[0.08] select-none [&_*]:pointer-events-none [&_*]:select-none':
+        locked,
     }"
     :data-block-id="block.id"
     @click="!locked && $emit('focus')"
@@ -12,11 +13,21 @@
       :is="component"
       v-bind="componentProps"
       @update:text="!locked && $emit('update:text', $event)"
+      @insert-blocks="!locked && $emit('insert-blocks', $event)"
       @update:language="!locked && onUpdateLanguage($event)"
       @focus="!locked && $emit('focus')"
       @blur="$emit('blur')"
     />
-    <span v-if="locked" class="editor-block__lock" :title="$t('editor.lockedTitle')">
+    <FoldableTextPreview
+      v-if="isForeignLanguage && canonicalText && decorator.type !== 'c' && decorator.type !== 'cit'"
+      :text="canonicalText"
+      :is-dirty="isDirty"
+    />
+    <span
+      v-if="locked"
+      class="editor-block__lock pointer-events-auto absolute top-1 right-2 rounded bg-danger px-2 py-0.5 text-[10px] font-bold tracking-[0.05em] text-danger-contrast uppercase shadow-[0_1px_3px_rgba(0,0,0,0.2)]"
+      title="$t('editor.lockedTitle')"
+    >
       {{ $t('editor.lockedBadge') }}
     </span>
   </div>
@@ -30,18 +41,27 @@ import EditorHeading from '@/app/components/EditorHeading.vue'
 import EditorList from '@/app/components/EditorList.vue'
 import EditorCitation from '@/app/components/EditorCitation.vue'
 import EditorCode from '@/app/components/EditorCode.vue'
+import FoldableTextPreview from '@/app/components/FoldableTextPreview.vue'
 import { parseDecorator, serializeDecorator, type Block, type BlockType } from '@/app/editor/types'
+import type { EditableInsertEvent } from '@/app/editor/useEditable'
+import { useEditorStore } from '@/stores/editor'
 
 const props = defineProps<{
   block: Block
   active?: boolean
   locked?: boolean
+  exportMode?: boolean
 }>()
 
 const { t } = useI18n()
+const store = useEditorStore()
+const canonicalText = computed(() => store.getCanonicalText(props.block.id))
+const isForeignLanguage = computed(() => store.activeLanguage !== 'en')
+const isDirty = computed(() => store.isBlockDirty(props.block.id))
 
 const emit = defineEmits<{
   'update:text': [value: string]
+  'insert-blocks': [event: EditableInsertEvent]
   'update:decorator': [value: string]
   focus: []
   blur: []
@@ -82,7 +102,7 @@ const componentProps = computed(() => {
         text: props.block.text,
         ordered: decoratorValue.ordered,
         marker: decoratorValue.marker,
-        placeholder: t('editor.placeholder.li'),
+        exportMode: props.exportMode,
       }
     case 'cit':
       return {
@@ -109,49 +129,3 @@ const componentProps = computed(() => {
   }
 })
 </script>
-
-<style lang="css" scoped>
-.editor-block {
-  position: relative;
-  padding: 4px 12px;
-  border-left: 3px solid transparent;
-  border-radius: 6px;
-  transition:
-    background-color 0.15s ease,
-    border-color 0.15s ease;
-}
-
-.editor-block--active {
-  background-color: var(--bg-subtle);
-  border-left-color: var(--color-primary);
-}
-
-.editor-block--locked {
-  border: 2px solid var(--color-alert, #dc2626);
-  border-radius: 6px;
-  background-color: color-mix(in srgb, var(--color-alert, #dc2626) 8%, transparent);
-  user-select: none;
-  cursor: not-allowed;
-}
-
-.editor-block--locked :deep(*) {
-  pointer-events: none;
-  user-select: none;
-}
-
-.editor-block__lock {
-  position: absolute;
-  top: 4px;
-  right: 8px;
-  padding: 2px 8px;
-  border-radius: 4px;
-  background-color: var(--color-alert, #dc2626);
-  color: var(--color-alert-contrast, #ffffff);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  pointer-events: auto;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-}
-</style>

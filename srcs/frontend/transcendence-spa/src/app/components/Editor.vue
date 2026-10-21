@@ -1,10 +1,5 @@
 <template>
-  <Button @click="onGeneratePdf">Generate PDF</Button>
-  <div
-    class="editor"
-    :class="[`editor--nav-${navPosition}`]"
-  >
-    <!-- Nav toolbar (can be positioned on top, left or bottom) -->
+  <div class="editor w-full [margin:0_auto]" :class="layoutClass">
     <EditorNav
       v-if="navPosition !== 'bottom'"
       :active-block-id="store.activeBlockId"
@@ -16,10 +11,11 @@
       @update:decorator="onUpdateDecorator(store.activeBlock, $event)"
     />
 
-    <!-- Editor content: expands with the page by default, or scrollable if scrollable prop is true -->
     <div
-      class="editor__content"
-      :class="{ 'editor__content--scrollable': scrollable }"
+      class="editor__content box-border flex w-full min-w-0 flex-col gap-1 px-2 py-4"
+      :class="{
+        'editor__content--scrollable max-h-[calc(100vh_-_220px)] overflow-y-auto pr-3': scrollable,
+      }"
     >
       <Html2Pdf
         ref="pdfRef"
@@ -35,7 +31,7 @@
         :paginate-elements-by-height="usablePageHeightPx"
       >
         <template #pdf-content>
-          <div class="pdf-content">
+          <div class="pdf-content box-border w-full bg-transparent px-6 py-3.5 [word-spacing:0.4em]">
             <EditorBlock
               v-for="block in store.blocks"
               :key="block.id"
@@ -43,9 +39,11 @@
               :block="block"
               :active="block.id === store.activeBlockId && !store.isLockedByOther(block)"
               :locked="store.isLockedByOther(block)"
+              :export-mode="isExporting"
               @focus="onFocus(block)"
               @blur="onBlur(block)"
               @update:text="onUpdateText(block, $event)"
+              @insert-blocks="onInsertBlocks(block, $event)"
               @update:decorator="onUpdateDecorator(block, parseDecorator($event))"
             />
           </div>
@@ -53,13 +51,12 @@
       </Html2Pdf>
       <p
         v-if="store.blocks.length === 0"
-        class="editor__empty"
+        class="editor__empty m-0 px-4 py-8 text-center text-muted italic"
       >
         This document is empty. Add a block from the toolbar.
       </p>
     </div>
 
-    <!-- Bottom Nav toolbar if navPosition is bottom -->
     <EditorNav
       v-if="navPosition === 'bottom'"
       :active-block-id="store.activeBlockId"
@@ -78,11 +75,13 @@ import { computed, onBeforeUnmount, ref, onMounted, watch, nextTick } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
 import EditorBlock from '@/app/components/EditorBlock.vue'
 import EditorNav from '@/app/components/EditorNav.vue'
-import Button from '@/app/components/Button.vue'
 import { useEditorStore } from '@/stores/editor'
-import { isStandardText } from '@/app/editor/useEditable'
+import { translateBlocks, backTranslateBlock } from '@/app/editor/translation.api'
+import { isStandardText, type EditableInsertEvent } from '@/app/editor/useEditable'
 import {
   createBlock,
+  defaultDecorator,
+  isCodeOrCitation,
   parseDecorator,
   serializeDecorator,
   type Block,
@@ -94,6 +93,7 @@ import { Html2Pdf, type Html2PdfOptions, type PdfStylingOptions } from 'vue-pdf-
 import 'vue-pdf-export/style.css'
 
 const pdfRef = ref<InstanceType<typeof Html2Pdf> | null>(null)
+const isExporting = ref(false)
 
 const pdfPageMm = { width: 210, height: 297 }
 const pdfMarginsMm = { top: 20, right: 20, bottom: 20, left: 20 }
@@ -167,6 +167,7 @@ const pdfStyling: PdfStylingOptions = {
       color: #202833 !important;
       background: transparent !important;
       opacity: 1 !important;
+      border-radius: 0 !important;
     }
 
     .pdf-content .paragraph,
@@ -234,6 +235,26 @@ const pdfStyling: PdfStylingOptions = {
     .pdf-content .list li::marker {
       color: #334e75;
       font-weight: 700;
+    }
+
+    .pdf-content .list--export {
+      list-style: none !important;
+      padding: 0 0 0 18pt !important;
+    }
+
+    .pdf-content .list--export .list__item {
+      padding-left: 0 !important;
+      text-indent: -18pt !important;
+    }
+
+    .pdf-content .list--export .list__marker {
+      display: inline-block !important;
+      width: 18pt !important;
+      padding-right: 4pt !important;
+      text-indent: 0 !important;
+      text-align: right !important;
+      font-weight: 700;
+      color: #334e75;
     }
 
     .pdf-content .citation {
@@ -307,8 +328,13 @@ const pdfStyling: PdfStylingOptions = {
 
 const onGeneratePdf = async () => {
   store.setActive('')
+  isExporting.value = true
   await nextTick()
-  await pdfRef.value?.generatePdf()
+  try {
+    await pdfRef.value?.generatePdf()
+  } finally {
+    isExporting.value = false
+  }
 }
 
 const props = withDefaults(
@@ -322,6 +348,12 @@ const props = withDefaults(
     scrollable: false,
     navPosition: 'top',
   },
+)
+
+const layoutClass = computed(() =>
+  props.navPosition === 'left'
+    ? 'grid grid-cols-[auto_minmax(0,1fr)] items-start gap-4'
+    : 'flex flex-col items-stretch',
 )
 
 const emit = defineEmits<{
@@ -350,6 +382,14 @@ function hasPendingData(): boolean {
   return Boolean(editDebounceTimer || (pendingEditBlockId !== null && pendingEditText !== null))
 }
 
+function getSurroundingContext(blockId: string): string {
+  const index = store.blocks.findIndex((b) => b.id === blockId)
+  if (index === -1) return ''
+  const prev = store.blocks[index - 1]?.text ?? ''
+  const next = store.blocks[index + 1]?.text ?? ''
+  return [prev ? `Previous: ${prev}` : '', next ? `Next: ${next}` : ''].filter(Boolean).join('\n')
+}
+
 async function flushPendingEdit(): Promise<boolean> {
   if (editDebounceTimer) {
     clearTimeout(editDebounceTimer)
@@ -357,14 +397,39 @@ async function flushPendingEdit(): Promise<boolean> {
   }
   if (pendingEditBlockId && pendingEditText !== null) {
     const blockId = pendingEditBlockId
-    const text = pendingEditText
+    let textToSend = pendingEditText
     const decorator = pendingEditDecorator ?? undefined
     pendingEditBlockId = null
     pendingEditText = null
     pendingEditDecorator = null
+
+    // If edited in non-English mode, back-translate dirty block to English before saving to DB/WS
+    if (store.activeLanguage !== 'en' && store.isBlockDirty(blockId)) {
+      const currentBlock = store.blocks.find((b) => b.id === blockId)
+      if (currentBlock && isCodeOrCitation(currentBlock.decorator)) {
+        store.setCanonicalText(blockId, textToSend)
+        store.clearBlockDirty(blockId)
+      } else {
+        try {
+          const surroundingContext = getSurroundingContext(blockId)
+          const canonical = await backTranslateBlock(
+            textToSend,
+            store.activeLanguage,
+            'en',
+            surroundingContext,
+          )
+          store.setCanonicalText(blockId, canonical)
+          store.clearBlockDirty(blockId)
+          textToSend = canonical
+        } catch (err) {
+          console.error('Back-translation failed during save:', err)
+        }
+      }
+    }
+
     return await props.provider.sendEdit({
       blockId,
-      text,
+      text: textToSend,
       decorator,
     })
   }
@@ -414,16 +479,55 @@ function wireProvider(provider: EditorDataProvider) {
   }
 
   provider.onInit = (e) => {
+    store.initCanonicalBlocks(e.blocks)
     store.setBlocks(e.blocks)
+    if (store.activeLanguage !== 'en') {
+      const translatable = e.blocks.filter((b) => !isCodeOrCitation(b.decorator))
+      const payload = translatable.map((b) => ({ id: b.id, text: b.text }))
+      if (payload.length > 0) {
+        translateBlocks(payload, 'en', store.activeLanguage)
+          .then((res) => {
+            store.applyTranslations(res)
+          })
+          .catch((err) => console.error('Failed to translate initial blocks:', err))
+      }
+    }
   }
 
   provider.onCreated = (e) => {
     store.insertBlock(e.block, e.afterBlockId)
+    if (store.activeLanguage !== 'en' && !isCodeOrCitation(e.block.decorator)) {
+      translateBlocks([{ id: e.block.id, text: e.block.text }], 'en', store.activeLanguage)
+        .then((res) => {
+          if (res.length > 0) {
+            store.applyTranslations(res)
+          }
+        })
+        .catch((err) => console.error('Failed to translate newly created block:', err))
+    }
   }
 
   provider.onUpdated = (e) => {
     if (e.text !== undefined) {
-      store.updateBlockText(e.blockId, e.text)
+      store.setCanonicalText(e.blockId, e.text)
+      if (store.activeLanguage === 'en') {
+        store.updateBlockText(e.blockId, e.text)
+      } else {
+        // If local user is not actively editing this block, translate it to activeLanguage
+        if (store.activeBlockId !== e.blockId) {
+          const currentBlock = store.blocks.find((b) => b.id === e.blockId)
+          if (!currentBlock || !isCodeOrCitation(currentBlock.decorator)) {
+            translateBlocks([{ id: e.blockId, text: e.text }], 'en', store.activeLanguage)
+              .then((res) => {
+                const first = res[0]
+                if (first && store.activeLanguage !== 'en') {
+                  store.updateBlockText(e.blockId, first.text)
+                }
+              })
+              .catch((err) => console.error('Failed to translate updated block:', err))
+          }
+        }
+      }
     }
     if (e.decorator !== undefined) {
       store.updateBlockDecorator(e.blockId, e.decorator)
@@ -521,6 +625,86 @@ const onAdd = async (type: BlockType) => {
   resetLockTimeout(block.id)
 }
 
+function focusBlock(blockId: string, position: 'start' | 'end' = 'start') {
+  nextTick(() => {
+    const root = document.querySelector<HTMLElement>(`[data-block-id="${blockId}"]`)
+    const target = root?.querySelector<HTMLElement>('[contenteditable="true"]')
+    if (!target) return
+
+    target.focus()
+    const range = document.createRange()
+    range.selectNodeContents(target)
+    range.collapse(position === 'start')
+    const selection = window.getSelection()
+    selection?.removeAllRanges()
+    selection?.addRange(range)
+  })
+}
+
+const onInsertBlocks = async (block: Block, event: EditableInsertEvent) => {
+  if (store.isLockedByOther(block)) return
+
+  if (block.lockedBy !== store.clientId) {
+    const lockSuccess = await props.provider.sendBlockLock?.(block.id)
+    if (lockSuccess === false) return
+    store.lock(block.id)
+  }
+
+  // The split/paste payload is authoritative; drop any debounced edit.
+  if (pendingEditBlockId === block.id) {
+    if (editDebounceTimer) {
+      clearTimeout(editDebounceTimer)
+      editDebounceTimer = null
+    }
+    pendingEditBlockId = null
+    pendingEditText = null
+    pendingEditDecorator = null
+  }
+
+  store.updateBlockText(block.id, event.currentText)
+  await props.provider.sendEdit({
+    blockId: block.id,
+    text: event.currentText,
+    decorator: block.decorator,
+  })
+
+  clearLockTimers()
+  store.unlock(block.id)
+  await props.provider.sendBlockUnlock?.(block.id)
+
+  let afterBlockId: string = block.id
+  let firstCreated: Block | null = null
+
+  for (const spec of event.blocks) {
+    const newBlock = createBlock(spec.type, spec.text)
+    if (spec.type === 'li') {
+      newBlock.decorator = serializeDecorator({
+        ...defaultDecorator('li'),
+        ordered: Boolean(spec.ordered),
+      })
+    }
+
+    store.insertBlock(newBlock, afterBlockId)
+    await props.provider.sendBlockCreate({
+      block: newBlock,
+      afterBlockId,
+      type: spec.type,
+      text: newBlock.text,
+      decorator: newBlock.decorator,
+    })
+    afterBlockId = newBlock.id
+    if (!firstCreated) firstCreated = newBlock
+  }
+
+  if (!firstCreated) return
+
+  store.setActive(firstCreated.id)
+  store.lock(firstCreated.id)
+  await props.provider.sendBlockLock?.(firstCreated.id)
+  resetLockTimeout(firstCreated.id)
+  focusBlock(firstCreated.id, 'start')
+}
+
 const onDelete = async () => {
   const blockId = store.activeBlockId
   if (!blockId) return
@@ -553,19 +737,14 @@ const onUpdateText = async (block: Block, text: string) => {
   store.updateBlockText(block.id, text)
   resetLockTimeout(block.id)
   const wasStandard = isStandardText(oldText)
-  if (wasStandard && !isStandardText(text)) {
-    flushPendingEdit()
-    await props.provider.sendEdit({
-      blockId: block.id,
-      text,
-      decorator: block.decorator,
-    })
-    return
-  }
-
   pendingEditBlockId = block.id
   pendingEditText = text
   pendingEditDecorator = block.decorator
+
+  if (wasStandard && !isStandardText(text)) {
+    await flushPendingEdit()
+    return
+  }
 
   if (editDebounceTimer) {
     clearTimeout(editDebounceTimer)
@@ -592,23 +771,16 @@ const onUpdateDecorator = async (block: Block | null, newDecorator: BlockDecorat
 
   // Flush any pending text edit along with the new decorator
   if (pendingEditBlockId === block.id) {
-    if (editDebounceTimer) {
-      clearTimeout(editDebounceTimer)
-      editDebounceTimer = null
-    }
-    const textToSend = pendingEditText ?? block.text
-    pendingEditBlockId = null
-    pendingEditText = null
-    pendingEditDecorator = null
+    pendingEditDecorator = serialized
+    await flushPendingEdit()
+  } else {
+    const textToSend =
+      store.activeLanguage === 'en'
+        ? block.text
+        : store.getCanonicalText(block.id) || block.text
     await props.provider.sendEdit({
       blockId: block.id,
       text: textToSend,
-      decorator: serialized,
-    })
-  } else {
-    await props.provider.sendEdit({
-      blockId: block.id,
-      text: block.text,
       decorator: serialized,
     })
   }
@@ -652,70 +824,19 @@ const onBlur = async (block: Block) => {
     await props.provider.sendBlockUnlock?.(block.id)
   }
 }
+
+defineExpose({
+  onGeneratePdf
+})
+
 </script>
 
 <style lang="css" scoped>
-.pdf-content {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 14px 24px;
-  background-color: var(--bg-app);
-  word-spacing: 0.4em;
-}
-
-.editor {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  width: 100%;
-  margin: 0 auto;
-}
-
-.editor--nav-top {
-  flex-direction: column;
-}
-
-.editor--nav-left {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 16px;
-  align-items: start;
-}
-
-.editor--nav-bottom {
-  flex-direction: column;
-}
-
-.editor__content {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-  width: 100%;
-  padding: 16px 8px;
-  box-sizing: border-box;
-}
-
 /* Widen only the live editor; export clones retain the fixed PDF body width. */
 .editor__content
   :deep(
     .content-wrapper:not([data-vue-pdf-export-staging]):not([data-vue-pdf-export-text-snapshot])
   ) {
   width: 100% !important;
-}
-
-/* Expands naturally with site by default, or scrollable when scrollable prop is active */
-.editor__content--scrollable {
-  max-height: calc(100vh - 220px);
-  overflow-y: auto;
-  padding-right: 12px;
-}
-
-.editor__empty {
-  margin: 0;
-  padding: 32px 16px;
-  color: var(--text-muted);
-  font-style: italic;
-  text-align: center;
 }
 </style>
