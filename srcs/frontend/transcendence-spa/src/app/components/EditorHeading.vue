@@ -2,12 +2,15 @@
   <component
     :is="tag"
     :ref="setElement"
-    class="heading"
-    :class="{
-      'heading--editable': isEditable,
-      'heading--locked': locked,
-      'heading--empty': isEmpty,
-    }"
+    class="heading font-bold leading-[1.25] [margin:0_0_0.5em]"
+    :class="[
+      levelClass,
+      {
+        'heading--editable rounded outline-none': isEditable,
+        'heading--locked cursor-not-allowed opacity-70': locked,
+        'heading--empty': isEmpty,
+      },
+    ]"
     :style="style"
     :data-placeholder="placeholder"
     v-bind="attributes"
@@ -66,6 +69,18 @@ const tag = computed(() => `h${props.level}`)
 const isEditable = computed(() => props.editable && !props.locked)
 const isEmpty = computed(() => isEditable.value && props.text.length === 0)
 
+const levelClass = computed(
+  () =>
+    ({
+      1: 'text-[2rem]',
+      2: 'text-[1.6rem]',
+      3: 'text-[1.35rem]',
+      4: 'text-[1.15rem]',
+      5: 'text-[1rem]',
+      6: 'text-[0.875rem] uppercase tracking-[0.05em]',
+    })[props.level],
+)
+
 const { attributes, onInput, onFocus, onBlur, onKeydown, onPaste } = useEditable(
   element,
   () => props.text,
@@ -81,48 +96,10 @@ const style = computed(() => ({
 }))
 </script>
 
-<style lang="css" scoped>
-.heading {
-  margin: 0 0 0.5em;
-  font-weight: 700;
-  line-height: 1.25;
-  overflow-wrap: anywhere;
-}
-
-.heading--editable {
-  outline: none;
-  border-radius: 4px;
-}
-
+<style scoped>
 .heading--editable.heading--empty:not(:focus)::before {
   content: attr(data-placeholder);
   color: var(--text-muted);
   pointer-events: none;
-}
-
-.heading--locked {
-  opacity: 0.7;
-  cursor: not-allowed;
-}
-
-h1.heading {
-  font-size: 2rem;
-}
-h2.heading {
-  font-size: 1.6rem;
-}
-h3.heading {
-  font-size: 1.35rem;
-}
-h4.heading {
-  font-size: 1.15rem;
-}
-h5.heading {
-  font-size: 1rem;
-}
-h6.heading {
-  font-size: 0.875rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
 }
 </style>

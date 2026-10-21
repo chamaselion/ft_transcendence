@@ -74,16 +74,19 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="user-listing-view">
-    <div class="listing-header-options">
-      <p v-if="pagination">
+  <div class="mx-6 my-3 min-w-0 text-ink max-sm:mx-3">
+    <div
+      class="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-line-subtle bg-subtle p-4 text-sm max-sm:flex-col max-sm:items-stretch max-sm:p-3"
+    >
+      <p v-if="pagination" class="m-0 mr-auto leading-normal text-ink-secondary">
         Showing {{ rangeStart }}–{{ rangeEnd }} of {{ pagination.total }} users
       </p>
-      <div class="listing-filter">
-        <label for="limit">Users per page:</label>
+      <div class="flex flex-wrap items-center gap-2">
+        <label class="font-medium text-ink-secondary" for="limit">Users per page:</label>
         <select
           id="limit"
           v-model="limit"
+          class="min-h-[38px] cursor-pointer rounded-md border border-line bg-surface px-3 py-2 text-ink transition-[background-color,border-color] duration-200 [font:inherit] hover:enabled:border-brand hover:enabled:bg-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand max-sm:min-w-0 max-sm:flex-1"
           @change="fetchUsers(limit, 0)"
         >
           <option :value="10">10</option>
@@ -91,25 +94,28 @@ onMounted(async () => {
           <option :value="50">50</option>
         </select>
       </div>
-      <div class="listing-pagination">
+      <div class="flex flex-wrap items-center gap-2">
         <button
-          @click="fetchUsers(limit, currentPage())"
+          class="min-h-[38px] cursor-pointer rounded-md border border-line bg-surface px-3 py-2 font-medium text-ink transition-[background-color,border-color] duration-200 [font:inherit] hover:enabled:border-brand hover:enabled:bg-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:cursor-not-allowed disabled:opacity-50 max-sm:flex-1"
           :disabled="!hasNext"
+          @click="fetchUsers(limit, currentPage())"
         >
           Next Page
         </button>
         <button
-          @click="fetchUsers(limit, currentPage() - limit * 2)"
+          class="min-h-[38px] cursor-pointer rounded-md border border-line bg-surface px-3 py-2 font-medium text-ink transition-[background-color,border-color] duration-200 [font:inherit] hover:enabled:border-brand hover:enabled:bg-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:cursor-not-allowed disabled:opacity-50 max-sm:flex-1"
           :disabled="!hasPrevious"
+          @click="fetchUsers(limit, currentPage() - limit * 2)"
         >
           Previous Page
         </button>
       </div>
-      <div class="listing-filter">
-        <label for="sort">Sort by:</label>
+      <div class="flex flex-wrap items-center gap-2">
+        <label class="font-medium text-ink-secondary" for="sort">Sort by:</label>
         <select
           id="sort"
           v-model="sortOption"
+          class="min-h-[38px] cursor-pointer rounded-md border border-line bg-surface px-3 py-2 text-ink transition-[background-color,border-color] duration-200 [font:inherit] hover:enabled:border-brand hover:enabled:bg-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand max-sm:min-w-0 max-sm:flex-1"
           @change="fetchUsers(limit, 0)"
         >
           <option value="createdAt">Created At</option>
@@ -119,30 +125,58 @@ onMounted(async () => {
       </div>
     </div>
 
-    <div class="listing-table-wrapper">
-      <table>
+    <div class="overflow-x-auto rounded-xl border border-line-subtle bg-surface">
+      <table class="w-full min-w-[600px] border-collapse text-sm leading-normal">
         <thead>
           <tr>
-            <th scope="col">User ID</th>
-            <th scope="col">Username</th>
-            <th scope="col">Email</th>
-            <th scope="col">Role</th>
+            <th
+              scope="col"
+              class="border-b border-line-subtle bg-subtle px-4 py-3.5 text-left font-semibold whitespace-nowrap text-ink-secondary [overflow-wrap:anywhere]"
+            >
+              User ID
+            </th>
+            <th
+              scope="col"
+              class="border-b border-line-subtle bg-subtle px-4 py-3.5 text-left font-semibold whitespace-nowrap text-ink-secondary [overflow-wrap:anywhere]"
+            >
+              Username
+            </th>
+            <th
+              scope="col"
+              class="border-b border-line-subtle bg-subtle px-4 py-3.5 text-left font-semibold whitespace-nowrap text-ink-secondary [overflow-wrap:anywhere]"
+            >
+              Email
+            </th>
+            <th
+              scope="col"
+              class="border-b border-line-subtle bg-subtle px-4 py-3.5 text-left font-semibold whitespace-nowrap text-ink-secondary [overflow-wrap:anywhere]"
+            >
+              Role
+            </th>
           </tr>
         </thead>
-        <tbody>
+        <tbody class="[&>tr:last-child>td]:border-0">
           <tr
             v-for="user in users"
             :key="user.id"
-            class="user-listing"
+            class="cursor-pointer transition-colors duration-200 hover:bg-subtle"
             @click="openModal(user)"
           >
-            <td>{{ user.id }}</td>
-            <td>{{ user.login }}</td>
-            <td>{{ user.email }}</td>
-            <td>
+            <td class="border-b border-line-subtle px-4 py-3.5 text-left [overflow-wrap:anywhere]">
+              {{ user.id }}
+            </td>
+            <td class="border-b border-line-subtle px-4 py-3.5 text-left [overflow-wrap:anywhere]">
+              {{ user.login }}
+            </td>
+            <td class="border-b border-line-subtle px-4 py-3.5 text-left [overflow-wrap:anywhere]">
+              {{ user.email }}
+            </td>
+            <td class="border-b border-line-subtle px-4 py-3.5 text-left [overflow-wrap:anywhere]">
               <span
-                class="user-role"
-                :class="`user-role-${user.role}`"
+                class="inline-block rounded-full px-2.5 py-[3px] text-xs font-semibold capitalize"
+                :class="
+                  user.role === 'admin' ? 'bg-danger/12 text-danger' : 'bg-brand/12 text-brand'
+                "
                 >{{ user.role }}</span
               >
             </td>
@@ -159,168 +193,3 @@ onMounted(async () => {
     @close="closeModal"
   />
 </template>
-
-<style scoped>
-.user-listing-view {
-  min-width: 0;
-  margin: 12px 24px;
-  color: var(--text-primary);
-}
-
-.listing-header-options {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
-  padding: 16px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 12px;
-  background-color: var(--bg-subtle);
-  font-size: 14px;
-}
-
-.listing-header-options p {
-  margin: 0 auto 0 0;
-  color: var(--text-secondary);
-  line-height: 1.5;
-}
-
-.listing-filter,
-.listing-pagination {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
-.listing-filter label {
-  color: var(--text-secondary);
-  font-weight: 500;
-}
-
-.listing-header-options select,
-.listing-header-options button {
-  min-height: 38px;
-  padding: 8px 12px;
-  border: 1px solid var(--border-default);
-  border-radius: 6px;
-  background-color: var(--bg-surface);
-  color: var(--text-primary);
-  font: inherit;
-  cursor: pointer;
-  transition:
-    background-color 0.2s,
-    border-color 0.2s;
-}
-
-.listing-header-options button {
-  font-weight: 500;
-}
-
-.listing-header-options select:hover,
-.listing-header-options button:hover:not(:disabled) {
-  border-color: var(--color-primary);
-  background-color: var(--bg-subtle);
-}
-
-.listing-header-options select:focus-visible,
-.listing-header-options button:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
-}
-
-.listing-header-options button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.listing-table-wrapper {
-  overflow-x: auto;
-  border: 1px solid var(--border-subtle);
-  border-radius: 12px;
-  background-color: var(--bg-surface);
-}
-
-table {
-  width: 100%;
-  min-width: 600px;
-  border-collapse: collapse;
-  font-size: 14px;
-  line-height: 1.5;
-}
-
-th,
-td {
-  padding: 14px 16px;
-  text-align: left;
-  overflow-wrap: anywhere;
-}
-
-th {
-  border-bottom: 1px solid var(--border-subtle);
-  background-color: var(--bg-subtle);
-  color: var(--text-secondary);
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-td {
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-tbody tr:last-child td {
-  border-bottom: none;
-}
-
-.user-listing {
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.user-listing:hover {
-  background-color: var(--bg-subtle);
-}
-
-.user-role {
-  display: inline-block;
-  padding: 3px 10px;
-  border-radius: 999px;
-  background-color: var(--bg-subtle);
-  color: var(--text-secondary);
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: capitalize;
-}
-
-.user-role-admin {
-  background-color: color-mix(in srgb, var(--color-alert) 12%, transparent);
-  color: var(--color-alert);
-}
-
-.user-role-user {
-  background-color: color-mix(in srgb, var(--color-primary) 12%, transparent);
-  color: var(--color-primary);
-}
-
-@media (max-width: 640px) {
-  .user-listing-view {
-    margin: 12px;
-  }
-
-  .listing-header-options {
-    align-items: stretch;
-    flex-direction: column;
-    padding: 12px;
-  }
-
-  .listing-filter select {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .listing-pagination button {
-    flex: 1;
-  }
-}
-</style>

@@ -179,9 +179,14 @@ const createOAuth2Handler = ({ logger = console } = {}) => {
   const exchange = async (req, res) => {
     try {
       const provider = normalizeProvider(req.params?.provider);
-      const { code, state, error } = req.body || {};
+      const body = req.body && typeof req.body === 'object' ? req.body : null;
+      const { code, state, error } = body || {};
 
       if (!provider || !supportedProviders.includes(provider)) {
+        return res.status(400).json({ error: 'Authentication failed' });
+      }
+
+      if (typeof code !== 'string' || typeof state !== 'string') {
         return res.status(400).json({ error: 'Authentication failed' });
       }
 
@@ -352,19 +357,6 @@ const createOAuth2Handler = ({ logger = console } = {}) => {
     }
   };
 
-  const finalizeAuth = async ({
-    provider,
-    providerUser,
-    localUser,
-    sessionToken,
-  } = {}) => ({
-    provider: normalizeProvider(provider),
-    providerUser: providerUser || null,
-    localUser: localUser || null,
-    sessionToken: sessionToken || null,
-    status: 'complete',
-  });
-
   return {
     startAuthorization,
     exchange,
@@ -373,7 +365,6 @@ const createOAuth2Handler = ({ logger = console } = {}) => {
     normalizeProviderProfile,
     exchangeCodeForToken,
     fetchProviderProfile,
-    finalizeAuth,
   };
 };
 

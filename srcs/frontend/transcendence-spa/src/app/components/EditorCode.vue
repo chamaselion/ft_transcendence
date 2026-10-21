@@ -1,9 +1,11 @@
 <template>
-  <figure class="code" :style="style">
-    <figcaption class="code__header">
+  <figure class="code m-0 overflow-hidden rounded-lg" :style="style">
+    <figcaption
+      class="code__header flex items-center justify-between border-b border-white/12 px-3.5 py-2 text-[0.75rem] tracking-[0.04em] uppercase opacity-75"
+    >
       <select
         v-if="isEditable"
-        class="code__language-select"
+        class="code__language-select cursor-pointer rounded border border-white/20 bg-white/[0.08] px-1.5 py-0.5 text-[0.75rem] text-[#e2e8f0] tracking-[0.04em] uppercase outline-none transition-colors duration-150 [font-family:inherit] focus:border-brand [&_option]:bg-[#0b0f19] [&_option]:text-[#e2e8f0]"
         :value="language"
         @change="onLanguageChange"
       >
@@ -12,15 +14,15 @@
         </option>
       </select>
       <span v-else class="code__language">{{ language }}</span>
-      <span v-if="isEditable" class="code__export-language">{{ language }}</span>
+      <span v-if="isEditable" class="code__export-language hidden">{{ language }}</span>
       <slot name="header" />
     </figcaption>
-    <pre class="code__pre"><code
+    <pre class="code__pre m-0 overflow-x-auto p-3.5"><code
       ref="element"
-      class="code__content"
+      class="code__content whitespace-pre-wrap outline-none [font:inherit] [overflow-wrap:anywhere]"
       :class="{
         'code__content--editable': isEditable,
-        'code__content--locked': locked,
+        'code__content--locked cursor-not-allowed opacity-70': locked,
         'code__content--empty': isEmpty,
       }"
       :data-placeholder="placeholder"
@@ -116,76 +118,10 @@ const style = computed(() => ({
 }))
 </script>
 
-<style lang="css" scoped>
-.code__export-language {
-  display: none;
-}
-
-.code {
-  margin: 0;
-  border-radius: 8px;
-  overflow-wrap: anywhere;
-  overflow: hidden;
-}
-
-.code__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 14px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
-  font-size: 0.75rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  opacity: 0.75;
-}
-
-.code__language-select {
-  background: rgba(255, 255, 255, 0.08);
-  color: #e2e8f0;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 4px;
-  padding: 2px 6px;
-  font-size: 0.75rem;
-  font-family: inherit;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  cursor: pointer;
-  outline: none;
-  transition: border-color 0.15s ease;
-}
-
-.code__language-select:focus {
-  border-color: var(--color-primary, #3b82f6);
-}
-
-.code__language-select option {
-  background-color: #0b0f19;
-  color: #e2e8f0;
-}
-
-.code__pre {
-  margin: 0;
-  padding: 14px;
-  overflow-x: auto;
-}
-
-.code__content {
-  font-family: inherit;
-  font-size: inherit;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  outline: none;
-}
-
+<style scoped>
 .code__content--editable.code__content--empty:not(:focus)::before {
   content: attr(data-placeholder);
   opacity: 0.5;
   pointer-events: none;
-}
-
-.code__content--locked {
-  opacity: 0.7;
-  cursor: not-allowed;
 }
 </style>

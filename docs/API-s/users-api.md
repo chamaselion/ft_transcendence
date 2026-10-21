@@ -121,8 +121,9 @@ email already in use.
 - Path: `/:id`
 
 Deleting a user also removes everything attached to them: their auth sessions
-and documents (FK cascade), their GDPR export quota and GDPR audit events, and
-their entries in the in-memory session cache. This mirrors what the
+and documents, their document-share rows, linked OAuth provider accounts,
+pending OAuth intents, one-time challenge rows, GDPR export quota and GDPR
+audit events, and their entries in the in-memory session cache. This mirrors what the
 [GDPR self-service deletion](gdpr-api.md) flow does, so no orphaned rows about
 a deleted user are left behind.
 

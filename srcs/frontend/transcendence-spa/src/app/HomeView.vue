@@ -14,150 +14,45 @@ function openCookieBanner() {
 </script>
 
 <template>
-  <main class="home-view">
-    <!-- Logged in: show DocumentDirectory -->
+  <main class="box-border flex min-h-[calc(100vh_-_61px)] w-full flex-col px-6 py-10">
     <template v-if="authStore.isAuthenticated">
       <DocumentDirectory />
     </template>
 
-    <!-- Logged out: Welcome hero -->
     <template v-else>
-      <section class="home-hero">
-        <div class="home-hero__badge">
+      <section
+        class="mx-auto mt-[60px] flex max-w-[640px] flex-col items-center rounded-2xl border border-line-subtle bg-surface px-8 py-12 text-center shadow-card"
+      >
+        <div
+          class="mb-5 inline-flex items-center gap-1.5 rounded-full bg-brand/12 px-3 py-1 text-[0.8rem] font-semibold text-brand"
+        >
           <Icon name="Sparkles" :size="16" />
           <span>New</span>
         </div>
-        <h1 class="home-hero__title">Welcome to Trans Edit</h1>
-        <p class="home-hero__subtitle">
+        <h1 class="m-0 mb-3 text-[2.4rem] leading-tight font-bold text-ink">
+          Welcome to Trans Edit
+        </h1>
+        <p class="m-0 mb-8 text-[1.1rem] leading-relaxed text-ink-secondary">
           A collaborative document editor built for teams. Create, edit, and share documents in
           real-time with your team members.
         </p>
-        <div class="home-hero__actions">
+        <div class="flex flex-wrap items-center justify-center gap-4">
           <Button @click="router.push('/register')">Register</Button>
           <Button @click="router.push('/login')">Login</Button>
         </div>
       </section>
     </template>
 
-    <footer class="home-footer">
-      <span class="home-footer__text">Trans Edit © 2026 · EU GDPR &amp; ePrivacy Compliant</span>
-      <button class="home-footer__btn" @click="openCookieBanner">
+    <footer
+      class="mt-auto flex w-full flex-wrap items-center justify-between gap-4 border-t border-line-subtle pt-6 text-[0.8125rem] text-muted"
+    >
+      <span>Trans Edit © 2026 · EU GDPR &amp; ePrivacy Compliant</span>
+      <button
+        class="ml-auto cursor-pointer border-0 bg-transparent p-0 text-[0.8125rem] font-medium text-brand underline underline-offset-[3px] transition-opacity duration-150 hover:opacity-80"
+        @click="openCookieBanner"
+      >
         Cookie Policy &amp; Preferences
       </button>
     </footer>
   </main>
 </template>
-
-<style scoped>
-.home-view {
-  box-sizing: border-box;
-  width: 100%;
-  min-height: calc(100vh - 61px);
-  padding: 40px 24px;
-}
-
-.home-view__loading {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 300px;
-}
-
-.home-view__spinner {
-  width: 32px;
-  height: 32px;
-  border: 3px solid var(--border-default);
-  border-top-color: var(--color-primary);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.home-hero {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  max-width: 640px;
-  margin: 60px auto 0;
-  padding: 48px 32px;
-  border-radius: 16px;
-  background-color: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
-  box-shadow: var(--shadow-md);
-}
-
-.home-hero__badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 12px;
-  border-radius: 9999px;
-  background-color: color-mix(in srgb, var(--color-primary) 12%, transparent);
-  color: var(--color-primary);
-  font-size: 0.8rem;
-  font-weight: 600;
-  margin-bottom: 20px;
-}
-
-.home-hero__title {
-  margin: 0 0 12px;
-  font-size: 2.4rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  line-height: 1.2;
-}
-
-.home-hero__subtitle {
-  margin: 0 0 32px;
-  font-size: 1.1rem;
-  color: var(--text-secondary);
-  line-height: 1.6;
-}
-
-.home-hero__actions {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-
-.home-footer {
-  margin-top: 48px;
-  padding-top: 24px;
-  border-top: 1px solid var(--border-subtle);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-  font-size: 0.8125rem;
-  color: var(--text-muted);
-}
-
-.home-footer__btn {
-  background: none;
-  border: none;
-  padding: 0;
-  color: var(--color-primary);
-  font-size: 0.8125rem;
-  font-weight: 500;
-  cursor: pointer;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  transition: opacity 0.15s ease;
-}
-
-.home-footer__btn:hover {
-  opacity: 0.8;
-}
-</style>

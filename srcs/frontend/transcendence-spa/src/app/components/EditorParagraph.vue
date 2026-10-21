@@ -1,10 +1,10 @@
 <template>
   <p
     ref="element"
-    class="paragraph"
+    class="paragraph leading-relaxed [margin:0_0_1em]"
     :class="{
-      'paragraph--editable': isEditable,
-      'paragraph--locked': locked,
+      'paragraph--editable rounded outline-none': isEditable,
+      'paragraph--locked cursor-not-allowed opacity-70': locked,
       'paragraph--empty': isEmpty,
     }"
     :style="style"
@@ -77,25 +77,10 @@ const style = computed(() => ({
 }))
 </script>
 
-<style lang="css" scoped>
-.paragraph {
-  margin: 0 0 1em;
-  line-height: 1.6;
-}
-
-.paragraph--editable {
-  outline: none;
-  border-radius: 4px;
-}
-
+<style scoped>
 .paragraph--editable.paragraph--empty:not(:focus)::before {
   content: attr(data-placeholder);
   color: var(--text-muted);
   pointer-events: none;
-}
-
-.paragraph--locked {
-  opacity: 0.7;
-  cursor: not-allowed;
 }
 </style>

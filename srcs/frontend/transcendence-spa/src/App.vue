@@ -9,12 +9,3 @@ import CookieBanner from '@/app/components/CookieBanner.vue'
   <RouterView />
   <CookieBanner />
 </template>
-
-<style scoped>
-html, body {
-  margin: 0;
-  padding: 0;
-  height: 100%;
-  overflow: hidden; /* Disables window-level scrolling */
-}
-</style>

@@ -57,24 +57,6 @@ const getProviderConfig = (provider) => {
   return config;
 };
 
-const buildOAuthState = ({
-  provider,
-  redirectUri = null,
-  next = '/',
-  nonce = null,
-  mode = 'login',
-  linkUserId = null,
-} = {}) => ({
-  provider: normalizeProvider(provider),
-  redirectUri,
-  next,
-  nonce,
-  mode,
-  linkUserId,
-  issuedAt: new Date().toISOString(),
-  status: 'ready',
-});
-
 const decodeOAuthState = (rawState) => {
   if (!rawState) {
     return {};
@@ -193,7 +175,6 @@ module.exports = {
   normalizeOAuthRedirectTarget,
   normalizeOAuthNonce,
   getProviderConfig,
-  buildOAuthState,
   decodeOAuthState,
   encodeOAuthStatePayload,
   decodeOAuthStatePayload,

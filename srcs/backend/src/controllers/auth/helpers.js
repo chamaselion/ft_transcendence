@@ -146,6 +146,16 @@ const clearAuthCookie = (res) => {
   res.clearCookie('token', CLEAR_COOKIE_OPTIONS);
 };
 
+const clearSessionCacheForUser = (userId) => {
+  if (!userId) return;
+
+  for (const [token, session] of sessionCache.entries()) {
+    if (String(session.userId) === String(userId)) {
+      sessionCache.delete(token);
+    }
+  }
+};
+
 const getTokenFromCookie = (req) => {
   const rawCookie = req.headers.cookie || '';
   const tokenCookie = rawCookie.split(';').map((part) => part.trim()).find((part) => part.startsWith('token='));
@@ -213,15 +223,107 @@ const purgeSessionsForUser = async (userId) => {
 
   await hydrateSessionCacheFromDb();
 
-  for (const [token, session] of sessionCache.entries()) {
-    if (String(session.userId) === String(userId)) {
-      sessionCache.delete(token);
-    }
-  }
+  clearSessionCacheForUser(userId);
 
   await authSessionModel.destroy({
     where: { userId },
   });
+};
+
+const purgeUserData = async (userId, { userModel = sequelize.models.user } = {}) => {
+  if (!userId) return null;
+
+  const {
+    authSession,
+    userOauthAccount,
+    oauthStateIntent,
+    oneTimeChallenge,
+    gdprExportQuota,
+    gdprAuditEvent,
+    document,
+    documentShare,
+  } = sequelize.models;
+
+  const deletedRecords = {
+    user: 0,
+    authSessions: 0,
+    gdprExportQuota: 0,
+    gdprAuditEvents: 0,
+    userOauthAccounts: 0,
+    oauthStateIntents: 0,
+    oneTimeChallenges: 0,
+    documentShares: 0,
+    documents: 0,
+  };
+
+  await sequelize.transaction(async (dbTransaction) => {
+    if (userOauthAccount) {
+      deletedRecords.userOauthAccounts = await userOauthAccount.destroy({
+        where: { userId },
+        transaction: dbTransaction,
+      });
+    }
+
+    if (oauthStateIntent) {
+      deletedRecords.oauthStateIntents = await oauthStateIntent.destroy({
+        where: { userId },
+        transaction: dbTransaction,
+      });
+    }
+
+    if (oneTimeChallenge) {
+      deletedRecords.oneTimeChallenges = await oneTimeChallenge.destroy({
+        where: { userId },
+        transaction: dbTransaction,
+      });
+    }
+
+    if (gdprExportQuota) {
+      deletedRecords.gdprExportQuota = await gdprExportQuota.destroy({
+        where: { userId },
+        transaction: dbTransaction,
+      });
+    }
+
+    if (gdprAuditEvent) {
+      deletedRecords.gdprAuditEvents = await gdprAuditEvent.destroy({
+        where: { userId },
+        transaction: dbTransaction,
+      });
+    }
+
+    if (documentShare) {
+      deletedRecords.documentShares = await documentShare.destroy({
+        where: { userId },
+        transaction: dbTransaction,
+      });
+    }
+
+    if (document) {
+      deletedRecords.documents = await document.destroy({
+        where: { ownerId: userId },
+        transaction: dbTransaction,
+      });
+    }
+
+    if (authSession) {
+      deletedRecords.authSessions = await authSession.destroy({
+        where: { userId },
+        transaction: dbTransaction,
+      });
+    }
+
+    if (userModel) {
+      deletedRecords.user = await userModel.destroy({
+        where: { id: userId },
+        transaction: dbTransaction,
+      });
+    }
+  });
+
+  clearSessionCacheForUser(userId);
+
+  return deletedRecords;
 };
 
 const removeSessionByToken = async (token) => {
@@ -336,6 +438,7 @@ module.exports = {
   isSessionActive,
   listActiveSessionsForUser,
   purgeExpiredSessions,
+  purgeUserData,
   purgeSessionsForUser,
   removeSessionByToken,
   setAuthCookie,

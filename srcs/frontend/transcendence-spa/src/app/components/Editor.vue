@@ -1,9 +1,5 @@
 <template>
-  <div
-    class="editor"
-    :class="[`editor--nav-${navPosition}`]"
-  >
-    <!-- Nav toolbar (can be positioned on top, left or bottom) -->
+  <div class="editor w-full [margin:0_auto]" :class="layoutClass">
     <EditorNav
       v-if="navPosition !== 'bottom'"
       :active-block-id="store.activeBlockId"
@@ -15,10 +11,11 @@
       @update:decorator="onUpdateDecorator(store.activeBlock, $event)"
     />
 
-    <!-- Editor content: expands with the page by default, or scrollable if scrollable prop is true -->
     <div
-      class="editor__content"
-      :class="{ 'editor__content--scrollable': scrollable }"
+      class="editor__content box-border flex w-full min-w-0 flex-col gap-1 px-2 py-4"
+      :class="{
+        'editor__content--scrollable max-h-[calc(100vh_-_220px)] overflow-y-auto pr-3': scrollable,
+      }"
     >
       <Html2Pdf
         ref="pdfRef"
@@ -34,7 +31,7 @@
         :paginate-elements-by-height="usablePageHeightPx"
       >
         <template #pdf-content>
-          <div class="pdf-content">
+          <div class="pdf-content box-border w-full bg-app px-6 py-3.5 [word-spacing:0.4em]">
             <EditorBlock
               v-for="block in store.blocks"
               :key="block.id"
@@ -54,13 +51,12 @@
       </Html2Pdf>
       <p
         v-if="store.blocks.length === 0"
-        class="editor__empty"
+        class="editor__empty m-0 px-4 py-8 text-center text-muted italic"
       >
         This document is empty. Add a block from the toolbar.
       </p>
     </div>
 
-    <!-- Bottom Nav toolbar if navPosition is bottom -->
     <EditorNav
       v-if="navPosition === 'bottom'"
       :active-block-id="store.activeBlockId"
@@ -352,6 +348,12 @@ const props = withDefaults(
     scrollable: false,
     navPosition: 'top',
   },
+)
+
+const layoutClass = computed(() =>
+  props.navPosition === 'left'
+    ? 'grid grid-cols-[auto_minmax(0,1fr)] items-start gap-4'
+    : 'flex flex-col items-stretch',
 )
 
 const emit = defineEmits<{
@@ -830,67 +832,11 @@ defineExpose({
 </script>
 
 <style lang="css" scoped>
-.pdf-content {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 14px 24px;
-  background-color: var(--bg-app);
-  word-spacing: 0.4em;
-}
-
-.editor {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  width: 100%;
-  margin: 0 auto;
-}
-
-.editor--nav-top {
-  flex-direction: column;
-}
-
-.editor--nav-left {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 16px;
-  align-items: start;
-}
-
-.editor--nav-bottom {
-  flex-direction: column;
-}
-
-.editor__content {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-  width: 100%;
-  padding: 16px 8px;
-  box-sizing: border-box;
-}
-
 /* Widen only the live editor; export clones retain the fixed PDF body width. */
 .editor__content
   :deep(
     .content-wrapper:not([data-vue-pdf-export-staging]):not([data-vue-pdf-export-text-snapshot])
   ) {
   width: 100% !important;
-}
-
-/* Expands naturally with site by default, or scrollable when scrollable prop is active */
-.editor__content--scrollable {
-  max-height: calc(100vh - 220px);
-  overflow-y: auto;
-  padding-right: 12px;
-}
-
-.editor__empty {
-  margin: 0;
-  padding: 32px 16px;
-  color: var(--text-muted);
-  font-style: italic;
-  text-align: center;
 }
 </style>

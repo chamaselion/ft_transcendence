@@ -1,5 +1,4 @@
 services:
-
   nginx:
     build: srcs/nginx
     ports:
@@ -10,6 +9,7 @@ services:
       - ./srcs/frontend:/usr/share/nginx/html:ro
     depends_on:
       - backend
+      - obj-storage
 
   # Placeholder until the real SPA exists. Keeps the service wired into
   # the stack (idles via the Dockerfile keep-alive CMD). nginx still serves
@@ -38,6 +38,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      obj-storage-init:
+        condition: service_completed_successfully
 
   db:
     image: postgres:16-alpine
@@ -53,6 +55,53 @@ services:
       timeout: 5s
       retries: 5
 
+  obj-storage-init:
+    image: rustfs/rc
+    depends_on:
+      obj-storage:
+        condition: service_started
+    environment:
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY}
+      S3_BUCKET: ${S3_BUCKET}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -eu
+
+        rc alias set storage http://obj-storage:9000 \
+          "$$S3_ACCESS_KEY" "$$S3_SECRET_KEY"
+
+        attempt=1
+        # Abvoid race between obj-storage initialization and bucket creation
+        until rc bucket create --ignore-existing "storage/$$S3_BUCKET"; do
+          if [ "$$attempt" -ge 30 ]; then
+            printf '%s\n' "Storage initialization failed after 30 attempts." >&2
+            exit 1
+          fi
+
+          printf 'Storage not ready; retrying (%s/30)...\n' "$$attempt"
+          attempt=$$((attempt + 1))
+          sleep 2
+        done
+    restart: "no"
+
+  obj-storage:
+    image: rustfs/rustfs:1.0.2
+    env_file:
+      - .env
+    volumes:
+      - obj-storage:/data
+    environment:
+      - RUSTFS_ADDRESS=0.0.0.0:9000
+      - RUSTFS_CONSOLE_ADDRESS=0.0.0.0:9001
+      - RUSTFS_CONSOLE_ENABLE=true
+      - RUSTFS_OBS_LOGGER_LEVEL=error
+      - RUSTFS_ACCESS_KEY=${S3_ACCESS_KEY}
+      - RUSTFS_SECRET_KEY=${S3_SECRET_KEY}
+    command: ["/data"]
+
 volumes:
   postgres-data:
   frontend_modules:
+  obj-storage:
