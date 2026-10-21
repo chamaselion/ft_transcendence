@@ -9,5 +9,3 @@ import CookieBanner from '@/app/components/CookieBanner.vue'
   <RouterView />
   <CookieBanner />
 </template>
-
-<style scoped></style>

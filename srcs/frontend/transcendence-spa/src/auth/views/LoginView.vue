@@ -1,49 +1,41 @@
 <script setup lang="ts">
-  import { computed } from 'vue'
-  import Login from '@/auth/components/Login.vue'
-  import { useRoute } from 'vue-router'
-  import { useAuthStore } from '@/stores/auth'
-  import Toast from '@/app/components/Toast.vue'
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
+import Login from '@/auth/components/Login.vue'
+import { useAuthStore } from '@/stores/auth'
+import Toast from '@/app/components/Toast.vue'
 
-  const route = useRoute()
+const route = useRoute()
+const authStore = useAuthStore()
 
-  const authStore = useAuthStore()
+const email = computed(() => {
+  const value = route.query.email
+  const first = Array.isArray(value) ? value[0] : value
 
-  const email = computed(() => {
-    const value = route.query.email
-    const first = Array.isArray(value) ? value[0] : value
+  return typeof first === 'string' ? first : undefined
+})
 
-    return typeof first === 'string' ? first : undefined
-  })
+const isRegisterRedirect = computed(() => {
+  const value = route.query.redirect
+  const first = Array.isArray(value) ? value[0] : value
 
-  const isRegisterRedirect = computed(() => {
-    const value = route.query.redirect
-    const first = Array.isArray(value) ? value[0] : value
-
-    return first === 'true'
-  })
+  return first === 'true'
+})
 </script>
 
 <template>
-
-  <div class="login-parent">
-    <Login  :email="email" v-if="authStore.isAuthenticated === false"
-            :isRegisterRedirect="isRegisterRedirect"/>
-    <Toast :modelValue="authStore.isAuthenticated === true"
-           type="good"
-           message="You are already logged in." />
+  <div
+    class="box-border flex min-h-[calc(100vh_-_61px)] flex-col items-center justify-center px-6 py-10"
+  >
+    <Login
+      v-if="authStore.isAuthenticated === false"
+      :email="email"
+      :is-register-redirect="isRegisterRedirect"
+    />
+    <Toast
+      :model-value="authStore.isAuthenticated === true"
+      type="good"
+      message="You are already logged in."
+    />
   </div>
-
 </template>
-
-<style scoped>
-  .login-parent {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    box-sizing: border-box;
-    min-height: calc(100vh - 61px);
-    padding: 40px 24px;
-  }
-</style>
