@@ -1,6 +1,6 @@
 const { getAiConfig } = require('../../config');
 const { resolveProvider } = require('./providers');
-const { stripTags } = require('../../controllers/documents/sanitize');
+const { unescapeHtml } = require('../../controllers/documents/sanitize');
 
 const PERSONA_CATEGORIES = Object.freeze({
   STRUCTURAL: 'Structural & Analytical Personas',
@@ -148,7 +148,7 @@ class ElaborationService {
       cleaned = cleaned.slice(1, -1).trim();
     }
 
-    return stripTags(cleaned);
+    return unescapeHtml(cleaned);
   }
 }
 
