@@ -39,16 +39,16 @@ const tabClass = (scope: DocumentScope) => [
           type="text"
           :maxlength="SEARCH_QUERY_MAX_LENGTH"
           class="w-full rounded-lg border border-line bg-surface py-2 pr-[34px] pl-9 text-[0.9rem] text-ink transition-[border-color,box-shadow] outline-none placeholder:text-muted focus:border-brand focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-primary)_20%,transparent)]"
-          placeholder="Search title and content..."
-          aria-label="Search documents by title and content"
+          :placeholder="$t('documents.searchPlaceholder')"
+          :aria-label="$t('documents.searchAria')"
           @input="onInput"
         />
         <button
           v-if="props.searchQuery"
           type="button"
           class="absolute right-2 flex h-[22px] w-[22px] cursor-pointer items-center justify-center rounded-full border-none bg-transparent p-0 text-lg leading-none text-muted hover:bg-subtle hover:text-ink"
-          title="Clear search"
-          aria-label="Clear search"
+          :title="$t('documents.clearSearch')"
+          :aria-label="$t('documents.clearSearch')"
           @click="emit('clear')"
         >
           ×
@@ -59,20 +59,20 @@ const tabClass = (scope: DocumentScope) => [
 
     <div class="flex items-center gap-1 rounded-lg bg-subtle p-1">
       <button type="button" :class="tabClass('all')" @click="emit('update:scope', 'all')">
-        All
+        {{ $t('documents.filterAll') }}
       </button>
       <button type="button" :class="tabClass('own')" @click="emit('update:scope', 'own')">
-        Owned
+        {{ $t('documents.filterOwned') }}
       </button>
       <button type="button" :class="tabClass('shared')" @click="emit('update:scope', 'shared')">
-        Shared
+        {{ $t('documents.filterShared') }}
       </button>
 
       <button
         type="button"
         class="ml-1 inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md border-none bg-transparent p-0 text-ink-secondary transition-[background-color,color] duration-150 hover:bg-surface hover:text-ink"
-        title="Refresh documents"
-        aria-label="Refresh documents"
+        :title="$t('documents.refresh')"
+        :aria-label="$t('documents.refresh')"
         :disabled="props.loading"
         @click="emit('refresh')"
       >

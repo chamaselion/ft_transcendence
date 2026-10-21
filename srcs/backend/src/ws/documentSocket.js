@@ -374,7 +374,7 @@ const attachDocumentSocket = (
         return sendError(ws, 'content must be a string');
       }
       if (!validateContentLength(msg.content)) {
-        return sendError(ws, `block text must be at most ${EDITOR_BLOCK_MAX_LENGTH} characters`);
+        return sendError(ws, `content blocks must be objects with string text of at most ${EDITOR_BLOCK_MAX_LENGTH} characters`);
       }
 
       return withDocumentWriteLock(ws.documentId, async () => {

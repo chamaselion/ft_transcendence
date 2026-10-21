@@ -4,7 +4,7 @@ import UserManaging from '@/admin/components/UserManagingList.vue'
 
 <template>
   <div class="admin-view">
-    <h1>Admin View</h1>
+    <h1>{{ $t('admin.title') }}</h1>
     <UserManaging />
   </div>
 </template>

@@ -55,7 +55,7 @@
         v-if="store.blocks.length === 0"
         class="editor__empty m-0 px-4 py-8 text-center text-muted italic"
       >
-        This document is empty. Add a block from the toolbar.
+        {{ $t('editor.emptyDocument') }}
       </p>
     </div>
 
@@ -74,11 +74,16 @@
 
 <script lang="ts" setup>
 import { computed, onBeforeUnmount, ref, onMounted, watch, nextTick } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { onBeforeRouteLeave } from 'vue-router'
 import EditorBlock from '@/app/components/EditorBlock.vue'
 import EditorNav from '@/app/components/EditorNav.vue'
 import { useEditorStore } from '@/stores/editor'
-import { translateBlocks, backTranslateBlock } from '@/app/editor/translation.api'
+import {
+  translateBlocks,
+  backTranslateBlock,
+  type SupportedLanguage,
+} from '@/app/editor/translation.api'
 import { isStandardText, type EditableInsertEvent } from '@/app/editor/useEditable'
 import {
   createBlock,
@@ -363,6 +368,48 @@ const emit = defineEmits<{
 }>()
 
 const store = useEditorStore()
+const { t, locale } = useI18n()
+
+function isSupportedLanguage(value: string): value is SupportedLanguage {
+  return value === 'en' || value === 'de' || value === 'hu'
+}
+
+let translationRequestId = 0
+
+async function translateDocumentTo(targetLang: string) {
+  if (!isSupportedLanguage(targetLang)) return
+  if (targetLang === 'en') {
+    translationRequestId++
+    store.isTranslating = false
+    store.setLanguage('en')
+    return
+  }
+  if (targetLang === store.activeLanguage) return
+
+  const requestId = ++translationRequestId
+  store.isTranslating = true
+  store.translationError = null
+  try {
+    const payload = store.blocks
+      .filter((block) => !isCodeOrCitation(block.decorator))
+      .map((block) => ({
+        id: block.id,
+        text: store.getCanonicalText(block.id) || block.text,
+      }))
+    const translated = await translateBlocks(payload, 'en', targetLang)
+    if (requestId !== translationRequestId) return
+    store.applyTranslations(translated)
+    store.setLanguage(targetLang)
+  } catch (err) {
+    if (requestId !== translationRequestId) return
+    console.error('Document translation failed:', err)
+    store.translationError =
+      err instanceof Error ? err.message : t('editor.translationFailed')
+    emit('error', store.translationError)
+  } finally {
+    if (requestId === translationRequestId) store.isTranslating = false
+  }
+}
 
 const isDeleteDisabled = computed(() => {
   if (!store.activeBlock) return true
@@ -483,12 +530,18 @@ function wireProvider(provider: EditorDataProvider) {
   provider.onInit = (e) => {
     store.initCanonicalBlocks(e.blocks)
     store.setBlocks(e.blocks)
+    if (isSupportedLanguage(locale.value)) {
+      store.setLanguage(locale.value)
+    }
     if (store.activeLanguage !== 'en') {
+      const requestedLang = store.activeLanguage
+      const requestId = translationRequestId
       const translatable = e.blocks.filter((b) => !isCodeOrCitation(b.decorator))
       const payload = translatable.map((b) => ({ id: b.id, text: b.text }))
       if (payload.length > 0) {
-        translateBlocks(payload, 'en', store.activeLanguage)
+        translateBlocks(payload, 'en', requestedLang)
           .then((res) => {
+            if (requestId !== translationRequestId || store.activeLanguage !== requestedLang) return
             store.applyTranslations(res)
           })
           .catch((err) => console.error('Failed to translate initial blocks:', err))
@@ -499,8 +552,11 @@ function wireProvider(provider: EditorDataProvider) {
   provider.onCreated = (e) => {
     store.insertBlock(e.block, e.afterBlockId)
     if (store.activeLanguage !== 'en' && !isCodeOrCitation(e.block.decorator)) {
-      translateBlocks([{ id: e.block.id, text: e.block.text }], 'en', store.activeLanguage)
+      const requestedLang = store.activeLanguage
+      const requestId = translationRequestId
+      translateBlocks([{ id: e.block.id, text: e.block.text }], 'en', requestedLang)
         .then((res) => {
+          if (requestId !== translationRequestId || store.activeLanguage !== requestedLang) return
           if (res.length > 0) {
             store.applyTranslations(res)
           }
@@ -519,10 +575,16 @@ function wireProvider(provider: EditorDataProvider) {
         if (store.activeBlockId !== e.blockId) {
           const currentBlock = store.blocks.find((b) => b.id === e.blockId)
           if (!currentBlock || !isCodeOrCitation(currentBlock.decorator)) {
-            translateBlocks([{ id: e.blockId, text: e.text }], 'en', store.activeLanguage)
+            const requestedLang = store.activeLanguage
+            const requestId = translationRequestId
+            translateBlocks([{ id: e.blockId, text: e.text }], 'en', requestedLang)
               .then((res) => {
                 const first = res[0]
-                if (first && store.activeLanguage !== 'en') {
+                if (
+                  first &&
+                  requestId === translationRequestId &&
+                  store.activeLanguage === requestedLang
+                ) {
                   store.updateBlockText(e.blockId, first.text)
                 }
               })
@@ -577,9 +639,7 @@ onBeforeRouteLeave(async () => {
   if (hasPendingData()) {
     const success = await flushPendingEdit()
     if (!success) {
-      const confirmLeave = window.confirm(
-        'Pending changes could not be saved to the server. Are you sure you want to leave?',
-      )
+      const confirmLeave = window.confirm(t('editor.unsavedChanges'))
       if (!confirmLeave) {
         return false
       }
@@ -598,6 +658,14 @@ watch(
   () => props.provider,
   (newProvider) => {
     wireProvider(newProvider)
+  },
+)
+
+watch(
+  () => locale.value,
+  async (nextLocale) => {
+    await flushPendingEdit()
+    await translateDocumentTo(nextLocale)
   },
 )
 

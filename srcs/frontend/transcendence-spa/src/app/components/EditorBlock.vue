@@ -28,15 +28,16 @@
     <span
       v-if="locked"
       class="editor-block__lock pointer-events-auto absolute top-1 right-2 rounded bg-danger px-2 py-0.5 text-[10px] font-bold tracking-[0.05em] text-danger-contrast uppercase shadow-[0_1px_3px_rgba(0,0,0,0.2)]"
-      title="This block is locked by another user"
+      :title="$t('editor.lockedTitle')"
     >
-      Locked
+      {{ $t('editor.lockedBadge') }}
     </span>
   </div>
 </template>
 
 <script lang="ts" setup>
 import { computed, type Component } from 'vue'
+import { useI18n } from 'vue-i18n'
 import EditorParagraph from '@/app/components/EditorParagraph.vue'
 import EditorHeading from '@/app/components/EditorHeading.vue'
 import EditorList from '@/app/components/EditorList.vue'
@@ -54,6 +55,7 @@ const props = defineProps<{
   exportMode?: boolean
 }>()
 
+const { t } = useI18n()
 const store = useEditorStore()
 const canonicalText = computed(() => store.getCanonicalText(props.block.id))
 const isForeignLanguage = computed(() => store.activeLanguage !== 'en')
@@ -90,7 +92,12 @@ const componentProps = computed(() => {
 
   switch (decoratorValue.type) {
     case 'h':
-      return { ...base, text: props.block.text, level: decoratorValue.level ?? 2 }
+      return {
+        ...base,
+        text: props.block.text,
+        level: decoratorValue.level ?? 2,
+        placeholder: t('editor.placeholder.h'),
+      }
     case 'li':
       return {
         ...base,
@@ -100,12 +107,27 @@ const componentProps = computed(() => {
         exportMode: props.exportMode,
       }
     case 'cit':
-      return { ...base, text: props.block.text, source: decoratorValue.source }
+      return {
+        ...base,
+        text: props.block.text,
+        source: decoratorValue.source,
+        placeholder: t('editor.placeholder.cit'),
+      }
     case 'c':
-      return { ...base, code: props.block.text, language: decoratorValue.language }
+      return {
+        ...base,
+        code: props.block.text,
+        language: decoratorValue.language,
+        placeholder: t('editor.placeholder.c'),
+      }
     case 'p':
     default:
-      return { ...base, text: props.block.text, align: decoratorValue.align || 'left' }
+      return {
+        ...base,
+        text: props.block.text,
+        align: decoratorValue.align || 'left',
+        placeholder: t('editor.placeholder.p'),
+      }
   }
 })
 </script>

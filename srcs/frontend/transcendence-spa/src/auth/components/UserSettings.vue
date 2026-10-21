@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { httpClient, HttpError } from '../auth.api'
 import PasswordResetModal from './PasswordResetModal.vue'
 import Button from '@/app/components/Button.vue'
@@ -17,6 +18,7 @@ import { validateEmail, validateLogin, validateOtpCode } from '@/utils/validatio
 
 const router = useRouter()
 const authStore = useAuthStore()
+const { t } = useI18n()
 
 const res = ref<Root | null>(null)
 const user = ref<User | null>(null)
@@ -66,11 +68,12 @@ function validateLoginField() {
 }
 
 function validateOtpField() {
-  errors.value.otp = validateOtpCode(otpCode.value, 'OTP code').error ?? ''
+  errors.value.otp = validateOtpCode(otpCode.value, t('settings.otpCodeLabel')).error ?? ''
 }
 
 function validateDeletionField() {
-  errors.value.deletion = validateOtpCode(deletionCode.value, 'Deletion code').error ?? ''
+  errors.value.deletion =
+    validateOtpCode(deletionCode.value, t('settings.deletionCodeLabel')).error ?? ''
 }
 
 const updateSuccess = ref(false)
@@ -82,11 +85,14 @@ const gdprSuccessMessage = ref('')
 
 const loggedIn = computed(() => res.value?.loggedIn === true)
 const status = computed(() => (loggedIn.value ? 'good' : 'warn'))
-const statusLabel = computed(() => (loggedIn.value ? 'You are logged in' : 'You are not logged in'))
+const statusLabel = computed(() =>
+  loggedIn.value ? t('settings.statusLoggedIn') : t('settings.statusLoggedOut'),
+)
 
 const roleLabel = computed(() => {
   const role = user.value?.role
-  return role ? role.charAt(0).toUpperCase() + role.slice(1) : ''
+  if (!role) return ''
+  return role === 'admin' ? t('settings.roleAdmin') : t('settings.roleUser')
 })
 
 async function loadProfile() {
@@ -105,7 +111,7 @@ async function loadProfile() {
     if (!(error instanceof HttpError) || error.status !== 401) {
       failed.value = true
       errorFlag.value = true
-      message.value = error instanceof Error ? error.message : 'Something went wrong'
+      message.value = error instanceof Error ? error.message : t('common.somethingWentWrong')
     }
   } finally {
     pending.value = false
@@ -135,8 +141,7 @@ async function updateUserDetails(email: string | undefined, login: string | unde
   } catch (error) {
     console.error('Error updating user details:', error)
     errorFlag.value = true
-    message.value =
-      error instanceof Error ? error.message : 'Something went wrong while updating user details'
+    message.value = error instanceof Error ? error.message : t('settings.updateError')
   }
 }
 
@@ -146,7 +151,7 @@ async function confirmUpdateDetails() {
     return
   }
 
-  const codeResult = validateOtpCode(otpCode.value, 'OTP code')
+  const codeResult = validateOtpCode(otpCode.value, t('settings.otpCodeLabel'))
   errors.value.otp = codeResult.error ?? ''
   if (codeResult.error) return
 
@@ -160,14 +165,13 @@ async function confirmUpdateDetails() {
     console.log('OTP confirmed successfully:', response)
     displayOTP.value = false
     confirmationID.value = ''
-    updateSuccessMessage.value = 'Your details have been updated successfully.'
+    updateSuccessMessage.value = t('settings.updateSuccess')
     updateSuccess.value = true
     loadProfile()
   } catch (error) {
     console.error('Error confirming OTP:', error)
     errorFlag.value = true
-    message.value =
-      error instanceof Error ? error.message : 'Something went wrong while confirming OTP'
+    message.value = error instanceof Error ? error.message : t('settings.confirmError')
   } finally {
     otpCode.value = ''
   }
@@ -183,7 +187,7 @@ async function changeAvatar(event: Event) {
   avatarPending.value = true
   errorFlag.value = false
   try {
-    if (file.size > 2 * 1024 * 1024) throw new Error('Icon must be at most 2 MiB')
+    if (file.size > 2 * 1024 * 1024) throw new Error(t('settings.iconTooLarge'))
     const body = new FormData()
     body.append('icon', file)
     const response = await httpClient.request<{ avatarUrl: string }>('me/icon', {
@@ -194,10 +198,10 @@ async function changeAvatar(event: Event) {
       user.value.avatarUrl = response.avatarUrl
       authStore.setUser({ ...user.value })
     }
-    updateSuccessMessage.value = 'Your profile icon has been updated.'
+    updateSuccessMessage.value = t('settings.iconUpdated')
     updateSuccess.value = true
   } catch (error) {
-    message.value = error instanceof Error ? error.message : 'Failed to upload icon'
+    message.value = error instanceof Error ? error.message : t('settings.uploadFailed')
     errorFlag.value = true
   } finally {
     input.value = ''
@@ -216,7 +220,7 @@ async function removeAvatar() {
       authStore.setUser({ ...user.value })
     }
   } catch (error) {
-    message.value = error instanceof Error ? error.message : 'Failed to remove icon'
+    message.value = error instanceof Error ? error.message : t('settings.removeFailed')
     errorFlag.value = true
   } finally {
     avatarPending.value = false
@@ -235,7 +239,7 @@ async function requestDeletion() {
     deletionConfirmationID.value = response.confirmationId
     deletionCode.value = ''
   } catch (error) {
-    message.value = error instanceof Error ? error.message : 'Failed to request account deletion.'
+    message.value = error instanceof Error ? error.message : t('settings.deletionRequestFailed')
     errorFlag.value = true
   } finally {
     deleting.value = false
@@ -259,13 +263,12 @@ async function exportGdprData(format: 'json' | 'csv' = 'json') {
     document.body.removeChild(link)
     window.URL.revokeObjectURL(url)
 
-    gdprSuccessMessage.value = `Your GDPR data export (${format.toUpperCase()}) has been downloaded successfully.`
+    gdprSuccessMessage.value = t('settings.exportSuccess', { format: format.toUpperCase() })
     gdprSuccess.value = true
   } catch (error) {
     console.error('Error exporting GDPR data:', error)
     errorFlag.value = true
-    message.value =
-      error instanceof Error ? error.message : 'Something went wrong while exporting GDPR data'
+    message.value = error instanceof Error ? error.message : t('settings.exportFailed')
   } finally {
     gdprPending.value = false
   }
@@ -273,7 +276,7 @@ async function exportGdprData(format: 'json' | 'csv' = 'json') {
 
 async function confirmDeletion() {
   if (deleting.value || !deletionConfirmationID.value) return
-  const codeResult = validateOtpCode(deletionCode.value, 'Deletion code')
+  const codeResult = validateOtpCode(deletionCode.value, t('settings.deletionCodeLabel'))
   errors.value.deletion = codeResult.error ?? ''
   if (codeResult.error) return
   deleting.value = true
@@ -288,7 +291,7 @@ async function confirmDeletion() {
     user.value = null
     await router.replace('/login')
   } catch (error) {
-    message.value = error instanceof Error ? error.message : 'Failed to delete your account.'
+    message.value = error instanceof Error ? error.message : t('settings.deleteAccountFailed')
     errorFlag.value = true
   } finally {
     deleting.value = false
@@ -307,8 +310,8 @@ onMounted(loadProfile)
 <template>
   <div class="box-border mx-auto w-full max-w-[1080px] px-6 py-12">
     <header class="mb-6">
-      <h1 class="m-0 mb-1.5 text-[1.6rem] font-bold text-ink">User Settings</h1>
-      <p class="m-0 text-sm text-ink-secondary">Your account details and session status.</p>
+      <h1 class="m-0 mb-1.5 text-[1.6rem] font-bold text-ink">{{ $t('settings.title') }}</h1>
+      <p class="m-0 text-sm text-ink-secondary">{{ $t('settings.subtitle') }}</p>
     </header>
 
     <Toast
@@ -339,7 +342,7 @@ onMounted(loadProfile)
     />
 
     <Card v-if="pending" class="w-full :deep(.btn):mr-0">
-      <p class="m-0 mt-4 text-[0.75rem] text-muted text-center">Loading your profile…</p>
+      <p class="m-0 mt-4 text-[0.75rem] text-muted text-center">{{ $t('settings.loading') }}</p>
     </Card>
 
     <Card v-else-if="failed" class="w-full">
@@ -349,11 +352,13 @@ onMounted(loadProfile)
           aria-hidden="true"
           >!</span
         >
-        <p class="m-0 text-base font-semibold text-ink">We couldn't load your profile</p>
+        <p class="m-0 text-base font-semibold text-ink">{{ $t('settings.loadFailedTitle') }}</p>
         <p class="m-0 mb-2 max-w-[34ch] text-sm leading-normal text-ink-secondary">
-          Something went wrong while contacting the server.
+          {{ $t('settings.loadFailedText') }}
         </p>
-        <Button variant="elevated" color="primary" @click="loadProfile">Try again</Button>
+        <Button variant="elevated" color="primary" @click="loadProfile">{{
+          $t('settings.tryAgain')
+        }}</Button>
       </div>
     </Card>
 
@@ -399,10 +404,10 @@ onMounted(loadProfile)
               @click="avatarInput?.click()"
               class="add"
             >
-              Add Profile Icon
+              {{ $t('settings.addIcon') }}
             </Button>
             <Button v-else @click="avatarInput?.click()" :disabled="avatarPending" class="change">
-              Change Profile Icon
+              {{ $t('settings.changeIcon') }}
             </Button>
             <Button
               v-if="user?.avatarUrl"
@@ -410,9 +415,9 @@ onMounted(loadProfile)
               @click="removeAvatar"
               class="remove"
             >
-              Remove profile icon
+              {{ $t('settings.removeIcon') }}
             </Button>
-            <p>JPEG, PNG or WebP, up to 2 MiB. Maximum 16 Million pixels</p>
+            <p>{{ $t('settings.iconHint') }}</p>
           </div>
           <span
             v-if="roleLabel"
@@ -427,14 +432,14 @@ onMounted(loadProfile)
         <div class="mb-2">
           <form class="grid gap-2" @submit.prevent="updateUserDetails(email, login)">
             <Input
-              label="Email"
+              :label="$t('settings.emailLabel')"
               v-model="email"
               type="text"
               :error="errors.email"
               @blur="validateEmailField"
             />
             <Input
-              label="Username"
+              :label="$t('settings.usernameLabel')"
               v-model="login"
               type="text"
               :error="errors.login"
@@ -445,7 +450,7 @@ onMounted(loadProfile)
               variant="elevated"
               type="submit"
             >
-              Update Settings
+              {{ $t('settings.update') }}
             </Button>
           </form>
         </div>
@@ -453,22 +458,26 @@ onMounted(loadProfile)
         <div v-if="displayOTP" class="mb-2">
           <form class="grid gap-2" @submit.prevent="confirmUpdateDetails">
             <Input
-              label="OTP Code"
+              :label="$t('settings.otpCodeLabel')"
               v-model="otpCode"
               type="text"
               :error="errors.otp"
               @blur="validateOtpField"
             />
-            <Button v-if="confirmationID" variant="elevated" type="submit">Confirm OTP</Button>
+            <Button v-if="confirmationID" variant="elevated" type="submit">{{
+              $t('settings.confirmOtp')
+            }}</Button>
           </form>
         </div>
       </dl>
 
       <div v-if="user" class="mt-6 flex flex-col gap-2.5 border-t border-line-subtle pt-4">
         <div class="flex flex-col gap-1.5">
-          <span class="font-semibold text-[0.875rem] text-brand">Privacy &amp; GDPR</span>
+          <span class="font-semibold text-[0.875rem] text-brand">{{
+            $t('settings.privacyGdpr')
+          }}</span>
           <p class="m-0 text-[0.875rem] text-ink-secondary">
-            Under GDPR Art. 15, you have the right to obtain a copy of your personal data.
+            {{ $t('settings.gdprDescription') }}
           </p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
@@ -482,7 +491,7 @@ onMounted(loadProfile)
             <template #prepend>
               <Icon name="ShieldCheck" :size="18" />
             </template>
-            Export GDPR Data
+            {{ $t('settings.exportGdpr') }}
           </Button>
           <Button
             class="flex mt-2 items-center gap-2 flex-wrap"
@@ -492,7 +501,7 @@ onMounted(loadProfile)
             :loading="gdprPending"
             @click="exportGdprData('csv')"
           >
-            Export (CSV)
+            {{ $t('settings.exportCsv') }}
           </Button>
         </div>
         <p v-if="gdprSuccess" class="m-0 text-[0.875rem] text-success font-medium">
@@ -502,10 +511,11 @@ onMounted(loadProfile)
 
       <div v-if="user" class="mt-6 flex flex-col gap-2.5 border-t border-line-subtle pt-4">
         <div class="flex flex-col gap-1.5">
-          <span class="font-semibold text-[0.875rem] text-brand">Password</span>
+          <span class="font-semibold text-[0.875rem] text-brand">{{
+            $t('settings.passwordTitle')
+          }}</span>
           <p class="m-0 text-[0.875rem] text-ink-secondary">
-            Reset your password with a code sent to your email. You will need to sign in again
-            afterwards.
+            {{ $t('settings.passwordDescription') }}
           </p>
         </div>
         <Button
@@ -517,15 +527,17 @@ onMounted(loadProfile)
           <template #prepend>
             <Icon name="Key" :size="18" />
           </template>
-          Reset password
+          {{ $t('settings.resetPassword') }}
         </Button>
       </div>
 
       <div v-if="user" class="mt-6 flex flex-col gap-2.5 border-t border-line-subtle pt-4">
         <div class="flex flex-col gap-1.5">
-          <span class="font-semibold text-[0.875rem] text-brand">Legal</span>
+          <span class="font-semibold text-[0.875rem] text-brand">{{
+            $t('settings.legalTitle')
+          }}</span>
           <p class="m-0 text-[0.875rem] text-ink-secondary">
-            Read the Terms of Service that apply to your use of Trans Edit.
+            {{ $t('settings.legalDescription') }}
           </p>
         </div>
         <Button
@@ -537,7 +549,7 @@ onMounted(loadProfile)
           <template #prepend>
             <Icon name="FileText" :size="18" />
           </template>
-          Terms of Service
+          {{ $t('settings.termsOfService') }}
         </Button>
       </div>
 
@@ -547,7 +559,7 @@ onMounted(loadProfile)
         color="primary"
         @click="router.push('/admin')"
       >
-        Go to Admin Panel
+        {{ $t('settings.goToAdmin') }}
       </Button>
       <Button
         v-if="!deletionConfirmationID"
@@ -557,25 +569,25 @@ onMounted(loadProfile)
         :loading="deleting"
         @click="requestDeletion"
       >
-        Delete account
+        {{ $t('settings.deleteAccount') }}
       </Button>
       <form v-else class="grid gap-2" @submit.prevent="confirmDeletion">
         <p class="m-0 mb-2 max-w-[34ch] text-sm leading-normal text-ink-secondary">
-          Enter the code sent to your email to permanently delete your account.
+          {{ $t('settings.deletionCodePrompt') }}
         </p>
         <Input
           v-model="deletionCode"
-          label="Deletion confirmation code"
+          :label="$t('settings.deletionCodeLabel')"
           type="text"
           :disabled="deleting"
           :error="errors.deletion"
           @blur="validateDeletionField"
         />
         <Button type="submit" color="alert" :loading="deleting" :disabled="!deletionCode.trim()">
-          Confirm deletion
+          {{ $t('settings.confirmDeletion') }}
         </Button>
         <Button variant="outlined" color="default" :disabled="deleting" @click="cancelDeletion">
-          Cancel
+          {{ $t('common.cancel') }}
         </Button>
       </form>
 
@@ -601,11 +613,13 @@ onMounted(loadProfile)
           aria-hidden="true"
           >!</span
         >
-        <p class="m-0 text-base font-semibold text-ink">You're not logged in</p>
+        <p class="m-0 text-base font-semibold text-ink">{{ $t('settings.notLoggedInTitle') }}</p>
         <p class="m-0 mb-2 max-w-[34ch] text-sm leading-normal text-ink-secondary">
-          Sign in to view and manage your account settings.
+          {{ $t('settings.notLoggedInText') }}
         </p>
-        <Button variant="elevated" color="primary" @click="goToLogin">Sign in</Button>
+        <Button variant="elevated" color="primary" @click="goToLogin">{{
+          $t('settings.signIn')
+        }}</Button>
       </div>
     </Card>
   </div>

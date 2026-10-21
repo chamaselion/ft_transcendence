@@ -47,17 +47,14 @@ function hideExplainer() {
         @mouseenter="showExplainer"
         @mouseleave="hideExplainer"
       >
-        Sign In with <Icon name="Github" />
+        {{ $t('auth.oauth.signInWith') }} <Icon name="Github" />
       </Button>
       <div
         id="gh-provider-explainer"
         class="provider-explainer pointer-events-none absolute bottom-[calc(100%_+_0.75rem)] left-1/2 z-10 box-border hidden w-[22rem] max-w-[calc(100vw_-_2rem)] -translate-x-1/2 items-start gap-3 rounded-xl border border-black/10 bg-subtle p-4 text-left text-[0.8125rem] leading-relaxed text-ink"
       >
         <p class="m-0">
-          By signing in with GitHub, you can use your existing GitHub account to access our
-          services. This allows for a seamless login experience and eliminates the need to create a
-          new account. Your GitHub credentials will not be shared with us, and we will only request
-          the necessary permissions to authenticate your identity.
+          {{ $t('auth.oauth.githubExplainer') }}
         </p>
       </div>
     </div>
@@ -68,17 +65,14 @@ function hideExplainer() {
         @mouseenter="showExplainer"
         @mouseleave="hideExplainer"
       >
-        Sign In with <Icon name="FortyTwo" />
+        {{ $t('auth.oauth.signInWith') }} <Icon name="FortyTwo" />
       </Button>
       <div
         id="42-provider-explainer"
         class="provider-explainer pointer-events-none absolute bottom-[calc(100%_+_0.75rem)] left-1/2 z-10 box-border hidden w-[22rem] max-w-[calc(100vw_-_2rem)] -translate-x-1/2 items-start gap-3 rounded-xl border border-black/10 bg-subtle p-4 text-left text-[0.8125rem] leading-relaxed text-ink"
       >
         <p class="m-0">
-          By signing in with 42, you can use your existing 42 account to access our services. This
-          allows for a seamless login experience and eliminates the need to create a new account.
-          Your 42 credentials will not be shared with us, and we will only request the necessary
-          permissions to authenticate your identity.
+          {{ $t('auth.oauth.fortyTwoExplainer') }}
         </p>
       </div>
     </div>

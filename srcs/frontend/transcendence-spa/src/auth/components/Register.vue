@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { httpClient, HttpError } from '../auth.api'
 import PasswordResetModal from './PasswordResetModal.vue'
 import Toast from '@/app/components/Toast.vue'
@@ -8,6 +9,8 @@ import Button from '@/app/components/Button.vue'
 import TermsOfServiceModal from '@/app/components/TermsOfServiceModal.vue'
 import { rememberTermsAcceptance } from '../terms'
 import { validateEmail, validateLogin, validatePassword } from '@/utils/validation'
+
+const { t } = useI18n()
 
 const username = ref('')
 const email = ref('')
@@ -36,7 +39,7 @@ const validateForm = () => {
   const usernameResult = validateField('username')
   const emailResult = validateField('email')
   const passwordResult = validateField('password')
-  termsError.value = acceptedTerms.value ? '' : 'You must accept the Terms of Service to register.'
+  termsError.value = acceptedTerms.value ? '' : t('auth.register.termsRequired')
   return !usernameResult.error && !emailResult.error && !passwordResult.error && acceptedTerms.value
 }
 
@@ -69,7 +72,7 @@ const handleRegister = async () => {
         ? error.message
         : typeof error === 'string'
           ? error
-          : 'Something went wrong'
+          : t('common.somethingWentWrong')
     if (error instanceof HttpError) {
       if (error.status === 400) {
         console.log('Invalid data:', error.message)
@@ -91,14 +94,16 @@ const handleRegister = async () => {
     class="box-border w-full max-w-[400px] rounded-xl border border-line-subtle bg-surface p-8 shadow-card"
   >
     <header class="mb-6 text-center">
-      <h1 class="m-0 mb-1.5 text-[26px] leading-tight font-semibold text-ink">Register</h1>
-      <p class="m-0 text-sm text-ink-secondary">Create an account to get started.</p>
+      <h1 class="m-0 mb-1.5 text-[26px] leading-tight font-semibold text-ink">
+        {{ $t('auth.register.title') }}
+      </h1>
+      <p class="m-0 text-sm text-ink-secondary">{{ $t('auth.register.subtitle') }}</p>
     </header>
     <div class="flex flex-col gap-6">
       <Toast v-model="errorFlag" type="alert" :message="msg" :duration="6000" fluid />
       <form class="flex flex-col gap-4" @submit.prevent="handleRegister">
         <Input
-          label="Username"
+          :label="$t('auth.register.usernameLabel')"
           type="text"
           v-model="username"
           required
@@ -106,7 +111,7 @@ const handleRegister = async () => {
           @blur="validateField('username')"
         />
         <Input
-          label="Email"
+          :label="$t('auth.register.emailLabel')"
           type="email"
           v-model="email"
           required
@@ -115,7 +120,7 @@ const handleRegister = async () => {
           @input="emailInUse = false"
         />
         <Input
-          label="Password"
+          :label="$t('auth.register.passwordLabel')"
           type="password"
           v-model="password"
           required
@@ -131,19 +136,19 @@ const handleRegister = async () => {
               @change="handleTermsChange"
             />
             <span>
-              I agree to the
+              {{ $t('auth.register.termsAgreePrefix') }}
               <button
                 type="button"
                 class="m-0 cursor-pointer border-0 bg-transparent p-0 text-brand hover:bg-transparent hover:text-brand-hover hover:underline"
                 @click.prevent.stop="termsOpen = true"
               >
-                Terms of Service</button
-              >.
+                {{ $t('auth.register.termsLink') }}</button
+              >{{ $t('auth.register.termsAgreeSuffix') }}
             </span>
           </label>
           <p v-if="termsError" class="m-0 text-[13px] text-danger">{{ termsError }}</p>
         </div>
-        <Button type="submit" size="large" class="w-full">Register</Button>
+        <Button type="submit" size="large" class="w-full">{{ $t('auth.register.submit') }}</Button>
       </form>
 
       <div
@@ -151,7 +156,7 @@ const handleRegister = async () => {
         class="flex flex-col gap-2 rounded-md border border-warning bg-warning/12 px-3 py-2.5"
       >
         <p class="m-0 text-sm leading-normal text-ink">
-          An account with this email already exists. You can reset its password instead.
+          {{ $t('auth.register.emailInUse') }}
         </p>
         <Button
           variant="outlined"
@@ -160,16 +165,16 @@ const handleRegister = async () => {
           class="self-start"
           @click="resetOpen = true"
         >
-          Reset password
+          {{ $t('auth.register.resetPassword') }}
         </Button>
       </div>
     </div>
     <p class="mt-5 text-center text-sm text-ink-secondary">
-      Already have an account?
+      {{ $t('auth.register.footerText') }}
       <router-link
         to="/login"
         class="font-medium text-brand no-underline hover:text-brand-hover hover:underline"
-        >Login here</router-link
+        >{{ $t('auth.register.footerLink') }}</router-link
       >
     </p>
   </div>

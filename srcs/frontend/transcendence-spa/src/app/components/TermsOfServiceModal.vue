@@ -33,7 +33,7 @@ const accept = () => {
 <template>
   <Modal
     :model-value="props.modelValue"
-    title="Terms of Service"
+    :title="$t('terms.title')"
     size="large"
     @update:model-value="emit('update:modelValue', $event)"
   >
@@ -41,10 +41,10 @@ const accept = () => {
 
     <template #footer>
       <template v-if="props.showAccept">
-        <Button variant="outlined" size="small" @click="close">Cancel</Button>
-        <Button size="small" @click="accept">Accept</Button>
+        <Button variant="outlined" size="small" @click="close">{{ $t('common.cancel') }}</Button>
+        <Button size="small" @click="accept">{{ $t('terms.accept') }}</Button>
       </template>
-      <Button v-else variant="outlined" size="small" @click="close">Close</Button>
+      <Button v-else variant="outlined" size="small" @click="close">{{ $t('terms.close') }}</Button>
     </template>
   </Modal>
 </template>

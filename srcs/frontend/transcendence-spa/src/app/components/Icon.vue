@@ -40,6 +40,11 @@ export const iconNames = [
   'ChevronRight',
   'ChevronsLeft',
   'ChevronsRight',
+  'Cookie',
+  'ShieldCheck',
+  'InfoCircle',
+  'Home',
+  'UserPlus',
   'FilePDF',
   'Cookie',
   'ShieldCheck',
@@ -92,6 +97,7 @@ import {
   IconChevronRight,
   IconChevronsLeft,
   IconChevronsRight,
+  IconUserPlus,
   IconFileTypePdf,
   IconCookie,
   IconShieldCheck,
@@ -140,11 +146,12 @@ const iconMap: Record<IconName, Component> = {
   ChevronRight: IconChevronRight,
   ChevronsLeft: IconChevronsLeft,
   ChevronsRight: IconChevronsRight,
-  FilePDF: IconFileTypePdf,
   Cookie: IconCookie,
   ShieldCheck: IconShieldCheck,
   InfoCircle: IconInfoCircle,
   Key: IconKey,
+  UserPlus: IconUserPlus,
+  FilePDF: IconFileTypePdf,
 }
 
 const props = withDefaults(

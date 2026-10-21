@@ -49,16 +49,16 @@ function continueWithProvider() {
           </span>
         </div>
         <h1 class="m-0 mb-1.5 text-[26px] leading-tight font-semibold text-ink">
-          Continue with {{ providerName }}
+          {{ $t('auth.consent.title', { provider: providerName }) }}
         </h1>
         <p class="m-0 text-sm leading-normal text-ink-secondary">
-          You are about to leave Trans Edit to sign in with {{ providerName }}.
+          {{ $t('auth.consent.redirectText', { provider: providerName }) }}
         </p>
       </header>
 
       <div class="mt-6 flex flex-col gap-4">
         <p class="m-0 text-sm leading-normal text-ink-secondary">
-          Before continuing, please review and accept our Terms of Service.
+          {{ $t('auth.consent.reviewText') }}
         </p>
 
         <div class="flex flex-wrap items-center gap-3">
@@ -66,7 +66,7 @@ function continueWithProvider() {
             <template #prepend>
               <Icon name="FileText" :size="18" />
             </template>
-            Read Terms of Service
+            {{ $t('auth.consent.readTerms') }}
           </Button>
         </div>
 
@@ -76,18 +76,18 @@ function continueWithProvider() {
             type="checkbox"
             class="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-[color:var(--color-primary)]"
           />
-          <span>I have read and agree to the Terms of Service.</span>
+          <span>{{ $t('auth.consent.acceptTerms') }}</span>
         </label>
 
         <Button size="large" class="w-full" :disabled="!accepted" @click="continueWithProvider">
-          Continue with {{ providerName }}
+          {{ $t('auth.consent.continue', { provider: providerName }) }}
         </Button>
 
         <router-link
           to="/login"
           class="text-center text-sm font-medium text-brand no-underline hover:text-brand-hover hover:underline"
         >
-          Cancel
+          {{ $t('common.cancel') }}
         </router-link>
       </div>
     </section>

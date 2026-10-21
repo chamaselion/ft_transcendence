@@ -3,6 +3,7 @@ import { useRoute } from 'vue-router'
 import { useTheme } from '@/app/layout/useTheme'
 import UserIcon from '@/app/components/UserIcon.vue'
 import Icon from '@/app/components/Icon.vue'
+import LanguageSwitcher from '@/app/layout/LanguageSwitcher.vue'
 import { useAuthStore } from '@/stores/auth'
 
 const { currentTheme, toggleTheme } = useTheme()
@@ -26,17 +27,23 @@ const logoutLink = `${linkBase} border-[color:color-mix(in_srgb,var(--color-aler
     class="sticky top-0 z-20 flex items-center gap-2 border-b border-line bg-[color-mix(in_srgb,var(--bg-header)_88%,transparent)] px-6 py-2.5 shadow-[var(--shadow-sm)] backdrop-blur-[10px] max-sm:px-3"
   >
     <nav class="flex items-center gap-1">
-      <router-link to="/" :class="[navLink, isActive('/') ? navActive : navIdle]" aria-label="Home">
+      <router-link
+        to="/"
+        :class="[navLink, isActive('/') ? navActive : navIdle]"
+        :title="$t('nav.home')"
+        :aria-label="$t('nav.home')"
+      >
         <Icon name="Home" :size="18" />
-        <span class="btn--lable max-sm:hidden">Home</span>
+        <span class="btn--lable max-sm:hidden">{{ $t('nav.home') }}</span>
       </router-link>
       <router-link
         to="/editor"
         :class="[navLink, isActive('/editor') ? navActive : navIdle]"
-        aria-label="Editor"
+        :title="$t('nav.editor')"
+        :aria-label="$t('nav.editor')"
       >
         <Icon name="Pencil" :size="18" />
-        <span class="btn--lable max-sm:hidden">Editor</span>
+        <span class="btn--lable max-sm:hidden">{{ $t('nav.editor') }}</span>
       </router-link>
     </nav>
 
@@ -47,39 +54,47 @@ const logoutLink = `${linkBase} border-[color:color-mix(in_srgb,var(--color-aler
         <router-link
           to="/register"
           :class="[navLink, isActive('/register') ? navActive : navIdle]"
-          aria-label="Register"
+          :title="$t('nav.register')"
+          :aria-label="$t('nav.register')"
         >
           <Icon name="PencilPlus" :size="18" />
-          <span class="btn--lable max-sm:hidden">Register</span>
+          <span class="btn--lable max-sm:hidden">{{ $t('nav.register') }}</span>
         </router-link>
-        <router-link to="/login" :class="primaryLink" aria-label="Login">
+        <router-link
+          to="/login"
+          :class="primaryLink"
+          :title="$t('nav.login')"
+          :aria-label="$t('nav.login')"
+        >
           <Icon name="Login" :size="18" />
-          <span class="btn--lable max-sm:hidden">Login</span>
+          <span class="btn--lable max-sm:hidden">{{ $t('nav.login') }}</span>
         </router-link>
       </template>
 
       <button
         v-else
         :class="logoutLink"
-        title="Log out of your account"
-        aria-label="Logout"
+        :title="$t('nav.logoutTitle')"
+        :aria-label="$t('nav.logout')"
         @click.prevent="authStore.logout"
       >
         <Icon name="Logout" :size="18" />
-        <span class="btn--lable max-sm:hidden">Logout</span>
+        <span class="btn--lable max-sm:hidden">{{ $t('nav.logout') }}</span>
       </button>
 
       <button
         :class="ghostLink"
-        :title="currentTheme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'"
-        :aria-label="currentTheme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'"
+        :title="currentTheme === 'light' ? $t('nav.switchToDark') : $t('nav.switchToLight')"
+        :aria-label="currentTheme === 'light' ? $t('nav.switchToDark') : $t('nav.switchToLight')"
         @click="toggleTheme"
       >
         <Icon :name="currentTheme === 'light' ? 'Moon' : 'Sun'" :size="18" />
         <span class="btn--lable max-sm:hidden">{{
-          currentTheme === 'light' ? 'Dark' : 'Light'
+          currentTheme === 'light' ? $t('nav.dark') : $t('nav.light')
         }}</span>
       </button>
+
+      <LanguageSwitcher />
     </nav>
     <router-link v-if="authStore.isAuthenticated" to="/profile">
       <UserIcon

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { httpClient } from '../auth.api'
 import Modal from '@/app/components/Modal.vue'
 import Input from '@/app/components/Input.vue'
@@ -9,6 +10,8 @@ import type {
   PasswordResetConfirmResponse,
   PasswordResetRequestResponse,
 } from '../types/auth.types'
+
+const { t } = useI18n()
 
 const props = withDefaults(
   defineProps<{
@@ -49,20 +52,21 @@ const validateEmailField = () => {
 }
 
 const validateCodeField = () => {
-  codeError.value = validateOtpCode(code.value, 'Reset code').error ?? ''
+  codeError.value = validateOtpCode(code.value, t('auth.passwordReset.resetCodeLabel')).error ?? ''
   return codeError.value
 }
 
 const validateNewPasswordField = () => {
-  newPasswordError.value = validatePassword(newPassword.value, 'New password').error ?? ''
+  newPasswordError.value =
+    validatePassword(newPassword.value, t('auth.passwordReset.newPasswordLabel')).error ?? ''
   return newPasswordError.value
 }
 
 const validateConfirmPasswordField = () => {
   confirmPasswordError.value = !confirmPassword.value
-    ? 'Please confirm your new password.'
+    ? t('auth.passwordReset.confirmRequired')
     : confirmPassword.value !== newPassword.value
-      ? 'Passwords do not match.'
+      ? t('auth.passwordReset.passwordMismatch')
       : ''
   return confirmPasswordError.value
 }
@@ -106,8 +110,7 @@ async function requestReset() {
     code.value = ''
     step.value = 'confirm'
   } catch (error) {
-    errorMessage.value =
-      error instanceof Error ? error.message : 'Something went wrong. Please try again.'
+    errorMessage.value = error instanceof Error ? error.message : t('auth.passwordReset.error')
   } finally {
     submitting.value = false
   }
@@ -132,8 +135,7 @@ async function confirmReset() {
     step.value = 'success'
     emit('success', email.value.trim())
   } catch (error) {
-    errorMessage.value =
-      error instanceof Error ? error.message : 'Something went wrong. Please try again.'
+    errorMessage.value = error instanceof Error ? error.message : t('auth.passwordReset.error')
   } finally {
     submitting.value = false
   }
@@ -143,7 +145,7 @@ async function confirmReset() {
 <template>
   <Modal
     :model-value="props.modelValue"
-    title="Reset Password"
+    :title="$t('auth.passwordReset.title')"
     size="small"
     :close-on-overlay="!submitting"
     :close-on-esc="!submitting"
@@ -151,8 +153,7 @@ async function confirmReset() {
   >
     <div v-if="step === 'request'" class="flex flex-col gap-4">
       <p class="m-0 text-sm leading-normal text-ink-secondary">
-        Enter the email address for your account. If it exists, we will send you a code to reset
-        your password.
+        {{ $t('auth.passwordReset.requestDescription') }}
       </p>
       <form
         id="password-reset-request-form"
@@ -161,7 +162,7 @@ async function confirmReset() {
       >
         <Input
           v-model="email"
-          label="Email"
+          :label="$t('auth.passwordReset.emailLabel')"
           type="email"
           autocomplete="email"
           required
@@ -175,14 +176,21 @@ async function confirmReset() {
     <div v-else-if="step === 'confirm'" class="flex flex-col gap-4">
       <p class="m-0 text-sm leading-normal text-ink-secondary">{{ infoMessage }}</p>
       <p class="m-0 text-sm leading-normal text-ink-secondary">
-        <template v-if="codeLength">
-          Enter the {{ codeLength }}-digit code sent to <strong>{{ email }}</strong
-          >.
-        </template>
-        <template v-else>
-          Enter the code sent to <strong>{{ email }}</strong
-          >, if an account exists.
-        </template>
+        <i18n-t
+          v-if="codeLength"
+          keypath="auth.passwordReset.codePrompt"
+          tag="span"
+          :length="codeLength"
+        >
+          <template #email>
+            <strong>{{ email }}</strong>
+          </template>
+        </i18n-t>
+        <i18n-t v-else keypath="auth.passwordReset.codePromptGeneric" tag="span">
+          <template #email>
+            <strong>{{ email }}</strong>
+          </template>
+        </i18n-t>
       </p>
       <form
         id="password-reset-confirm-form"
@@ -191,7 +199,7 @@ async function confirmReset() {
       >
         <Input
           v-model="code"
-          label="Reset code"
+          :label="$t('auth.passwordReset.resetCodeLabel')"
           type="text"
           inputmode="numeric"
           autocomplete="one-time-code"
@@ -202,7 +210,7 @@ async function confirmReset() {
         />
         <Input
           v-model="newPassword"
-          label="New password"
+          :label="$t('auth.passwordReset.newPasswordLabel')"
           type="password"
           autocomplete="new-password"
           required
@@ -212,7 +220,7 @@ async function confirmReset() {
         />
         <Input
           v-model="confirmPassword"
-          label="Confirm new password"
+          :label="$t('auth.passwordReset.confirmPasswordLabel')"
           type="password"
           autocomplete="new-password"
           required
@@ -224,9 +232,11 @@ async function confirmReset() {
     </div>
 
     <div v-else class="flex flex-col gap-2 py-3 text-center">
-      <p class="m-0 text-base font-semibold text-ink">Your password has been reset.</p>
+      <p class="m-0 text-base font-semibold text-ink">
+        {{ $t('auth.passwordReset.successTitle') }}
+      </p>
       <p class="m-0 text-sm leading-normal text-ink-secondary">
-        You can now sign in with your new password.
+        {{ $t('auth.passwordReset.successText') }}
       </p>
     </div>
 
@@ -239,11 +249,11 @@ async function confirmReset() {
 
     <template #footer>
       <template v-if="step === 'success'">
-        <Button size="small" @click="close">Done</Button>
+        <Button size="small" @click="close">{{ $t('auth.passwordReset.done') }}</Button>
       </template>
       <template v-else>
         <Button variant="outlined" size="small" :disabled="submitting" @click="close">
-          Cancel
+          {{ $t('common.cancel') }}
         </Button>
         <Button
           type="submit"
@@ -251,7 +261,9 @@ async function confirmReset() {
           size="small"
           :loading="submitting"
         >
-          {{ step === 'request' ? 'Send reset code' : 'Reset password' }}
+          {{
+            step === 'request' ? $t('auth.passwordReset.sendCode') : $t('auth.passwordReset.submit')
+          }}
         </Button>
       </template>
     </template>

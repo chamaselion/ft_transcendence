@@ -29,7 +29,7 @@ const emit = defineEmits<{
       class="flex items-center justify-between rounded-lg border border-danger bg-danger/12 px-4 py-3 text-[0.9rem] text-danger"
     >
       <span>{{ props.errorMessage }}</span>
-      <Button variant="outlined" size="x-small" @click="emit('retry')">Retry</Button>
+      <Button variant="outlined" size="x-small" @click="emit('retry')">{{ $t('common.retry') }}</Button>
     </div>
 
     <!-- Loading skeleton / state -->
@@ -38,7 +38,7 @@ const emit = defineEmits<{
       class="flex flex-col items-center justify-center gap-3 px-4 py-16 text-[0.95rem] text-muted"
     >
       <div class="h-7 w-7 animate-spin rounded-full border-[3px] border-line border-t-brand" />
-      <span>Loading available documents...</span>
+      <span>{{ $t('documents.loading') }}</span>
     </div>
 
     <!-- Empty states -->
@@ -52,13 +52,13 @@ const emit = defineEmits<{
         <Icon name="FileText" :size="48" />
       </div>
       <h3 class="m-0 mb-2 text-xl font-semibold text-ink">
-        {{ props.activeQuery ? 'No matching documents' : 'No documents yet' }}
+        {{ props.activeQuery ? $t('documents.emptyNoMatchTitle') : $t('documents.emptyTitle') }}
       </h3>
       <p class="m-0 mb-5 max-w-[420px] text-[0.9rem] text-ink-secondary">
         {{
           props.activeQuery
-            ? 'Try adjusting your search terms or filter scope.'
-            : 'Get started by creating your first document to edit and collaborate in real-time.'
+            ? $t('documents.emptyNoMatchDesc')
+            : $t('documents.emptyDesc')
         }}
       </p>
       <Button
@@ -71,7 +71,7 @@ const emit = defineEmits<{
         <template #prepend>
           <Icon name="Plus" :size="16" />
         </template>
-        Create Document
+        {{ $t('documents.createDocument') }}
       </Button>
     </div>
 
@@ -86,22 +86,22 @@ const emit = defineEmits<{
             <th
               class="w-[46%] border-b border-line-subtle bg-subtle px-4 py-3 text-[0.8rem] font-semibold tracking-[0.05em] text-ink-secondary uppercase max-md:w-[55%]"
             >
-              Document Name
+              {{ $t('documents.columnName') }}
             </th>
             <th
               class="w-[18%] border-b border-line-subtle bg-subtle px-4 py-3 text-[0.8rem] font-semibold tracking-[0.05em] text-ink-secondary uppercase max-md:w-[25%]"
             >
-              Ownership
+              {{ $t('documents.columnOwnership') }}
             </th>
             <th
               class="w-[20%] border-b border-line-subtle bg-subtle px-4 py-3 text-[0.8rem] font-semibold tracking-[0.05em] text-ink-secondary uppercase max-md:hidden"
             >
-              Last Changed
+              {{ $t('documents.columnChanged') }}
             </th>
             <th
               class="w-[16%] border-b border-line-subtle bg-subtle px-4 py-3 text-right text-[0.8rem] font-semibold tracking-[0.05em] text-ink-secondary uppercase max-md:w-[20%]"
             >
-              Actions
+              {{ $t('documents.columnActions') }}
             </th>
           </tr>
         </thead>
@@ -123,11 +123,11 @@ const emit = defineEmits<{
                 <div class="flex min-w-0 flex-col gap-0.5 overflow-hidden">
                   <span
                     class="truncate text-[0.95rem] font-semibold text-ink group-hover:text-brand"
-                    :title="doc.title || 'Untitled Document'"
+                    :title="doc.title || $t('common.untitledDocument')"
                   >
-                    {{ truncateTitle(doc.title || 'Untitled Document') }}
+                    {{ truncateTitle(doc.title || $t('common.untitledDocument')) }}
                   </span>
-                  <span class="font-mono text-xs text-muted">ID: {{ doc.id.slice(0, 8) }}...</span>
+                  <span class="font-mono text-xs text-muted">{{ $t('documents.idLabel') }} {{ doc.id.slice(0, 8) }}...</span>
                 </div>
               </div>
             </td>
@@ -139,22 +139,22 @@ const emit = defineEmits<{
                   v-if="doc.permission === 'owner'"
                   class="inline-flex items-center rounded-full bg-success/15 px-2 py-0.5 text-xs font-semibold text-success capitalize"
                 >
-                  Owned
+                  {{ $t('documents.badgeOwned') }}
                 </span>
                 <span
                   v-else
                   class="inline-flex items-center rounded-full bg-warning/15 px-2 py-0.5 text-xs font-semibold text-warning capitalize"
-                  :title="doc.owner ? `Shared by ${doc.owner.login}` : 'Shared document'"
+                  :title="doc.owner ? $t('documents.sharedBy', { login: doc.owner.login }) : $t('documents.sharedDocument')"
                 >
-                  Shared
+                  {{ $t('documents.badgeShared') }}
                 </span>
 
                 <span
                   v-if="doc.permission !== 'owner' && doc.owner"
                   class="text-xs text-muted"
-                  :title="`Document created by ${doc.owner.login}`"
+                  :title="$t('documents.createdBy', { login: doc.owner.login })"
                 >
-                  by {{ doc.owner.login }}
+                  {{ $t('documents.by', { login: doc.owner.login }) }}
                 </span>
               </div>
             </td>
@@ -176,8 +176,8 @@ const emit = defineEmits<{
                   variant="outlined"
                   size="small"
                   square
-                  title="Share document"
-                  aria-label="Share document"
+                  :title="$t('documents.shareDocument')"
+                  :aria-label="$t('documents.shareDocument')"
                   @click.stop="emit('share', doc)"
                 >
                   <template #icon>
@@ -189,8 +189,8 @@ const emit = defineEmits<{
                   color="alert"
                   size="small"
                   square
-                  title="Delete document"
-                  aria-label="Delete document"
+                  :title="$t('documents.deleteDocument')"
+                  :aria-label="$t('documents.deleteDocument')"
                   @click.stop="emit('delete', doc)"
                 >
                   <template #icon>
@@ -201,9 +201,9 @@ const emit = defineEmits<{
               <div v-else class="inline-flex items-center justify-end">
                 <span
                   class="rounded bg-subtle px-1.5 py-0.5 text-xs text-muted capitalize"
-                  :title="`Your role: ${doc.permission}`"
+                  :title="$t('documents.roleTitle', { role: doc.permission })"
                 >
-                  {{ doc.permission }}
+                  {{ $t(`editor.roles.${doc.permission}`) }}
                 </span>
               </div>
             </td>
