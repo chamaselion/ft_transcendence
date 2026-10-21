@@ -1,11 +1,10 @@
 <template>
   <div
-    ref="nav"
-    class="editor-nav sticky z-10 flex items-center rounded-[10px] border border-line-subtle bg-surface px-2.5 py-1.5 transition-[box-shadow,border-color,background-color] duration-200"
-    :class="[positionClass, floating ? 'shadow-[var(--shadow-md)]' : 'shadow-[var(--shadow-sm)]']"
+    class="editor-nav sticky z-10 flex min-w-0 max-w-full shrink-0 items-center rounded-[10px] border border-line-subtle bg-surface px-2.5 py-1.5 shadow-[var(--shadow-sm)]"
+    :class="positionClass"
   >
     <div
-      class="editor-nav__group flex items-center gap-1"
+      class="editor-nav__group flex flex-wrap items-center gap-1"
       :class="{ 'flex-col': position === 'left' }"
     >
       <Button
@@ -24,11 +23,14 @@
     </div>
 
     <template v-if="activeBlock && activeDecorator">
-      <span class="editor-nav__divider" :class="dividerClass" />
+      <span
+        class="editor-nav__divider"
+        :class="[dividerClass, position === 'left' ? '' : 'max-sm:hidden']"
+      />
 
       <div
         v-if="activeDecorator.type === 'p'"
-        class="editor-nav__group editor-nav__group--formatting flex items-center gap-1"
+        class="editor-nav__group editor-nav__group--formatting flex flex-wrap items-center gap-1"
         :class="{ 'flex-col': position === 'left' }"
       >
         <Button
@@ -49,7 +51,7 @@
 
       <div
         v-else-if="activeDecorator.type === 'h'"
-        class="editor-nav__group editor-nav__group--formatting flex items-center gap-1"
+        class="editor-nav__group editor-nav__group--formatting flex flex-wrap items-center gap-1"
         :class="{ 'flex-col': position === 'left' }"
       >
         <Button
@@ -70,7 +72,7 @@
 
       <div
         v-else-if="activeDecorator.type === 'li'"
-        class="editor-nav__group editor-nav__group--formatting flex items-center gap-1"
+        class="editor-nav__group editor-nav__group--formatting flex flex-wrap items-center gap-1"
         :class="{ 'flex-col': position === 'left' }"
       >
         <Button
@@ -101,7 +103,7 @@
 
       <div
         v-else-if="activeDecorator.type === 'c'"
-        class="editor-nav__group editor-nav__group--formatting flex items-center gap-1"
+        class="editor-nav__group editor-nav__group--formatting flex flex-wrap items-center gap-1"
         :class="{ 'flex-col': position === 'left' }"
       >
         <span class="editor-nav__label mr-0.5 text-[0.75rem] font-semibold text-muted">Lang:</span>
@@ -117,10 +119,14 @@
         </select>
       </div>
 
-      <span v-if="activeDecorator.type !== 'cit'" class="editor-nav__divider" />
+      <span
+        v-if="activeDecorator.type !== 'cit'"
+        class="editor-nav__divider"
+        :class="position === 'left' ? '' : 'max-sm:hidden'"
+      />
 
       <!-- Delete active block button -->
-      <div class="editor-nav__group">
+      <div class="editor-nav__group flex flex-wrap items-center gap-1">
         <Button
           variant="outlined"
           color="alert"
@@ -136,32 +142,11 @@
         </Button>
       </div>
     </template>
-
-    <span class="editor-nav__divider" :class="dividerClass" />
-
-    <div
-      class="editor-nav__group flex items-center gap-1"
-      :class="{ 'flex-col': position === 'left' }"
-    >
-      <Button
-        v-for="type in blockTypes"
-        :key="type"
-        variant="flat"
-        size="small"
-        square
-        :title="`Add ${blockTypeLabels[type]}`"
-        @click="$emit('add', type)"
-      >
-        <template #icon>
-          <Icon :name="typeIcons[type]" :size="18" />
-        </template>
-      </Button>
-    </div>
   </div>
 </template>
 
 <script lang="ts" setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed } from 'vue'
 import Button from '@/app/components/Button.vue'
 import Icon, { type IconName } from '@/app/components/Icon.vue'
 import {
@@ -203,9 +188,9 @@ const activeDecorator = computed(() =>
 const positionClass = computed(
   () =>
     ({
-      top: 'top-3 mb-2 w-full flex-row justify-start',
-      left: 'top-4 flex-col self-start',
-      bottom: 'bottom-3 mt-2 w-full flex-row',
+      top: 'top-0 mb-2 w-full flex-row flex-wrap justify-start gap-1 gap-y-1.5',
+      left: 'top-0 flex-col self-start',
+      bottom: 'bottom-0 mt-2 w-full flex-row flex-wrap gap-1 gap-y-1.5',
     })[props.position],
 )
 
@@ -235,15 +220,25 @@ function onNavLanguageChange(e: Event) {
   const target = e.target as HTMLSelectElement
   emit('update:decorator', { ...activeDecorator.value, language: target.value })
 }
+</script>
 
-const nav = ref<HTMLElement | null>(null)
-const floating = ref(false)
-
-const onScroll = () => {
-  if (!nav.value) return
-  floating.value = nav.value.getBoundingClientRect().top <= 20
+<style scoped>
+.editor-nav :deep(.btn) {
+  flex-shrink: 0;
 }
 
-onMounted(() => window.addEventListener('scroll', onScroll, { passive: true }))
-onBeforeUnmount(() => window.removeEventListener('scroll', onScroll))
-</script>
+@media (max-width: 639px) {
+  .editor-nav {
+    padding: 4px 6px;
+  }
+
+  .editor-nav :deep(.btn) {
+    padding: 4px;
+  }
+
+  .editor-nav__select {
+    padding: 2px 4px;
+    font-size: 0.7rem;
+  }
+}
+</style>

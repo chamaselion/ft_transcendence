@@ -12,7 +12,7 @@ const authStore = useAuthStore()
 const isActive = (path: string) => (path === '/' ? route.path === '/' : route.path.startsWith(path))
 
 const linkBase =
-  'inline-flex items-center gap-2 m-0 whitespace-nowrap rounded-lg border px-3.5 py-2 text-[15px] font-medium leading-[1.4] no-underline cursor-pointer transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand'
+  'inline-flex items-center gap-2 m-0 whitespace-nowrap rounded-lg border px-3.5 py-2 text-[15px] font-medium leading-[1.4] no-underline cursor-pointer transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand max-sm:gap-0 max-sm:px-2'
 const navLink = `${linkBase} border-transparent hover:bg-[color-mix(in_srgb,var(--text-primary)_8%,transparent)] hover:text-ink`
 const ghostLink = `${navLink} bg-transparent`
 const navIdle = 'border-transparent bg-transparent text-ink-secondary'
@@ -23,25 +23,38 @@ const logoutLink = `${linkBase} border-[color:color-mix(in_srgb,var(--color-aler
 
 <template>
   <header
-    class="sticky top-0 z-20 flex items-center gap-2 border-b border-line bg-[color-mix(in_srgb,var(--bg-header)_88%,transparent)] px-6 py-2.5 shadow-[var(--shadow-sm)] backdrop-blur-[10px]"
+    class="sticky top-0 z-20 flex items-center gap-2 border-b border-line bg-[color-mix(in_srgb,var(--bg-header)_88%,transparent)] px-6 py-2.5 shadow-[var(--shadow-sm)] backdrop-blur-[10px] max-sm:px-3"
   >
     <nav class="flex items-center gap-1">
-      <router-link to="/" :class="[navLink, isActive('/') ? navActive : navIdle]">Home</router-link>
-      <router-link to="/editor" :class="[navLink, isActive('/editor') ? navActive : navIdle]"
-        >Editor</router-link
+      <router-link to="/" :class="[navLink, isActive('/') ? navActive : navIdle]" aria-label="Home">
+        <Icon name="Home" :size="18" />
+        <span class="btn--lable max-sm:hidden">Home</span>
+      </router-link>
+      <router-link
+        to="/editor"
+        :class="[navLink, isActive('/editor') ? navActive : navIdle]"
+        aria-label="Editor"
       >
+        <Icon name="Pencil" :size="18" />
+        <span class="btn--lable max-sm:hidden">Editor</span>
+      </router-link>
     </nav>
 
     <span class="flex-1" />
 
     <nav class="flex items-center gap-1">
       <template v-if="!authStore.isAuthenticated">
-        <router-link to="/register" :class="[navLink, isActive('/register') ? navActive : navIdle]"
-          >Register</router-link
+        <router-link
+          to="/register"
+          :class="[navLink, isActive('/register') ? navActive : navIdle]"
+          aria-label="Register"
         >
-        <router-link to="/login" :class="primaryLink">
+          <Icon name="PencilPlus" :size="18" />
+          <span class="btn--lable max-sm:hidden">Register</span>
+        </router-link>
+        <router-link to="/login" :class="primaryLink" aria-label="Login">
           <Icon name="Login" :size="18" />
-          <span>Login</span>
+          <span class="btn--lable max-sm:hidden">Login</span>
         </router-link>
       </template>
 
@@ -49,19 +62,21 @@ const logoutLink = `${linkBase} border-[color:color-mix(in_srgb,var(--color-aler
         v-else
         :class="logoutLink"
         title="Log out of your account"
+        aria-label="Logout"
         @click.prevent="authStore.logout"
       >
         <Icon name="Logout" :size="18" />
-        <span>Logout</span>
+        <span class="btn--lable max-sm:hidden">Logout</span>
       </button>
 
       <button
         :class="ghostLink"
         :title="currentTheme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'"
+        :aria-label="currentTheme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'"
         @click="toggleTheme"
       >
         <Icon :name="currentTheme === 'light' ? 'Moon' : 'Sun'" :size="18" />
-        <span>{{ currentTheme === 'light' ? 'Dark' : 'Light' }}</span>
+        <span class="btn--lable max-sm:hidden">{{ currentTheme === 'light' ? 'Dark' : 'Light' }}</span>
       </button>
     </nav>
     <router-link

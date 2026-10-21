@@ -31,7 +31,7 @@
         :paginate-elements-by-height="usablePageHeightPx"
       >
         <template #pdf-content>
-          <div class="pdf-content box-border w-full bg-app px-6 py-3.5 [word-spacing:0.4em]">
+          <div class="pdf-content box-border w-full bg-transparent px-6 py-3.5 [word-spacing:0.4em]">
             <EditorBlock
               v-for="block in store.blocks"
               :key="block.id"
