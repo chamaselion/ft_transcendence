@@ -70,7 +70,9 @@
 
       <!-- Existing collaborators section -->
       <section class="flex flex-col gap-2.5 border-b border-line-subtle pb-4">
-        <h3 class="m-0 text-[0.95rem] font-semibold text-ink">{{ $t('share.peopleWithAccess') }}</h3>
+        <h3 class="m-0 text-[0.95rem] font-semibold text-ink">
+          {{ $t('share.peopleWithAccess') }}
+        </h3>
 
         <div v-if="loadingShares" class="px-0 py-2 text-sm text-muted italic">
           {{ $t('share.loading') }}
@@ -157,6 +159,7 @@ import {
   type ShareData,
 } from '@/app/editor/document.api'
 import { validateEmail } from '@/utils/validation'
+import { logger } from '@/utils/logger'
 
 const props = withDefaults(
   defineProps<{
@@ -207,7 +210,7 @@ async function fetchShares() {
   try {
     shares.value = await listShares(props.documentId)
   } catch (err) {
-    console.error('Failed to load shares:', err)
+    logger.error('Failed to load shares:', err)
   } finally {
     loadingShares.value = false
   }

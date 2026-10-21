@@ -15,6 +15,7 @@ import type { OtpConfirmationResponse } from '../types/auth.types'
 import { useAuthStore } from '@/stores/auth'
 import UserIcon from '@/app/components/UserIcon.vue'
 import { validateEmail, validateLogin, validateOtpCode } from '@/utils/validation'
+import { logger } from '@/utils/logger'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -139,7 +140,7 @@ async function updateUserDetails(email: string | undefined, login: string | unde
     confirmationID.value = response.confirmationId
     displayOTP.value = true
   } catch (error) {
-    console.error('Error updating user details:', error)
+    logger.error('Error updating user details:', error)
     errorFlag.value = true
     message.value = error instanceof Error ? error.message : t('settings.updateError')
   }
@@ -147,7 +148,7 @@ async function updateUserDetails(email: string | undefined, login: string | unde
 
 async function confirmUpdateDetails() {
   if (confirmationID.value == '') {
-    console.error('No confirmation ID available for OTP confirmation.')
+    logger.error('No confirmation ID available for OTP confirmation.')
     return
   }
 
@@ -162,14 +163,14 @@ async function confirmUpdateDetails() {
       code: codeResult.value,
     })
 
-    console.log('OTP confirmed successfully:', response)
+    logger.debug('OTP confirmed successfully:', response)
     displayOTP.value = false
     confirmationID.value = ''
     updateSuccessMessage.value = t('settings.updateSuccess')
     updateSuccess.value = true
     loadProfile()
   } catch (error) {
-    console.error('Error confirming OTP:', error)
+    logger.error('Error confirming OTP:', error)
     errorFlag.value = true
     message.value = error instanceof Error ? error.message : t('settings.confirmError')
   } finally {
@@ -266,7 +267,7 @@ async function exportGdprData(format: 'json' | 'csv' = 'json') {
     gdprSuccessMessage.value = t('settings.exportSuccess', { format: format.toUpperCase() })
     gdprSuccess.value = true
   } catch (error) {
-    console.error('Error exporting GDPR data:', error)
+    logger.error('Error exporting GDPR data:', error)
     errorFlag.value = true
     message.value = error instanceof Error ? error.message : t('settings.exportFailed')
   } finally {

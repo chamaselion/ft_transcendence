@@ -9,6 +9,7 @@ import Button from '@/app/components/Button.vue'
 import TermsOfServiceModal from '@/app/components/TermsOfServiceModal.vue'
 import { rememberTermsAcceptance } from '../terms'
 import { validateEmail, validateLogin, validatePassword } from '@/utils/validation'
+import { logger } from '@/utils/logger'
 
 const { t } = useI18n()
 
@@ -75,15 +76,15 @@ const handleRegister = async () => {
           : t('common.somethingWentWrong')
     if (error instanceof HttpError) {
       if (error.status === 400) {
-        console.log('Invalid data:', error.message)
+        logger.debug('Invalid data:', error.message)
       } else if (error.status === 409) {
         emailInUse.value = /email/i.test(error.message)
-        console.log('User already exists:', error.message)
+        logger.debug('User already exists:', error.message)
       } else {
-        console.log(`Request failed: ${error.status}`, error.message)
+        logger.debug(`Request failed: ${error.status}`, error.message)
       }
     } else {
-      console.log('An unexpected error occurred:', error)
+      logger.debug('An unexpected error occurred:', error)
     }
   }
 }

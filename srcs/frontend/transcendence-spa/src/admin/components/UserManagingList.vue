@@ -3,6 +3,7 @@ import { onMounted, ref, computed } from 'vue'
 import { httpClient, HttpError } from '@/auth/auth.api'
 import type { User } from '@/auth/types/user'
 import { type Pagination } from '@/types/pagination'
+import { logger } from '@/utils/logger'
 import UserManagmentModal from './UserManagmentModal.vue'
 
 interface ResponseShape {
@@ -36,9 +37,9 @@ async function fetchUsers(limit: number, offset: number) {
     pagination.value = res.value.pagination
   } catch (error) {
     if (error instanceof HttpError) {
-      console.error('HTTP error while fetching users:', error.message)
+      logger.error('HTTP error while fetching users:', error.message)
     } else {
-      console.error('Unexpected error while fetching users:', error)
+      logger.error('Unexpected error while fetching users:', error)
     }
   }
 }
@@ -82,7 +83,9 @@ onMounted(async () => {
         {{ $t('admin.users.showing', { from: rangeStart, to: rangeEnd, total: pagination.total }) }}
       </p>
       <div class="flex flex-wrap items-center gap-2">
-        <label class="font-medium text-ink-secondary" for="limit">{{ $t('admin.users.perPage') }}</label>
+        <label class="font-medium text-ink-secondary" for="limit">{{
+          $t('admin.users.perPage')
+        }}</label>
         <select
           id="limit"
           v-model="limit"
@@ -111,7 +114,9 @@ onMounted(async () => {
         </button>
       </div>
       <div class="flex flex-wrap items-center gap-2">
-        <label class="font-medium text-ink-secondary" for="sort">{{ $t('admin.users.sortBy') }}</label>
+        <label class="font-medium text-ink-secondary" for="sort">{{
+          $t('admin.users.sortBy')
+        }}</label>
         <select
           id="sort"
           v-model="sortOption"

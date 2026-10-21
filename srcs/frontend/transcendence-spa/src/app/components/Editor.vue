@@ -90,6 +90,7 @@ import {
 } from '@/app/editor/translation.api'
 import { elaborateBlock, type PersonaKey } from '@/app/editor/elaboration.api'
 import { isStandardText, type EditableInsertEvent } from '@/app/editor/useEditable'
+import { logger } from '@/utils/logger'
 import {
   createBlock,
   defaultDecorator,
@@ -407,7 +408,7 @@ async function translateDocumentTo(targetLang: string) {
     store.setLanguage(targetLang)
   } catch (err) {
     if (requestId !== translationRequestId) return
-    console.error('Document translation failed:', err)
+    logger.error('Document translation failed:', err)
     store.translationError = err instanceof Error ? err.message : t('editor.translationFailed')
     emit('error', store.translationError)
   } finally {
@@ -476,7 +477,7 @@ async function flushPendingEdit(): Promise<boolean> {
           store.clearBlockDirty(blockId)
           textToSend = canonical
         } catch (err) {
-          console.error('Back-translation failed during save:', err)
+          logger.error('Back-translation failed during save:', err)
         }
       }
     }
@@ -549,7 +550,7 @@ function wireProvider(provider: EditorDataProvider) {
             if (requestId !== translationRequestId || store.activeLanguage !== requestedLang) return
             store.applyTranslations(res)
           })
-          .catch((err) => console.error('Failed to translate initial blocks:', err))
+          .catch((err) => logger.error('Failed to translate initial blocks:', err))
       }
     }
   }
@@ -566,7 +567,7 @@ function wireProvider(provider: EditorDataProvider) {
             store.applyTranslations(res)
           }
         })
-        .catch((err) => console.error('Failed to translate newly created block:', err))
+        .catch((err) => logger.error('Failed to translate newly created block:', err))
     }
   }
 
@@ -593,7 +594,7 @@ function wireProvider(provider: EditorDataProvider) {
                   store.updateBlockText(e.blockId, first.text)
                 }
               })
-              .catch((err) => console.error('Failed to translate updated block:', err))
+              .catch((err) => logger.error('Failed to translate updated block:', err))
           }
         }
       }
@@ -934,7 +935,7 @@ const onElaborate = async (personaKey: PersonaKey) => {
       store.setCanonicalText(block.id, englishText)
       store.clearBlockDirty(block.id)
     } catch (err) {
-      console.error('Back-translation before elaboration failed:', err)
+      logger.error('Back-translation before elaboration failed:', err)
     }
   }
 
@@ -982,7 +983,7 @@ const onElaborate = async (personaKey: PersonaKey) => {
 
     resetLockTimeout(block.id)
   } catch (err) {
-    console.error('AI elaboration failed:', err)
+    logger.error('AI elaboration failed:', err)
     emit('error', err instanceof Error ? err.message : t('editor.elaborate.failed'))
   } finally {
     isElaborating.value = false

@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Button from '@/app/components/Button.vue'
 import Icon from '@/app/components/Icon.vue'
+import { logger } from '@/utils/logger'
 
 export interface CookieInfo {
   name: string
@@ -73,7 +74,7 @@ function acceptAll() {
       }),
     )
   } catch (err) {
-    console.error('Failed to save cookie consent:', err)
+    logger.error('Failed to save cookie consent:', err)
   }
   isVisible.value = false
 }
@@ -171,7 +172,10 @@ defineExpose({
                     <td>{{ cookie.duration }}</td>
                     <td class="cookie-purpose">{{ cookie.purpose }}</td>
                     <td>
-                      <span class="status-pill status-pill--required" :title="$t('cookie.essential')">
+                      <span
+                        class="status-pill status-pill--required"
+                        :title="$t('cookie.essential')"
+                      >
                         {{ $t('cookie.alwaysActive') }}
                       </span>
                     </td>
@@ -410,7 +414,9 @@ defineExpose({
 /* Animations */
 .cookie-banner-fade-enter-active,
 .cookie-banner-fade-leave-active {
-  transition: opacity 0.3s ease, transform 0.3s ease;
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease;
 }
 
 .cookie-banner-fade-enter-from,

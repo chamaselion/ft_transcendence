@@ -87,6 +87,9 @@ router.beforeEach(async (to) => {
     if (authStore.isAdmin()) return true
     else return { name: 'home' }
   }
+  if (to.name === 'editor' && !authStore.isAuthenticated) {
+    return { name: 'login' }
+  }
   return true
 })
 

@@ -9,6 +9,7 @@ import Input from '@/app/components/Input.vue'
 import Button from '@/app/components/Button.vue'
 import OAuth from './OAuth.vue'
 import { validateEmail, validatePassword } from '@/utils/validation'
+import { logger } from '@/utils/logger'
 
 const { t } = useI18n()
 
@@ -73,13 +74,13 @@ const handleLogin = async () => {
           : t('common.somethingWentWrong')
     if (error instanceof HttpError) {
       if (error.status === 400) {
-        console.log(error.message)
+        logger.debug(error.message)
       } else if (error.status === 401) {
-        console.log('Wrong email or password')
+        logger.debug('Wrong email or password')
       } else {
-        console.log(`Request failed: ${error.status}`)
+        logger.debug(`Request failed: ${error.status}`)
       }
-      console.log(error.message)
+      logger.debug(error.message)
     }
   } finally {
     isSubmitting.value = false

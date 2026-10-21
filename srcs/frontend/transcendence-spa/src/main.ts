@@ -2,6 +2,7 @@ import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import { useAuthStore } from '@/stores/auth'
 import { i18n, initI18n } from '@/i18n'
+import { logger } from '@/utils/logger'
 
 import '@/assets/tailwind.css'
 
@@ -23,5 +24,5 @@ async function bootstrap() {
 }
 
 bootstrap().catch((error) => {
-  console.error('Failed to bootstrap application:', error)
+  logger.error('Failed to bootstrap application:', error)
 })

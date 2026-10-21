@@ -2,6 +2,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { deleteDocument, listDocuments, type DocumentData } from '@/app/editor/document.api'
 import { validateSearchQuery } from '@/utils/validation'
+import { logger } from '@/utils/logger'
 
 export type DocumentScope = 'all' | 'own' | 'shared'
 export type ToastType = 'good' | 'alert' | 'info' | 'warn'
@@ -66,7 +67,7 @@ export function useDocumentDirectory() {
     } catch (err) {
       if (requestId !== lastRequestId) return
 
-      console.error('Failed to load documents:', err)
+      logger.error('Failed to load documents:', err)
       errorMessage.value = err instanceof Error ? err.message : t('documents.fetchFailed')
     } finally {
       if (requestId === lastRequestId) {
@@ -142,7 +143,7 @@ export function useDocumentDirectory() {
       }
       await fetchDocuments()
     } catch (err) {
-      console.error('Failed to delete document:', err)
+      logger.error('Failed to delete document:', err)
       toastType.value = 'alert'
       toastMessage.value = err instanceof Error ? err.message : t('documents.deleteFailed')
       showToast.value = true

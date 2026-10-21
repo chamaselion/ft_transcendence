@@ -12,6 +12,7 @@ import { createDocument, getDocument, updateDocumentTitle } from '@/app/editor/d
 import { insertPlainText } from '@/app/editor/plainTextPaste'
 import { DOCUMENT_TITLE_MAX_LENGTH } from '@/utils/validation'
 import { truncateTitle } from '@/utils/title'
+import { logger } from '@/utils/logger'
 import ShareModal from '@/app/components/ShareModal.vue'
 
 const route = useRoute()
@@ -34,7 +35,7 @@ const connectionStatus = ref<'connecting' | 'connected' | 'disconnected'>('conne
 const errorMessage = ref<string | null>(null)
 const titleError = ref('')
 const isLoading = ref<boolean>(true)
-const editorElement = ref<typeof Editor | null>(null);
+const editorElement = ref<typeof Editor | null>(null)
 
 const statusClass = computed(
   () =>
@@ -121,7 +122,7 @@ async function onTitleBlur() {
       try {
         await updateDocumentTitle(documentId.value, newTitle)
       } catch (err) {
-        console.error('Failed to update title via REST API:', err)
+        logger.error('Failed to update title via REST API:', err)
       }
     }
   }
@@ -180,7 +181,12 @@ async function loadEditor(idParam?: string) {
   isLoading.value = true
   errorMessage.value = null
 
-  await authStore.checkForAuthentication()
+  const user = await authStore.checkForAuthentication()
+  if (!user) {
+    isLoading.value = false
+    await router.replace('/login')
+    return
+  }
 
   const id = idParam || (route.params.id as string | undefined)
 
@@ -197,7 +203,7 @@ async function loadEditor(idParam?: string) {
         router.push('/')
       }
     } catch (err) {
-      console.error('Failed to create new document room:', err)
+      logger.error('Failed to create new document room:', err)
       router.push('/')
     } finally {
       isLoading.value = false
@@ -212,7 +218,7 @@ async function loadEditor(idParam?: string) {
       if (doc.permission) userPermission.value = doc.permission
       openRoom(doc.id, doc.title)
     } catch (err) {
-      console.error('Unknown document id or access denied:', err)
+      logger.error('Unknown document id or access denied:', err)
       router.push('/')
       return
     } finally {
@@ -320,7 +326,9 @@ onBeforeUnmount(() => {
     >
       {{ errorMessage }}
     </div>
-    <div v-if="isLoading" class="px-4 py-12 text-center text-muted italic">{{ $t('editor.initializing') }}</div>
+    <div v-if="isLoading" class="px-4 py-12 text-center text-muted italic">
+      {{ $t('editor.initializing') }}
+    </div>
     <Editor
       v-else-if="provider"
       class="shrink-0"
@@ -342,10 +350,13 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.btn--lable { display:block;}
-
+.btn--lable {
+  display: block;
+}
 
 @media (max-width: 768px) {
-  .btn--lable { display: none;}
+  .btn--lable {
+    display: none;
+  }
 }
 </style>

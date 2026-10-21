@@ -91,6 +91,7 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Button from '@/app/components/Button.vue'
 import Icon from '@/app/components/Icon.vue'
+import { logger } from '@/utils/logger'
 import {
   fetchPersonas,
   PERSONA_CATEGORY_KEYS,
@@ -168,7 +169,7 @@ async function loadPersonas() {
   try {
     personas.value = await fetchPersonas()
   } catch (error) {
-    console.error('Failed to load AI personas:', error)
+    logger.error('Failed to load AI personas:', error)
     personasError.value = t('editor.elaborate.loadFailed')
   } finally {
     personasLoading.value = false

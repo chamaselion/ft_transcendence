@@ -6,6 +6,7 @@ import Toast from '@/app/components/Toast.vue'
 import Input from '@/app/components/Input.vue'
 import Button from '@/app/components/Button.vue'
 import { validateOtpCode } from '@/utils/validation'
+import { logger } from '@/utils/logger'
 
 const { t } = useI18n()
 
@@ -34,7 +35,7 @@ const handleOtpConfirmation = async () => {
       email: props.email,
       code: otp.value.trim(),
     })
-    console.log('OTP confirmed successfully')
+    logger.debug('OTP confirmed successfully')
     loggedInSuccess.value = true
     setTimeout(() => {
       window.location.href = '/'
@@ -50,13 +51,13 @@ const handleOtpConfirmation = async () => {
     loggedInSuccess.value = false
     if (error instanceof HttpError) {
       if (error.status === 400) {
-        console.log(error.message)
+        logger.debug(error.message)
       } else if (error.status === 401) {
-        console.log('Wrong OTP')
+        logger.debug('Wrong OTP')
       } else {
-        console.log(`Request failed: ${error.status}`)
+        logger.debug(`Request failed: ${error.status}`)
       }
-      console.log(error.message)
+      logger.debug(error.message)
     }
   }
 }

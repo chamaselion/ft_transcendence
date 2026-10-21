@@ -1,4 +1,5 @@
 import { createI18n } from 'vue-i18n'
+import { logger } from '@/utils/logger'
 
 export const SUPPORTED_LOCALES = ['en', 'de', 'hu'] as const
 export type AppLocale = (typeof SUPPORTED_LOCALES)[number]
@@ -76,11 +77,11 @@ export async function initI18n(): Promise<AppLocale> {
   try {
     await loadLocaleWithFallback(locale)
   } catch (error) {
-    console.error('Failed to load locale messages:', error)
+    logger.error('Failed to load locale messages:', error)
     try {
       await loadLocaleMessages(DEFAULT_LOCALE)
     } catch (fallbackError) {
-      console.error('Failed to load default locale messages:', fallbackError)
+      logger.error('Failed to load default locale messages:', fallbackError)
     }
   }
   i18n.global.locale.value = locale
