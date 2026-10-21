@@ -319,20 +319,20 @@ onMounted(loadProfile)
                 :disabled="avatarPending"
                 @change="changeAvatar"
               />
-              <Button
+              <!-- <Button
                 type="button"
                 class="profile__avatar-button"
                 aria-label="Change profile icon"
                 :disabled="avatarPending"
-                @click="avatarInput?.click()"
-              >
+              > -->
                 <UserIcon
                   class="profile__avatar-icon"
                   :avatar-url="user?.avatarUrl ?? undefined"
                   :name="user?.login"
+                @click="avatarInput?.click()"
                   size="large"
                 />
-              </Button>
+              <!-- </Button> -->
               <span
                 class="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/25 text-[28px] leading-none text-white opacity-0 transition-opacity duration-[180ms] group-hover:opacity-100"
                 aria-hidden="true"
