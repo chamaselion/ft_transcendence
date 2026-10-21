@@ -46,7 +46,7 @@ const readDocumentFields = ({ title, content }) => {
     return { ok: false, error: 'content must be a string' };
   }
   if (content !== undefined && !validateContentLength(content)) {
-    return { ok: false, error: 'content blocks must be at most 5000 characters long' };
+    return { ok: false, error: 'content blocks must be objects with string text of at most 5000 characters' };
   }
 
   const sanitizedTitle = title !== undefined ? sanitizeText(title.trim()) : undefined;

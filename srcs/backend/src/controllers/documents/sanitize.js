@@ -49,7 +49,10 @@ const validateContentLength = (content) => {
     if (Array.isArray(parsed)) {
       return parsed.every(
         (block) =>
-          !(block && typeof block === 'object' && typeof block.text === 'string') ||
+          block !== null &&
+          typeof block === 'object' &&
+          !Array.isArray(block) &&
+          typeof block.text === 'string' &&
           validateTextLength(block.text, EDITOR_BLOCK_MAX_LENGTH),
       );
     }
