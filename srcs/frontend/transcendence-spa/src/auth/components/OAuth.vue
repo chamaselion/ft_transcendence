@@ -1,7 +1,20 @@
 <script setup lang="ts">
+import { useRouter } from 'vue-router'
 import Button from '@/app/components/Button.vue'
 import Icon from '@/app/components/Icon.vue'
-import { startOAuth } from '@/auth/oauth'
+import { startOAuth, type OAuthProvider } from '@/auth/oauth'
+import { hasAcceptedTerms } from '@/auth/terms'
+
+const router = useRouter()
+
+function beginOAuth(provider: OAuthProvider) {
+  if (hasAcceptedTerms()) {
+    startOAuth(provider)
+    return
+  }
+
+  router.push({ name: 'oauth-consent', params: { provider } })
+}
 
 function showExplainer(event: MouseEvent) {
   const target = event.currentTarget as HTMLElement
@@ -30,7 +43,7 @@ function hideExplainer() {
     <div class="relative flex max-[480px]:static">
       <Button
         class="oauth-btn github rounded! border-0! bg-subtle! px-4! py-2! text-ink! shadow-[0px_4px_6px_rgba(0,0,0,0.1)]! duration-300! hover:bg-brand-hover! dark:bg-[#24292e]! dark:hover:bg-brand-hover!"
-        @click="startOAuth('github')"
+        @click="beginOAuth('github')"
         @mouseenter="showExplainer"
         @mouseleave="hideExplainer"
       >
@@ -51,7 +64,7 @@ function hideExplainer() {
     <div class="relative flex max-[480px]:static">
       <Button
         class="oauth-btn rounded! border-0! bg-subtle! px-4! py-2! text-ink! shadow-[0px_4px_6px_rgba(0,0,0,0.1)]! duration-300! hover:bg-brand-hover! dark:bg-[#24292e]! dark:hover:bg-brand-hover!"
-        @click="startOAuth('42')"
+        @click="beginOAuth('42')"
         @mouseenter="showExplainer"
         @mouseleave="hideExplainer"
       >

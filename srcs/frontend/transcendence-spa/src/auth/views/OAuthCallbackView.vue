@@ -27,7 +27,7 @@ async function loadSession() {
       throw new Error('Invalid session response')
     }
     authStore.setStoreToApiResponse(response)
-    await router.replace('/settings')
+    await router.replace('/profile')
   } catch {
     errorMessage.value =
       'Sign-in completed, but your session could not be loaded. Retry loading your session or start again.'

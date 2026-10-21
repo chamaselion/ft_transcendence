@@ -6,6 +6,7 @@ import Toast from '@/app/components/Toast.vue'
 import Input from '@/app/components/Input.vue'
 import Button from '@/app/components/Button.vue'
 import TermsOfServiceModal from '@/app/components/TermsOfServiceModal.vue'
+import { rememberTermsAcceptance } from '../terms'
 import { validateEmail, validateLogin, validatePassword } from '@/utils/validation'
 
 const username = ref('')
@@ -42,10 +43,17 @@ const validateForm = () => {
 const acceptTerms = () => {
   acceptedTerms.value = true
   termsError.value = ''
+  rememberTermsAcceptance()
+}
+
+const handleTermsChange = () => {
+  termsError.value = ''
+  if (acceptedTerms.value) rememberTermsAcceptance()
 }
 
 const handleRegister = async () => {
   if (!validateForm()) return
+  rememberTermsAcceptance()
   emailInUse.value = false
   try {
     await httpClient.post('register', {
@@ -120,7 +128,7 @@ const handleRegister = async () => {
               v-model="acceptedTerms"
               type="checkbox"
               class="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-[color:var(--color-primary)]"
-              @change="termsError = ''"
+              @change="handleTermsChange"
             />
             <span>
               I agree to the

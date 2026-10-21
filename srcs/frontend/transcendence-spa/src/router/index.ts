@@ -30,6 +30,11 @@ const router = createRouter({
       component: () => import('@/auth/views/RegisterView.vue'),
     },
     {
+      name: 'oauth-consent',
+      path: '/auth/oauth/:provider/consent',
+      component: () => import('@/auth/views/OAuthConsentView.vue'),
+    },
+    {
       name: 'oauth-callback',
       path: '/auth/oauth/:provider/callback',
       component: () => import('@/auth/views/OAuthCallbackView.vue'),
