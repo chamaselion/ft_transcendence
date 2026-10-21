@@ -38,9 +38,9 @@ async function connectWithRetry() {
 async function start() {
   try {
     await connectWithRetry();
-    // `alter: true` so schema changes (such as the `role` column) also reach
-    // databases that already exist, not just freshly created ones.
-    await sequelize.sync({ alter: true });
+    // Keep startup schema sync non-mutating so a deployed instance does not
+    // reshape an existing database on boot.
+    await sequelize.sync();
     await hydrateSessionCacheFromDb();
     await ensureAdminRole();
     console.log('Database connected');
