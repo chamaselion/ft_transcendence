@@ -83,9 +83,9 @@ Make sure you have **Docker** (20.10+, with the Compose V2 plugin), **GNU Make**
 
 ## Project Management
 
-Work was split along a clear architectural seam — backend (**bszikora**, **blohrer**) and frontend (**afelger**, **mandre**) — with the REST API documentation (`docs/API-s/`) and WebSocket message protocol serving as written contracts between both sides. Each feature was developed on a dedicated branch and merged via Pull Request after code review and automated CI checks.
+Work was split — backend (**bszikora**, **blohrer**) and frontend (**afelger**, **mandre**) — with the REST API documentation (`docs/API-s/`) and WebSocket message protocol serving as written contracts between both sides. Each feature was developed on a dedicated branch and merged via Pull Request after code review and automated CI checks.
 
-The team met once or twice per week to sync on progress, prioritize the backlog, and resolve blockers. Decisions were documented in Discord and under `docs/` so they stayed discoverable. Between meetings, day-to-day coordination ran asynchronously through Discord and GitHub Pull Request reviews.
+We met once or twice per week to sync on progress, prioritize the backlog, and resolve blockers. Decisions were documented in Discord and under `docs/` so they stayed discoverable. Between meetings, day-to-day coordination ran asynchronously through Discord, WhatsApp and GitHub Pull Request reviews and GitHub Issues.
 
 **Tools & Channels:**
 - **GitHub Issues & Pull Requests:** Task tracking, branch-per-feature workflow, and mandatory peer review before merge.
@@ -100,10 +100,8 @@ The team met once or twice per week to sync on progress, prioritize the backlog,
 The application is deployed as a **six-service Docker Compose stack**, where each service has a single, well-defined responsibility:
 
 - **Frontend (`frontend`) — Vue 3 + TypeScript + Vite + Tailwind CSS v4 + Pinia + Vue Router + `vue-i18n`:**
-  - **Vue 3 SFCs + TypeScript:** Chosen so template, reactive logic, and scoped styles for each design-system and editor block component live together with strict compile-time type safety.
-  - **Tailwind CSS v4 (`@tailwindcss/vite`) + Custom CSS Design Tokens (`theme.css`):** Provides utility classes mapped onto semantic CSS custom properties (`--bg-surface`, `--text-primary`, `--color-primary`, etc.) for seamless light/dark theming.
-  - **Pinia & Vue Router:** Centralizes authentication (`stores/auth.ts`) and live editor/translation state (`stores/editor.ts`), with route guards protecting `/editor` and `/admin`.
-  - **`vue-i18n` & `vue-pdf-export` & `vite-plugin-pwa`:** Powers lazy-loaded localization (`en`, `de`, `hu`), A4 paginated PDF generation, and offline-capable PWA installation.
+  - **Vue 3 SFCs + TypeScript:** Easy to use and already known to the team members
+  - **Tailwind CSS v4 (`@tailwindcss/vite`) + Custom CSS Design Tokens (`theme.css`):** Easy to use, was introduced at the end because of a mixup. Was simple to introduce to the existing frontend. Next time, this is one of the first decisions to consider
 - **Backend (`backend`) — Express on Node.js 22 + `ws`:**
   - Chosen as an unopinionated HTTP framework that exposes the underlying Node.js `http.Server`. This is critical for `ws` in `noServer` mode: WebSocket upgrade requests (`GET /api/ws`) are intercepted and authenticated on the raw HTTP server *before* Express middleware runs, rejecting unauthenticated upgrades with `401 Unauthorized` immediately.
   - Includes **`multer`** and **`sharp`** for validating, stripping EXIF metadata, cropping, and transcoding uploaded user avatars to `256×256` WebP images, **`@aws-sdk/client-s3`** for object storage operations, and a provider-agnostic **AI service layer** supporting OpenAI, DeepSeek, Anthropic, and a deterministic Mock provider.
@@ -255,8 +253,7 @@ The project implements **4 Major modules (8 points)** and **10 Minor modules (10
 
 ### afelger (Alain Felger)
 - **Modules & Features:** The block editor architecture (`Editor.vue`, `EditorView.vue`, `EditorNav.vue`, `EditorBlock.vue`, `useEditable.ts`) and all block components (`EditorParagraph`, `EditorHeading`, `EditorList`, `EditorCode`, `EditorCitation`, `EditorHyperlink`) · Pinia editor & canonical translation store (`stores/editor.ts`) · Custom 20-component design system (`Button`, `Card`, `Input`, `Modal`, `Toast`, `Tooltip`, `Icon`, `FoldableTextPreview`, etc.), light/dark theming (`theme.css`, `tailwind.css`), and `/test` component catalogue (`ComponentCatalouge.vue`) · Document Directory (`DocumentDirectory.vue`, `DocumentToolbar.vue`, `DocumentTable.vue`, `DocumentPagination.vue`) and `ShareModal.vue` · Complete i18n system (`src/i18n/`, `en.json`, `de.json`, `hu.json`, `LanguageSwitcher.vue`) · Frontend SSE streaming AI elaboration (`elaboration.api.ts`, `EditorElaborateDropdown.vue`) and cross-language block translation (`translation.api.ts`) · Co-designed the block-locking protocol.
-- **Challenges & Solutions:** Early versions of the editor sent the full document on every keystroke, causing concurrent typists to overwrite each other. After evaluating CRDTs and Operational Transformation against project scope, co-designed block-level locking with 2s debounced edits, 5s inactivity auto-unlock, and server write serialization. A second major challenge was keeping block locks alive while streaming AI elaborations and preventing race conditions when users switch UI languages mid-edit — solved with a 3s elaboration lock heartbeat (`startElaborationLockHeartbeat`), monotonic translation request IDs, and canonical English state tracking.
-
+- **Challenges & Solutions:** Early versions of the editor sent the full document on every keystroke, causing concurrent typists to overwrite each other. We then switched to a debounced approach, that also safes us data. AI implementation was also tricky, currently we are not as cost effective as we could be, but "first make it work, then make it better"
 ### mandre (Mateo Andre)
 - **Modules & Features:** Scaffolded the Vue 3 + Vite + TypeScript SPA, router guards (`router/index.ts`), and auth store (`stores/auth.ts`) · Complete authentication UI (`Login.vue`, `Register.vue`, `OtpValidation.vue`, `PasswordResetModal.vue`, `OAuth.vue`, `OAuthConsentView.vue`, `OAuthCallbackView.vue`) · User Settings view (`UserSettings.vue`) including GDPR JSON/CSV download, OTP profile updates, and account deletion · End-to-end S3 profile icon upload & `sharp` image normalization (`userIcon.js`, `iconUpload.js`, `UserIcon.vue`, `docker-compose.yaml` RustFS setup) · Admin panel UI (`AdminView.vue`, `UserManagingList.vue`, `UserManagmentModal.vue`) · WYSIWYG A4 PDF export integration (`Editor.vue`) · PWA manifest and service worker (`vite.config.ts`) · GitHub Actions CI workflow (`.github/workflows/frontend-ci.yml`).
 - **Challenges & Solutions:** Early frontend development accessed the Vite dev server directly on port `8081`, which constituted a cross-origin request to the backend and prevented `SameSite=Strict` `httpOnly` session cookies from being sent. Resolved by routing both development (including Vite HMR WebSockets) and production traffic through the single nginx HTTPS reverse proxy. For PDF export, dark-mode styles and interactive controls bled into generated PDFs — solved by injecting a dedicated print stylesheet and staging clone configuration in `vue-pdf-export`.
@@ -269,7 +266,6 @@ The application is verified across **Google Chrome (latest)**, **Mozilla Firefox
 
 - **Self-Signed TLS Certificates in Development:** Because the stack enforces HTTPS everywhere (`SameSite=Strict; Secure` cookies), browsers will block WebSocket connections (`wss://`) if the local certificate in `certs/nginx.crt` is untrusted. Running `make trust-cert` automatically registers the certificate in NSS (`~/.pki/nssdb` for Chrome/Edge/Chromium), Firefox profile databases, or the macOS System Keychain (for Safari/Chrome on macOS).
 - **Safari Private Browsing & `localStorage`:** In strict privacy modes where `localStorage` throws `QuotaExceededError` or `SecurityError`, `src/i18n/index.ts`, `useTheme.ts`, and `CookieBanner.vue` catch storage exceptions gracefully and fall back to in-memory session state and `navigator.language`.
-- **Single Backend Instance Write Lock:** The per-document WebSocket write queue (`withDocumentWriteLock` in `documentSocket.js`) is an in-process promise queue designed for a single backend container. Scaling horizontally to multiple backend replicas would require replacing the in-memory room map with Redis pub/sub and PostgreSQL `SELECT ... FOR UPDATE` row locks.
 - **Canonical Document Language:** Document titles remain in their original language and code/citation blocks are intentionally excluded from automatic AI translation so source code and direct quotes are never altered by machine translation.
 
 ---
@@ -294,7 +290,7 @@ In accordance with Chapter I of the subject, AI tools were used responsibly duri
 - **Prompt Engineering (`srcs/backend/src/services/ai/elaborationService.js`, `translationService.js`):** Drafting and refining the system prompts for the 8 AI elaboration personas (*Devil's Advocate*, *TL;DR*, *Storyteller*, *Pragmatist*, *Diplomat*, *Marketer*, *Auditor*, *Specifier*) and structured JSON translation schemas.
 - **Code Review, Debugging & Boilerplate:** Reviewing pull requests for edge cases (such as SSE stream chunk boundary parsing, PostgreSQL UUID casing mismatches, and GDPR CSV escaping), and generating integration test scaffolding under `scripts/`.
 
-Every AI suggestion was critically evaluated, tested, and adapted before entering the repository, and every team member can explain and defend all code in the project.
+Every AI suggestion was evaluated, tested, and adapted before entering the repository, and every team member can explain and defend all code in the project.
 
 ---
 
