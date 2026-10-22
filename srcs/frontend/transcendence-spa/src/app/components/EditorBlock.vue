@@ -1,6 +1,6 @@
 <template>
   <div
-    class="editor-block relative rounded-md border-l-[3px] border-l-transparent px-3 py-1 transition-[background-color,border-color] duration-150"
+    class="editor-block relative rounded-md border-[1px] border-x-transparent border-t-transparent px-3 py-1 transition-[background-color,border-color] duration-150"
     :class="{
       'editor-block--active border-l-brand bg-subtle': active && !readOnly,
       'editor-block--locked cursor-not-allowed border-2 border-l-2 border-danger bg-danger/[0.08] select-none [&_*]:pointer-events-none [&_*]:select-none':
