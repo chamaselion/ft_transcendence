@@ -6,7 +6,7 @@ const { createRateLimiter, getClientIp } = require('../middleware/rateLimit');
 
 const { requireAuth } = createRequireAuth();
 const { translate } = createTranslateHandler();
-const { elaborate, getPersonas } = createElaborateHandler();
+const { elaborateStream, getPersonas } = createElaborateHandler();
 
 const router = express.Router();
 
@@ -27,7 +27,7 @@ const elaborateLimiter = createRateLimiter({
 });
 
 router.post('/translate', aiLimiter, translate);
-router.post('/elaborate', elaborateLimiter, elaborate);
+router.post('/elaborate/stream', elaborateLimiter, elaborateStream);
 router.get('/personas', getPersonas);
 
 module.exports = router;

@@ -13,6 +13,7 @@
         variant="flat"
         size="small"
         square
+        :disabled="isElaborating || isTranslating"
         :title="$t('editor.addBlock', { type: blockTypeLabel(type) })"
         @click="$emit('add', type)"
       >
@@ -176,6 +177,7 @@ const props = withDefaults(
     activeBlock?: Block | null
     deleteDisabled?: boolean
     isElaborating?: boolean
+    isTranslating?: boolean
     position?: 'top' | 'left' | 'bottom'
   }>(),
   {
@@ -183,6 +185,7 @@ const props = withDefaults(
     activeBlock: null,
     deleteDisabled: false,
     isElaborating: false,
+    isTranslating: false,
     position: 'top',
   },
 )

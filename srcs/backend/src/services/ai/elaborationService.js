@@ -102,15 +102,17 @@ class ElaborationService {
   }
 
   /**
-   * Elaborates / rewrites a paragraph block using the selected persona.
+   * Streams an elaborated / rewritten paragraph block using the selected persona.
    *
    * @param {Object} options
    * @param {string} options.text - Raw text to rewrite in English
    * @param {string} options.persona - Persona key
    * @param {string} [options.context] - Surrounding context if available
+   * @param {AbortSignal} [options.signal] - Aborts the upstream AI request
+   * @param {(chunk: string) => void} [options.onDelta] - Receives text chunks as they arrive
    * @returns {Promise<string>}
    */
-  async elaborate({ text = '', persona, context = '' }) {
+  async elaborateStream({ text = '', persona, context = '', signal, onDelta }) {
     if (!this.isSupportedPersona(persona)) {
       throw new Error(`Unsupported persona: ${persona}`);
     }
@@ -136,7 +138,18 @@ class ElaborationService {
       userPrompt = `Text to rewrite:\n${rawText}`;
     }
 
-    const rawResponse = await this.provider.complete({ systemPrompt, userPrompt });
+    let rawResponse = '';
+    for await (const chunk of this.provider.stream({ systemPrompt, userPrompt, signal })) {
+      rawResponse += chunk;
+      if (onDelta) {
+        onDelta(chunk);
+      }
+    }
+
+    return this.cleanResponse(rawResponse);
+  }
+
+  cleanResponse(rawResponse) {
     let cleaned = rawResponse.trim();
     if (cleaned.startsWith('```')) {
       cleaned = cleaned.replace(/^```[a-z]*\s*/i, '').replace(/\s*```$/i, '').trim();

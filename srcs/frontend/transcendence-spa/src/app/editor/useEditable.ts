@@ -152,7 +152,7 @@ export function useEditable(
     if (!el) return
 
     // If local user is currently focused and typing in this element, avoid caret jump
-    if (document.activeElement === el) return
+    if (editable() && document.activeElement === el) return
 
     if (readValue(el) !== nextText) {
       write(nextText)

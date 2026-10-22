@@ -1,12 +1,20 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useLocale } from '@/app/layout/useLocale'
+import { useEditorStore } from '@/stores/editor'
 import type { AppLocale } from '@/i18n'
 
+const { t } = useI18n()
 const { currentLocale, locales, setLocale } = useLocale()
+const editorStore = useEditorStore()
 
 const isOpen = ref(false)
 const root = ref<HTMLElement | null>(null)
+const isLocked = computed(() => editorStore.isElaborating || editorStore.isTranslating)
+const lockTitle = computed(() =>
+  editorStore.isElaborating ? t('editor.elaborate.triggerLoadingTitle') : t('editor.translating'),
+)
 
 const currentFlag = computed(
   () => locales.find((option) => option.code === currentLocale.value)?.flag ?? '',
@@ -16,6 +24,7 @@ const currentLabel = computed(
 )
 
 const toggle = () => {
+  if (isLocked.value) return
   isOpen.value = !isOpen.value
 }
 
@@ -24,9 +33,14 @@ const close = () => {
 }
 
 const selectLocale = async (code: AppLocale) => {
+  if (isLocked.value) return
   isOpen.value = false
   await setLocale(code)
 }
+
+watch(isLocked, (locked) => {
+  if (locked) close()
+})
 
 const onDocumentClick = (event: MouseEvent) => {
   if (!isOpen.value) return
@@ -58,14 +72,23 @@ onBeforeUnmount(() => {
     <button
       type="button"
       class="language-switcher__trigger"
-      :aria-label="`${$t('nav.language')}: ${currentLabel}`"
-      :title="`${$t('nav.language')}: ${currentLabel}`"
+      :class="{ 'language-switcher__trigger--locked': isLocked }"
+      :aria-label="isLocked ? lockTitle : `${$t('nav.language')}: ${currentLabel}`"
+      :title="isLocked ? lockTitle : `${$t('nav.language')}: ${currentLabel}`"
+      :aria-disabled="isLocked"
+      :aria-busy="isLocked"
       aria-haspopup="listbox"
       :aria-expanded="isOpen"
       @click="toggle"
     >
-      <span class="language-switcher__flag" aria-hidden="true">{{ currentFlag }}</span>
-      <span class="language-switcher__caret" aria-hidden="true" />
+      <span
+        v-if="isLocked"
+        class="language-switcher__flag language-switcher__flag--busy"
+        aria-hidden="true"
+        >🟡</span
+      >
+      <span v-else class="language-switcher__flag" aria-hidden="true">{{ currentFlag }}</span>
+      <span v-if="!isLocked" class="language-switcher__caret" aria-hidden="true" />
     </button>
 
     <ul
@@ -123,6 +146,15 @@ onBeforeUnmount(() => {
   color: var(--text-primary);
 }
 
+.language-switcher__trigger--locked {
+  cursor: not-allowed;
+}
+
+.language-switcher__trigger--locked:hover {
+  background-color: transparent;
+  color: var(--text-secondary);
+}
+
 .language-switcher__trigger:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
@@ -134,6 +166,21 @@ onBeforeUnmount(() => {
   justify-content: center;
   font-size: 1.15em;
   line-height: 1;
+}
+
+.language-switcher__flag--busy {
+  font-size: 0.95em;
+  animation: language-switcher-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes language-switcher-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
 }
 
 .language-switcher__caret {

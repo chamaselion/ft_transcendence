@@ -2,25 +2,31 @@
   <div
     class="editor-block relative rounded-md border-l-[3px] border-l-transparent px-3 py-1 transition-[background-color,border-color] duration-150"
     :class="{
-      'editor-block--active border-l-brand bg-subtle': active && !locked,
+      'editor-block--active border-l-brand bg-subtle': active && !readOnly,
       'editor-block--locked cursor-not-allowed border-2 border-l-2 border-danger bg-danger/[0.08] select-none [&_*]:pointer-events-none [&_*]:select-none':
         locked,
+      'editor-block--elaborating cursor-progress border-l-warning bg-warning/[0.08] select-none [&_*]:pointer-events-none [&_*]:select-none':
+        elaborating,
     }"
     :data-block-id="block.id"
-    @click="!locked && $emit('focus')"
+    @click="!readOnly && $emit('focus')"
   >
     <component
       :is="component"
       v-bind="componentProps"
-      @update:text="!locked && $emit('update:text', $event)"
-      @insert-blocks="!locked && $emit('insert-blocks', $event)"
-      @update:language="!locked && onUpdateLanguage($event)"
-      @focus="!locked && $emit('focus')"
+      @update:text="!readOnly && $emit('update:text', $event)"
+      @insert-blocks="!readOnly && $emit('insert-blocks', $event)"
+      @update:language="!readOnly && onUpdateLanguage($event)"
+      @focus="!readOnly && $emit('focus')"
       @blur="$emit('blur')"
     />
     <FoldableTextPreview
       v-if="
-        isForeignLanguage && canonicalText && decorator.type !== 'c' && decorator.type !== 'cit'
+        isForeignLanguage &&
+        canonicalText &&
+        !elaborating &&
+        decorator.type !== 'c' &&
+        decorator.type !== 'cit'
       "
       :text="canonicalText"
       :is-dirty="isDirty"
@@ -31,6 +37,20 @@
       :title="$t('editor.lockedTitle')"
     >
       {{ $t('editor.lockedBadge') }}
+    </span>
+    <span
+      v-else-if="elaborating"
+      class="editor-block__elaborating pointer-events-auto absolute top-1 right-2 animate-pulse rounded bg-warning px-2 py-0.5 text-[10px] font-bold tracking-[0.05em] text-warning-contrast uppercase shadow-[0_1px_3px_rgba(0,0,0,0.2)]"
+      :title="$t('editor.elaborate.triggerLoadingTitle')"
+    >
+      {{ $t('editor.elaborate.triggerLoading') }}
+    </span>
+    <span
+      v-else-if="translating && active"
+      class="editor-block__translating pointer-events-auto absolute top-1 right-2 animate-pulse rounded bg-warning px-2 py-0.5 text-[10px] font-bold tracking-[0.05em] text-warning-contrast uppercase shadow-[0_1px_3px_rgba(0,0,0,0.2)]"
+      :title="$t('editor.translating')"
+    >
+      {{ $t('editor.translating') }}
     </span>
   </div>
 </template>
@@ -52,11 +72,16 @@ const props = defineProps<{
   block: Block
   active?: boolean
   locked?: boolean
+  elaborating?: boolean
+  translating?: boolean
   exportMode?: boolean
 }>()
 
 const { t } = useI18n()
 const store = useEditorStore()
+const readOnly = computed(
+  () => Boolean(props.locked) || Boolean(props.elaborating) || Boolean(props.translating),
+)
 const canonicalText = computed(() => store.getCanonicalText(props.block.id))
 const isForeignLanguage = computed(() => store.activeLanguage !== 'en')
 const isDirty = computed(() => store.isBlockDirty(props.block.id))
@@ -81,14 +106,14 @@ const decorator = computed(() => parseDecorator(props.block.decorator))
 const component = computed(() => componentMap[decorator.value.type])
 
 function onUpdateLanguage(language: string) {
-  if (props.locked) return
+  if (readOnly.value) return
   const updated = { ...decorator.value, language }
   emit('update:decorator', serializeDecorator(updated))
 }
 
 const componentProps = computed(() => {
   const decoratorValue = decorator.value
-  const base = { editable: true, locked: props.locked }
+  const base = { editable: true, locked: readOnly.value }
 
   switch (decoratorValue.type) {
     case 'h':
