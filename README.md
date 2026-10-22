@@ -14,7 +14,7 @@ Access comes from three sources, resolved in one single place in the code: **own
 
 ## Installation instructions
 
-Make sure you have **Docker** (20.10+, with the Compose V2 plugin) and **GNU Make** installed. Nothing else is needed on the host Node.js, PostgreSQL and nginx all run in containers.
+Make sure you have **Docker** (20.10+, with the Compose V2 plugin), **GNU Make** and **OpenSSL** installed. On Linux, importing the local certificate also needs `certutil` from `libnss3-tools`. Nothing else is needed on the host Node.js, PostgreSQL and nginx all run in containers.
 
 1. Clone the project: `git clone https://github.com/chamaselion/ft_transcendence.git`
 2. Get into the project directory: `cd ft_transcendence`
@@ -22,8 +22,8 @@ Make sure you have **Docker** (20.10+, with the Compose V2 plugin) and **GNU Mak
 4. Generate a JWT secret with `openssl rand -hex 32` and paste it into `JWT_SECRET` in `.env`
 5. Change `POSTGRES_PASSWORD` and the matching password inside `DATABASE_URL`
 6. Set `ADMIN_EMAIL` in `.env` to the address you will register with
-7. Run the project: `make up`
-8. In the browser, go to **https://localhost:8443** and accept the self-signed certificate
+7. Run the project: `make up` (this also generates the local TLS certificates in `certs/`)
+8. Trust the local certificate once with `make trust-cert` (Linux: imports into Chrome/Chromium and Firefox; macOS: imports into the System keychain with `sudo`), restart the browser, and go to **https://localhost:8443**
 9. Register normally, then read your 2FA code from the backend log:
    `docker compose logs -f backend`
 10. To get the admin role, restart the backend once after registering:
@@ -34,6 +34,8 @@ Make sure you have **Docker** (20.10+, with the Compose V2 plugin) and **GNU Mak
 11. Stop the app: `make down` · full reset including the database: `make clear`
 
 > **Always open the app on `https://localhost:8443`
+
+> To remove the locally trusted certificate again, run `make untrust-cert`, then `make clean-certs` to delete the generated certificate files.
 
 **Useful defaults in `.env`:** `HTTPS_HOST_PORT=8443`, `DB_HOST_PORT=5433`, `JWT_EXPIRES_IN=7d`, `ONE_TIME_CODE_TTL_MS=600000`. `EMAIL_TRANSPORT=console` prints every one-time code to the backend log instead of sending mail set it to `smtp` with real SMTP credentials for actual delivery.
 
