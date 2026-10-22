@@ -21,6 +21,7 @@ const sortOrder = ref<'ASC' | 'DESC'>('ASC')
 const roleFilter = ref<string>('')
 const searchQuery = ref<string>('')
 const lastClickedUser = ref<User | null>(null)
+let lastRequestId = 0
 
 const hasNext = computed(() => {
   const p = pagination.value
@@ -32,6 +33,7 @@ const hasPrevious = computed(() => {
 })
 
 async function fetchUsers(limitVal: number, offsetVal: number) {
+  const requestId = ++lastRequestId
   try {
     const query: Record<string, string | number | undefined> = {
       limit: limitVal,
@@ -42,10 +44,15 @@ async function fetchUsers(limitVal: number, offsetVal: number) {
     if (roleFilter.value) query.role = roleFilter.value
     if (searchQuery.value.trim()) query.q = searchQuery.value.trim()
 
-    res.value = await httpClient.get<ResponseShape>('/api/users', { query })
+    const response = await httpClient.get<ResponseShape>('/api/users', { query })
+    if (requestId !== lastRequestId) return
+
+    res.value = response
     users.value = res.value.users
     pagination.value = res.value.pagination
   } catch (error) {
+    if (requestId !== lastRequestId) return
+
     if (error instanceof HttpError) {
       logger.error('HTTP error while fetching users:', error.message)
     } else {
