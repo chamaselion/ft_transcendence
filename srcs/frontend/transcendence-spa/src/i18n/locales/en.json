@@ -11,6 +11,7 @@
   },
   "terms": {
     "title": "Terms of Service",
+    "privacyTitle": "Privacy Policy",
     "accept": "Accept",
     "close": "Close"
   },
@@ -34,7 +35,13 @@
     "editor": "Editor",
     "settings": "Settings",
     "componentCatalogue": "Component Catalogue",
-    "oauthCallback": "Signing in"
+    "oauthCallback": "Signing in",
+    "notFound": "Page Not Found"
+  },
+  "notFound": {
+    "title": "Page Not Found",
+    "description": "The page you are looking for does not exist or has been moved.",
+    "backHome": "Back to Home"
   },
   "auth": {
     "login": {
@@ -165,8 +172,9 @@
     "passwordDescription": "Reset your password with a code sent to your email. You will need to sign in again afterwards.",
     "resetPassword": "Reset password",
     "legalTitle": "Legal",
-    "legalDescription": "Read the Terms of Service that apply to your use of Trans Edit.",
-    "termsOfService": "Terms of Service"
+    "legalDescription": "Read the Terms of Service and Privacy Policy that apply to your use of Trans Edit.",
+    "termsOfService": "Terms of Service",
+    "privacyPolicy": "Privacy Policy"
   },
   "home": {
     "badge": "New",
@@ -176,7 +184,8 @@
     "login": "Login",
     "footerCopyright": "Trans Edit © 2026 · EU GDPR & ePrivacy Compliant",
     "cookiePolicy": "Cookie Policy & Preferences",
-    "termsOfService": "Terms of Service"
+    "termsOfService": "Terms of Service",
+    "privacyPolicy": "Privacy Policy"
   },
   "editor": {
     "clickToRename": "Click to rename document",
@@ -290,6 +299,12 @@
     "filterAll": "All",
     "filterOwned": "Owned",
     "filterShared": "Shared",
+    "sortBy": "Sort documents by",
+    "sortUpdated": "Last Modified",
+    "sortCreated": "Date Created",
+    "sortTitle": "Title",
+    "orderDesc": "Descending order",
+    "orderAsc": "Ascending order",
     "refresh": "Refresh documents",
     "loading": "Loading available documents...",
     "emptyNoMatchTitle": "No matching documents",
@@ -406,6 +421,7 @@
     "title": "Admin View",
     "users": {
       "showing": "Showing {from}–{to} of {total} users",
+      "searchPlaceholder": "Search login or email...",
       "perPage": "Users per page:",
       "nextPage": "Next Page",
       "previousPage": "Previous Page",

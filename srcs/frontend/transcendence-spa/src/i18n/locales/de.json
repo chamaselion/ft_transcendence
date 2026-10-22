@@ -11,6 +11,7 @@
   },
   "terms": {
     "title": "Nutzungsbedingungen",
+    "privacyTitle": "Datenschutzerklärung",
     "accept": "Akzeptieren",
     "close": "Schließen"
   },
@@ -34,7 +35,13 @@
     "editor": "Editor",
     "settings": "Einstellungen",
     "componentCatalogue": "Komponentenkatalog",
-    "oauthCallback": "Anmeldung"
+    "oauthCallback": "Anmeldung",
+    "notFound": "Seite nicht gefunden"
+  },
+  "notFound": {
+    "title": "Seite nicht gefunden",
+    "description": "Die gesuchte Seite existiert nicht oder wurde verschoben.",
+    "backHome": "Zurück zur Startseite"
   },
   "auth": {
     "login": {
@@ -165,8 +172,9 @@
     "passwordDescription": "Setzen Sie Ihr Passwort mit einem an Ihre E-Mail gesendeten Code zurück. Anschließend müssen Sie sich erneut anmelden.",
     "resetPassword": "Passwort zurücksetzen",
     "legalTitle": "Rechtliches",
-    "legalDescription": "Lesen Sie die Nutzungsbedingungen, die für Ihre Nutzung von Trans Edit gelten.",
-    "termsOfService": "Nutzungsbedingungen"
+    "legalDescription": "Lesen Sie die Nutzungsbedingungen und die Datenschutzerklärung, die für Ihre Nutzung von Trans Edit gelten.",
+    "termsOfService": "Nutzungsbedingungen",
+    "privacyPolicy": "Datenschutzerklärung"
   },
   "home": {
     "badge": "Neu",
@@ -176,7 +184,8 @@
     "login": "Anmelden",
     "footerCopyright": "Trans Edit © 2026 · EU DSGVO & ePrivacy konform",
     "cookiePolicy": "Cookie-Richtlinie & Einstellungen",
-    "termsOfService": "Nutzungsbedingungen"
+    "termsOfService": "Nutzungsbedingungen",
+    "privacyPolicy": "Datenschutzerklärung"
   },
   "editor": {
     "clickToRename": "Zum Umbenennen des Dokuments klicken",
@@ -290,6 +299,12 @@
     "filterAll": "Alle",
     "filterOwned": "Eigene",
     "filterShared": "Geteilt",
+    "sortBy": "Dokumente sortieren nach",
+    "sortUpdated": "Zuletzt geändert",
+    "sortCreated": "Erstellungsdatum",
+    "sortTitle": "Titel",
+    "orderDesc": "Absteigend",
+    "orderAsc": "Aufsteigend",
     "refresh": "Dokumente aktualisieren",
     "loading": "Verfügbare Dokumente werden geladen...",
     "emptyNoMatchTitle": "Keine passenden Dokumente",
@@ -406,6 +421,7 @@
     "title": "Admin-Ansicht",
     "users": {
       "showing": "Zeige {from}–{to} von {total} Benutzern",
+      "searchPlaceholder": "Benutzername oder E-Mail suchen...",
       "perPage": "Benutzer pro Seite:",
       "nextPage": "Nächste Seite",
       "previousPage": "Vorherige Seite",

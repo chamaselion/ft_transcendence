@@ -9,7 +9,11 @@ import DocumentToolbar from '@/app/components/documents/DocumentToolbar.vue'
 import DocumentTable from '@/app/components/documents/DocumentTable.vue'
 import DocumentPagination from '@/app/components/documents/DocumentPagination.vue'
 import DeleteDocumentModal from '@/app/components/documents/DeleteDocumentModal.vue'
-import { useDocumentDirectory, type DocumentScope } from '@/app/composables/useDocumentDirectory'
+import {
+  useDocumentDirectory,
+  type DocumentScope,
+  type DocumentSortField,
+} from '@/app/composables/useDocumentDirectory'
 import type { DocumentData } from '@/app/editor/document.api'
 
 const router = useRouter()
@@ -22,6 +26,8 @@ const {
   searchError,
   activeQuery,
   selectedScope,
+  sortField,
+  sortOrder,
   pageSize,
   currentPage,
   totalDocuments,
@@ -35,6 +41,8 @@ const {
   onSearchInput,
   clearSearch,
   setScope,
+  setSortField,
+  toggleSortOrder,
   handlePageSizeChange,
   goToPage,
   openDeleteDialog,
@@ -59,6 +67,10 @@ function handleSearchInput(value: string) {
 
 function handleScopeChange(scope: DocumentScope) {
   setScope(scope)
+}
+
+function handleSortFieldChange(field: DocumentSortField) {
+  setSortField(field)
 }
 
 function openShareDialog(doc: DocumentData) {
@@ -94,10 +106,14 @@ function openShareDialog(doc: DocumentData) {
       :search-query="searchQuery"
       :search-error="searchError"
       :scope="selectedScope"
+      :sort-field="sortField"
+      :sort-order="sortOrder"
       :loading="loading"
       @search-input="handleSearchInput"
       @clear="clearSearch"
       @update:scope="handleScopeChange"
+      @update:sort-field="handleSortFieldChange"
+      @toggle-sort-order="toggleSortOrder"
       @refresh="fetchDocuments"
     />
 

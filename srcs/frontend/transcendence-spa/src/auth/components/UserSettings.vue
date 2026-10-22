@@ -8,7 +8,9 @@ import Button from '@/app/components/Button.vue'
 import Card from '@/app/components/Card.vue'
 import Icon from '@/app/components/Icon.vue'
 import Input from '@/app/components/Input.vue'
-import TermsOfServiceModal from '@/app/components/TermsOfServiceModal.vue'
+import TermsOfServiceModal, {
+  type LegalDocType,
+} from '@/app/components/TermsOfServiceModal.vue'
 import Toast from '@/app/components/Toast.vue'
 import type { Root, User } from '../types/user'
 import type { OtpConfirmationResponse } from '../types/auth.types'
@@ -43,6 +45,12 @@ const errors = ref({ email: '', login: '', otp: '', deletion: '' })
 const passwordResetOpen = ref(false)
 const passwordResetSucceeded = ref(false)
 const termsOpen = ref(false)
+const legalDoc = ref<LegalDocType>('terms')
+
+function openLegal(doc: LegalDocType) {
+  legalDoc.value = doc
+  termsOpen.value = true
+}
 
 watch(passwordResetOpen, (open) => {
   if (!open && passwordResetSucceeded.value) {
@@ -541,17 +549,30 @@ onMounted(loadProfile)
             {{ $t('settings.legalDescription') }}
           </p>
         </div>
-        <Button
-          class="flex mt-2 items-center gap-2 self-start"
-          variant="outlined"
-          color="primary"
-          @click="termsOpen = true"
-        >
-          <template #prepend>
-            <Icon name="FileText" :size="18" />
-          </template>
-          {{ $t('settings.termsOfService') }}
-        </Button>
+        <div class="flex flex-wrap items-center gap-2">
+          <Button
+            class="flex mt-2 items-center gap-2 self-start"
+            variant="outlined"
+            color="primary"
+            @click="openLegal('terms')"
+          >
+            <template #prepend>
+              <Icon name="FileText" :size="18" />
+            </template>
+            {{ $t('settings.termsOfService') }}
+          </Button>
+          <Button
+            class="flex mt-2 items-center gap-2 self-start"
+            variant="outlined"
+            color="primary"
+            @click="openLegal('privacy')"
+          >
+            <template #prepend>
+              <Icon name="ShieldCheck" :size="18" />
+            </template>
+            {{ $t('settings.privacyPolicy') }}
+          </Button>
+        </div>
       </div>
 
       <Button
@@ -630,5 +651,5 @@ onMounted(loadProfile)
     :initial-email="email"
     @success="handlePasswordResetSuccess"
   />
-  <TermsOfServiceModal v-model="termsOpen" />
+  <TermsOfServiceModal v-model="termsOpen" :initial-doc="legalDoc" />
 </template>

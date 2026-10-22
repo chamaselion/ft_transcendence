@@ -17,7 +17,11 @@ const res = ref<ResponseShape | null>(null)
 const users = ref<User[] | null>(null)
 const pagination = ref<Pagination | null>(null)
 const sortOption = ref<string>('createdAt')
+const sortOrder = ref<'ASC' | 'DESC'>('ASC')
+const roleFilter = ref<string>('')
+const searchQuery = ref<string>('')
 const lastClickedUser = ref<User | null>(null)
+let lastRequestId = 0
 
 const hasNext = computed(() => {
   const p = pagination.value
@@ -28,20 +32,38 @@ const hasPrevious = computed(() => {
   return (pagination.value?.offset ?? 0) > 0
 })
 
-async function fetchUsers(limit: number, offset: number) {
+async function fetchUsers(limitVal: number, offsetVal: number) {
+  const requestId = ++lastRequestId
   try {
-    res.value = await httpClient.get<ResponseShape>(
-      `/api/users?limit=${limit}&offset=${offset}&sort=${sortOption.value}`,
-    )
+    const query: Record<string, string | number | undefined> = {
+      limit: limitVal,
+      offset: offsetVal,
+      sort: sortOption.value,
+      order: sortOrder.value,
+    }
+    if (roleFilter.value) query.role = roleFilter.value
+    if (searchQuery.value.trim()) query.q = searchQuery.value.trim()
+
+    const response = await httpClient.get<ResponseShape>('/api/users', { query })
+    if (requestId !== lastRequestId) return
+
+    res.value = response
     users.value = res.value.users
     pagination.value = res.value.pagination
   } catch (error) {
+    if (requestId !== lastRequestId) return
+
     if (error instanceof HttpError) {
       logger.error('HTTP error while fetching users:', error.message)
     } else {
       logger.error('Unexpected error while fetching users:', error)
     }
   }
+}
+
+function toggleSortOrder() {
+  sortOrder.value = sortOrder.value === 'ASC' ? 'DESC' : 'ASC'
+  void fetchUsers(limit.value, 0)
 }
 
 function currentPage(): number {
@@ -65,8 +87,7 @@ const openModal = (user: User) => {
 
 const closeModal = () => {
   lastClickedUser.value = null
-  window.location.reload() // NOTE: unclean refresh to update the user list after changes.
-  //Considering to use a more reactive approach in the future.
+  void fetchUsers(limit.value, pagination.value?.offset ?? 0)
 }
 
 onMounted(async () => {
@@ -82,6 +103,26 @@ onMounted(async () => {
       <p v-if="pagination" class="m-0 mr-auto leading-normal text-ink-secondary">
         {{ $t('admin.users.showing', { from: rangeStart, to: rangeEnd, total: pagination.total }) }}
       </p>
+      <div class="flex flex-wrap items-center gap-2">
+        <input
+          v-model="searchQuery"
+          type="text"
+          :placeholder="$t('admin.users.searchPlaceholder')"
+          :aria-label="$t('admin.users.searchPlaceholder')"
+          class="min-h-[38px] rounded-md border border-line bg-surface px-3 py-2 text-ink outline-none transition-[border-color] duration-200 [font:inherit] focus:border-brand max-sm:min-w-0 max-sm:flex-1"
+          @input="fetchUsers(limit, 0)"
+        />
+        <select
+          v-model="roleFilter"
+          :aria-label="$t('admin.users.role')"
+          class="min-h-[38px] cursor-pointer rounded-md border border-line bg-surface px-3 py-2 text-ink transition-[background-color,border-color] duration-200 [font:inherit] hover:enabled:border-brand hover:enabled:bg-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand max-sm:min-w-0 max-sm:flex-1"
+          @change="fetchUsers(limit, 0)"
+        >
+          <option value="">{{ $t('documents.filterAll') }}</option>
+          <option value="admin">{{ $t('settings.roleAdmin') }}</option>
+          <option value="user">{{ $t('settings.roleUser') }}</option>
+        </select>
+      </div>
       <div class="flex flex-wrap items-center gap-2">
         <label class="font-medium text-ink-secondary" for="limit">{{
           $t('admin.users.perPage')
@@ -127,6 +168,15 @@ onMounted(async () => {
           <option value="login">{{ $t('admin.users.username') }}</option>
           <option value="email">{{ $t('admin.users.userEmail') }}</option>
         </select>
+        <button
+          type="button"
+          class="min-h-[38px] cursor-pointer rounded-md border border-line bg-surface px-3 py-2 font-bold text-ink transition-[background-color,border-color] duration-200 [font:inherit] hover:enabled:border-brand hover:enabled:bg-subtle"
+          :title="sortOrder === 'DESC' ? $t('documents.orderDesc') : $t('documents.orderAsc')"
+          :aria-label="sortOrder === 'DESC' ? $t('documents.orderDesc') : $t('documents.orderAsc')"
+          @click="toggleSortOrder"
+        >
+          {{ sortOrder === 'DESC' ? '↓' : '↑' }}
+        </button>
       </div>
     </div>
 

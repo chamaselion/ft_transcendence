@@ -5,6 +5,8 @@ import { validateSearchQuery } from '@/utils/validation'
 import { logger } from '@/utils/logger'
 
 export type DocumentScope = 'all' | 'own' | 'shared'
+export type DocumentSortField = 'updatedAt' | 'createdAt' | 'title'
+export type DocumentSortOrder = 'ASC' | 'DESC'
 export type ToastType = 'good' | 'alert' | 'info' | 'warn'
 
 const DEFAULT_PAGE_SIZE = 10
@@ -19,6 +21,8 @@ export function useDocumentDirectory() {
   const searchError = ref('')
   const activeQuery = ref('')
   const selectedScope = ref<DocumentScope>('all')
+  const sortField = ref<DocumentSortField>('updatedAt')
+  const sortOrder = ref<DocumentSortOrder>('DESC')
 
   const pageSize = ref<number>(DEFAULT_PAGE_SIZE)
   const currentPage = ref<number>(1)
@@ -52,8 +56,8 @@ export function useDocumentDirectory() {
       const offset = (currentPage.value - 1) * pageSize.value
       const res = await listDocuments({
         scope: selectedScope.value,
-        sort: 'updatedAt',
-        order: 'DESC',
+        sort: sortField.value,
+        order: sortOrder.value,
         limit: pageSize.value,
         offset,
         q: query || undefined,
@@ -100,6 +104,19 @@ export function useDocumentDirectory() {
   function setScope(scope: DocumentScope) {
     if (selectedScope.value === scope) return
     selectedScope.value = scope
+    currentPage.value = 1
+    void fetchDocuments()
+  }
+
+  function setSortField(field: DocumentSortField) {
+    if (sortField.value === field) return
+    sortField.value = field
+    currentPage.value = 1
+    void fetchDocuments()
+  }
+
+  function toggleSortOrder() {
+    sortOrder.value = sortOrder.value === 'DESC' ? 'ASC' : 'DESC'
     currentPage.value = 1
     void fetchDocuments()
   }
@@ -168,6 +185,8 @@ export function useDocumentDirectory() {
     searchError,
     activeQuery,
     selectedScope,
+    sortField,
+    sortOrder,
     pageSize,
     currentPage,
     totalDocuments,
@@ -184,6 +203,8 @@ export function useDocumentDirectory() {
     onSearchInput,
     clearSearch,
     setScope,
+    setSortField,
+    toggleSortOrder,
     handlePageSizeChange,
     goToPage,
     openDeleteDialog,

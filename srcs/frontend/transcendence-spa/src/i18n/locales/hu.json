@@ -11,6 +11,7 @@
   },
   "terms": {
     "title": "Szolgáltatási feltételek",
+    "privacyTitle": "Adatvédelmi irányelvek",
     "accept": "Elfogadás",
     "close": "Bezárás"
   },
@@ -34,7 +35,13 @@
     "editor": "Szerkesztő",
     "settings": "Beállítások",
     "componentCatalogue": "Komponenskatalógus",
-    "oauthCallback": "Bejelentkezés"
+    "oauthCallback": "Bejelentkezés",
+    "notFound": "Az oldal nem található"
+  },
+  "notFound": {
+    "title": "Az oldal nem található",
+    "description": "A keresett oldal nem létezik vagy áthelyezték.",
+    "backHome": "Vissza a főoldalra"
   },
   "auth": {
     "login": {
@@ -165,8 +172,9 @@
     "passwordDescription": "Állítsa vissza a jelszavát az e-mail-címére küldött kóddal. Ezután újra be kell jelentkeznie.",
     "resetPassword": "Jelszó visszaállítása",
     "legalTitle": "Jogi információk",
-    "legalDescription": "Olvassa el a Trans Edit használatára vonatkozó Szolgáltatási feltételeket.",
-    "termsOfService": "Szolgáltatási feltételek"
+    "legalDescription": "Olvassa el a Trans Edit használatára vonatkozó Szolgáltatási feltételeket és Adatvédelmi irányelveket.",
+    "termsOfService": "Szolgáltatási feltételek",
+    "privacyPolicy": "Adatvédelmi irányelvek"
   },
   "home": {
     "badge": "Új",
@@ -176,7 +184,8 @@
     "login": "Bejelentkezés",
     "footerCopyright": "Trans Edit © 2026 · EU GDPR és ePrivacy megfelelő",
     "cookiePolicy": "Cookie-szabályzat és beállítások",
-    "termsOfService": "Szolgáltatási feltételek"
+    "termsOfService": "Szolgáltatási feltételek",
+    "privacyPolicy": "Adatvédelmi irányelvek"
   },
   "editor": {
     "clickToRename": "Kattintson a dokumentum átnevezéséhez",
@@ -290,6 +299,12 @@
     "filterAll": "Összes",
     "filterOwned": "Saját",
     "filterShared": "Megosztott",
+    "sortBy": "Dokumentumok rendezése",
+    "sortUpdated": "Utoljára módosítva",
+    "sortCreated": "Létrehozás dátuma",
+    "sortTitle": "Cím",
+    "orderDesc": "Csökkenő sorrend",
+    "orderAsc": "Növekvő sorrend",
     "refresh": "Dokumentumok frissítése",
     "loading": "Elérhető dokumentumok betöltése...",
     "emptyNoMatchTitle": "Nincs egyező dokumentum",
@@ -406,6 +421,7 @@
     "title": "Admin nézet",
     "users": {
       "showing": "{from}–{to} megjelenítése, összesen {total} felhasználó",
+      "searchPlaceholder": "Keresés felhasználónév vagy e-mail alapján...",
       "perPage": "Felhasználók oldalanként:",
       "nextPage": "Következő oldal",
       "previousPage": "Előző oldal",
