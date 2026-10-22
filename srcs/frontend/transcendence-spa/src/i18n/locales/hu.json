@@ -35,7 +35,13 @@
     "editor": "Szerkesztő",
     "settings": "Beállítások",
     "componentCatalogue": "Komponenskatalógus",
-    "oauthCallback": "Bejelentkezés"
+    "oauthCallback": "Bejelentkezés",
+    "notFound": "Az oldal nem található"
+  },
+  "notFound": {
+    "title": "Az oldal nem található",
+    "description": "A keresett oldal nem létezik vagy áthelyezték.",
+    "backHome": "Vissza a főoldalra"
   },
   "auth": {
     "login": {
