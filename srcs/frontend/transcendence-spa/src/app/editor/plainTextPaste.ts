@@ -20,11 +20,7 @@ function ensureCaretInside(element: HTMLElement): void {
  * Inserts clipboard text without letting the browser paste HTML markup or
  * inline styles. Single-line fields collapse line breaks into spaces.
  */
-export function insertPlainText(
-  element: HTMLElement | null,
-  text: string,
-  multiline = true,
-): void {
+export function insertPlainText(element: HTMLElement | null, text: string, multiline = true): void {
   if (!element) return
 
   const normalized = text.replace(/\r\n?/g, '\n')

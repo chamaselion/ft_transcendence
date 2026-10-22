@@ -1,0 +1,469 @@
+{
+  "common": {
+    "appName": "Transcendence Editor",
+    "untitledDocument": "Untitled Document",
+    "untitledDocumentLower": "Untitled document",
+    "cancel": "Cancel",
+    "remove": "Remove",
+    "retry": "Retry",
+    "somethingWentWrong": "Something went wrong",
+    "alreadyLoggedIn": "You are already logged in."
+  },
+  "terms": {
+    "title": "Terms of Service",
+    "accept": "Accept",
+    "close": "Close"
+  },
+  "nav": {
+    "home": "Home",
+    "editor": "Editor",
+    "register": "Register",
+    "login": "Login",
+    "logout": "Logout",
+    "logoutTitle": "Log out of your account",
+    "switchToDark": "Switch to dark mode",
+    "switchToLight": "Switch to light mode",
+    "dark": "Dark",
+    "light": "Light",
+    "language": "Language"
+  },
+  "routes": {
+    "home": "Home",
+    "login": "Login",
+    "register": "Register",
+    "editor": "Editor",
+    "settings": "Settings",
+    "componentCatalogue": "Component Catalogue",
+    "oauthCallback": "Signing in"
+  },
+  "auth": {
+    "login": {
+      "title": "Login",
+      "subtitle": "Sign in to continue to your account.",
+      "emailLabel": "E-mail",
+      "passwordLabel": "Password",
+      "submit": "Login",
+      "submitting": "Signing in",
+      "footerText": "Don't have an account?",
+      "footerLink": "Register here",
+      "forgotPassword": "Forgot password?",
+      "registeredToast": "Registered successfully!",
+      "registeredHint": "Please login to receive an OTP validation code."
+    },
+    "register": {
+      "title": "Register",
+      "subtitle": "Create an account to get started.",
+      "usernameLabel": "Username",
+      "emailLabel": "Email",
+      "passwordLabel": "Password",
+      "submit": "Register",
+      "footerText": "Already have an account?",
+      "footerLink": "Login here",
+      "termsAgreePrefix": "I agree to the",
+      "termsLink": "Terms of Service",
+      "termsAgreeSuffix": ".",
+      "termsRequired": "You must accept the Terms of Service to register.",
+      "emailInUse": "An account with this email already exists. You can reset its password instead.",
+      "resetPassword": "Reset password"
+    },
+    "otp": {
+      "title": "OTP Confirmation",
+      "codeLabel": "Enter OTP",
+      "submit": "Confirm OTP",
+      "success": "Login successful! Redirecting to the home page..."
+    },
+    "passwordReset": {
+      "title": "Reset Password",
+      "requestDescription": "Enter the email address for your account. If it exists, we will send you a code to reset your password.",
+      "emailLabel": "Email",
+      "codePrompt": "Enter the {length}-digit code sent to {email}.",
+      "codePromptGeneric": "Enter the code sent to {email}, if an account exists.",
+      "resetCodeLabel": "Reset code",
+      "newPasswordLabel": "New password",
+      "confirmPasswordLabel": "Confirm new password",
+      "confirmRequired": "Please confirm your new password.",
+      "passwordMismatch": "Passwords do not match.",
+      "successTitle": "Your password has been reset.",
+      "successText": "You can now sign in with your new password.",
+      "sendCode": "Send reset code",
+      "submit": "Reset password",
+      "done": "Done",
+      "error": "Something went wrong. Please try again."
+    },
+    "consent": {
+      "title": "Continue with {provider}",
+      "redirectText": "You are about to leave Trans Edit to sign in with {provider}.",
+      "reviewText": "Before continuing, please review and accept our Terms of Service.",
+      "readTerms": "Read Terms of Service",
+      "acceptTerms": "I have read and agree to the Terms of Service.",
+      "continue": "Continue with {provider}"
+    },
+    "oauth": {
+      "signInWith": "Sign In with",
+      "githubExplainer": "By signing in with GitHub, you can use your existing GitHub account to access our services. This allows for a seamless login experience and eliminates the need to create a new account. Your GitHub credentials will not be shared with us, and we will only request the necessary permissions to authenticate your identity.",
+      "fortyTwoExplainer": "By signing in with 42, you can use your existing 42 account to access our services. This allows for a seamless login experience and eliminates the need to create a new account. Your 42 credentials will not be shared with us, and we will only request the necessary permissions to authenticate your identity."
+    },
+    "callback": {
+      "completingTitle": "Completing sign-in",
+      "completingText": "Please wait while we verify your account.",
+      "errorTitle": "Unable to finish sign-in",
+      "retry": "Retry loading session",
+      "backToLogin": "Back to login",
+      "invalidSession": "Sign-in completed, but your session could not be loaded. Retry loading your session or start again.",
+      "accountConflict": "An account conflict requires explicit linking. Sign in and link the provider from settings.",
+      "providerNotConfigured": "This sign-in provider is not configured.",
+      "notVerified": "Sign-in could not be verified. Please start again.",
+      "unable": "Unable to finish sign-in. Please start again.",
+      "network": "A network error interrupted sign-in. Please start again."
+    }
+  },
+  "settings": {
+    "title": "User Settings",
+    "subtitle": "Your account details and session status.",
+    "loading": "Loading your profile…",
+    "loadFailedTitle": "We couldn't load your profile",
+    "loadFailedText": "Something went wrong while contacting the server.",
+    "tryAgain": "Try again",
+    "userId": "User ID",
+    "emailLabel": "Email",
+    "usernameLabel": "Username",
+    "update": "Update Settings",
+    "otpCodeLabel": "OTP Code",
+    "confirmOtp": "Confirm OTP",
+    "statusLoggedIn": "You are logged in",
+    "statusLoggedOut": "You are not logged in",
+    "notLoggedInTitle": "You're not logged in",
+    "notLoggedInText": "Sign in to view and manage your account settings.",
+    "signIn": "Sign in",
+    "updateError": "Something went wrong while updating user details",
+    "updateSuccess": "Your details have been updated successfully.",
+    "confirmError": "Something went wrong while confirming OTP",
+    "addIcon": "Add Profile Icon",
+    "changeIcon": "Change Profile Icon",
+    "removeIcon": "Remove profile icon",
+    "iconHint": "JPEG, PNG or WebP, up to 2 MiB. Maximum 16 Million pixels",
+    "iconTooLarge": "Icon must be at most 2 MiB",
+    "iconUpdated": "Your profile icon has been updated.",
+    "uploadFailed": "Failed to upload icon",
+    "removeFailed": "Failed to remove icon",
+    "privacyGdpr": "Privacy & GDPR",
+    "gdprDescription": "Under GDPR Art. 15, you have the right to obtain a copy of your personal data.",
+    "exportGdpr": "Export GDPR Data",
+    "exportCsv": "Export (CSV)",
+    "exportSuccess": "Your GDPR data export ({format}) has been downloaded successfully.",
+    "exportFailed": "Something went wrong while exporting GDPR data",
+    "goToAdmin": "Go to Admin Panel",
+    "deleteAccount": "Delete account",
+    "deletionCodePrompt": "Enter the code sent to your email to permanently delete your account.",
+    "deletionCodeLabel": "Deletion confirmation code",
+    "confirmDeletion": "Confirm deletion",
+    "deletionRequestFailed": "Failed to request account deletion.",
+    "deleteAccountFailed": "Failed to delete your account.",
+    "roleAdmin": "Admin",
+    "roleUser": "User",
+    "passwordTitle": "Password",
+    "passwordDescription": "Reset your password with a code sent to your email. You will need to sign in again afterwards.",
+    "resetPassword": "Reset password",
+    "legalTitle": "Legal",
+    "legalDescription": "Read the Terms of Service that apply to your use of Trans Edit.",
+    "termsOfService": "Terms of Service"
+  },
+  "home": {
+    "badge": "New",
+    "title": "Welcome to Trans Edit",
+    "subtitle": "A collaborative document editor built for teams. Create, edit, and share documents in real-time with your team members.",
+    "getStarted": "Register",
+    "login": "Login",
+    "footerCopyright": "Trans Edit © 2026 · EU GDPR & ePrivacy Compliant",
+    "cookiePolicy": "Cookie Policy & Preferences",
+    "termsOfService": "Terms of Service"
+  },
+  "editor": {
+    "clickToRename": "Click to rename document",
+    "statusConnected": "Multiuser Room Live",
+    "statusConnecting": "Connecting to Room...",
+    "statusDisconnected": "Disconnected",
+    "roomLabel": "Room:",
+    "roleLabel": "Role:",
+    "share": "Share",
+    "newDocument": "+ New Document",
+    "generatePdf": "Generate PDF",
+    "initializing": "Initializing document room...",
+    "addBlock": "Add {type}",
+    "alignLeft": "Align left",
+    "alignCenter": "Align middle",
+    "alignRight": "Align right",
+    "alignJustify": "Align block",
+    "headingLevel": "Heading {level}",
+    "listUnnumbered": "Unnumbered list (bullets)",
+    "listNumbered": "Numbered list",
+    "languageLabel": "Lang:",
+    "deleteBlock": "Delete active block",
+    "lockedTitle": "This block is locked by another user",
+    "lockedBadge": "Locked",
+    "yourRole": "Your Role",
+    "translating": "AI Translating...",
+    "translationFailed": "Translation failed",
+    "elaborate": {
+      "trigger": "AI Elaborate",
+      "triggerLoading": "Elaborating…",
+      "triggerTitle": "Rewrite or elaborate paragraph with AI persona",
+      "triggerLoadingTitle": "Elaborating block with AI...",
+      "menuTitle": "Select AI Block Persona",
+      "nativeLabel": "AI Persona",
+      "nativePlaceholder": "Elaborate with AI",
+      "failed": "AI elaboration failed",
+      "loadFailed": "Unable to load AI personas.",
+      "categories": {
+        "structural": "Structural & Analytical Personas",
+        "tone": "Tone & Voice Personas",
+        "action": "Action & Delivery Personas"
+      },
+      "personas": {
+        "devils_advocate": {
+          "name": "The Devil’s Advocate (Red Teamer)",
+          "description": "Stress-tests the text. Rewrites arguments by proactively addressing counterarguments, spotting logical fallacies, highlighting hidden assumptions, and inserting caveat frameworks."
+        },
+        "summarizer": {
+          "name": "TL;DR",
+          "description": "Condenses long-form content."
+        },
+        "storyteller": {
+          "name": "The Storyteller",
+          "description": "Turns explanations or descriptions into an engaging narrative arc (hook, conflict/challenge, journey, resolution) using evocative metaphors and rhythm."
+        },
+        "pragmatist": {
+          "name": "The Direct Pragmatist (No-Nonsense / Minimalist)",
+          "description": "Cuts word count by 40–60%."
+        },
+        "diplomat": {
+          "name": "The Diplomat / Empathetic Resolver",
+          "description": "Softens confrontational, ambiguous, or blunt statements."
+        },
+        "marketer": {
+          "name": "The Marketer",
+          "description": "Sharpens the text with conversion frameworks and clear value propositions."
+        },
+        "auditor": {
+          "name": "The Auditor",
+          "description": "Transforms high-level goals into step-by-step Standard Operating Procedures (SOPs), complete with prerequisites, edge cases, input/output validation, and checklists."
+        },
+        "specifier": {
+          "name": "The Specifier",
+          "description": "Translates conceptual business or user ideas into technical acceptance criteria, user stories, edge-case parameters and system requirements."
+        }
+      }
+    },
+    "titleTooLong": "Title must be at most {max} characters long.",
+    "emptyDocument": "This document is empty. Add a block from the toolbar.",
+    "unsavedChanges": "Pending changes could not be saved to the server. Are you sure you want to leave?",
+    "previewDraft": "Draft",
+    "previewSynced": "Synced",
+    "previewDirtyTooltip": "Pending back-translation on blur",
+    "previewSyncedTooltip": "Synchronized with database",
+    "roles": {
+      "owner": "Owner",
+      "editor": "Editor",
+      "viewer": "Viewer"
+    },
+    "blockType": {
+      "p": "Paragraph",
+      "li": "List",
+      "h": "Heading",
+      "cit": "Citation",
+      "c": "Code"
+    },
+    "placeholder": {
+      "p": "Write something…",
+      "li": "List item",
+      "h": "Heading",
+      "cit": "Quote",
+      "c": "// code"
+    }
+  },
+  "documents": {
+    "title": "Documents",
+    "newDocument": "New Document",
+    "searchPlaceholder": "Search title and content...",
+    "searchAria": "Search documents by title and content",
+    "clearSearch": "Clear search",
+    "filterAll": "All",
+    "filterOwned": "Owned",
+    "filterShared": "Shared",
+    "refresh": "Refresh documents",
+    "loading": "Loading available documents...",
+    "emptyNoMatchTitle": "No matching documents",
+    "emptyNoMatchDesc": "Try adjusting your search terms or filter scope.",
+    "emptyTitle": "No documents yet",
+    "emptyDesc": "Get started by creating your first document to edit and collaborate in real-time.",
+    "createDocument": "Create Document",
+    "columnName": "Document Name",
+    "columnOwnership": "Ownership",
+    "columnChanged": "Last Changed",
+    "columnActions": "Actions",
+    "badgeOwned": "Owned",
+    "badgeShared": "Shared",
+    "sharedBy": "Shared by {login}",
+    "sharedDocument": "Shared document",
+    "createdBy": "Document created by {login}",
+    "by": "by {login}",
+    "roleTitle": "Your role: {role}",
+    "shareDocument": "Share document",
+    "deleteDocument": "Delete document",
+    "idLabel": "ID:",
+    "paginationShowing": "Showing {from}–{to} of {total}",
+    "firstPage": "First page",
+    "previousPage": "Previous page",
+    "nextPage": "Next page",
+    "lastPage": "Last page",
+    "rows": "Rows:",
+    "deleteTitle": "Delete Document",
+    "deleteConfirm": "Are you sure you want to delete \"{title}\"?",
+    "deleteWarning": "This document and all its contents will be permanently deleted. This action cannot be undone.",
+    "deleteSubmit": "Delete Document",
+    "fetchFailed": "Failed to fetch documents",
+    "deletedToast": "\"{title}\" has been deleted.",
+    "deleteFailed": "Failed to delete document.",
+    "timeUnknown": "Unknown",
+    "timeJustNow": "Just now",
+    "timeMinuteAgo": "1 minute ago",
+    "timeMinutesAgo": "{count} minutes ago",
+    "timeHourAgo": "1 hour ago",
+    "timeHoursAgo": "{count} hours ago",
+    "timeYesterday": "Yesterday",
+    "timeDayAgo": "1 day ago",
+    "timeDaysAgo": "{count} days ago"
+  },
+  "share": {
+    "title": "Share Document",
+    "inviteTitle": "Invite Collaborator",
+    "emailPlaceholder": "Enter user email (e.g. bob{'@'}example.com)",
+    "emailLabel": "Collaborator Email",
+    "permission": "Permission",
+    "permissionEditorLong": "Editor (Can edit and write)",
+    "permissionViewerLong": "Viewer (Read-only)",
+    "permissionEditor": "Editor",
+    "permissionViewer": "Viewer",
+    "addCollaborator": "Add Collaborator",
+    "ownerOnly": "Only the document owner can manage shares and invite new collaborators.",
+    "peopleWithAccess": "People with Access",
+    "loading": "Loading collaborators...",
+    "empty": "No collaborators shared yet. Invite someone using their email above.",
+    "revokeAccess": "Revoke access",
+    "roomLink": "Room Link",
+    "copied": "Copied!",
+    "copyLink": "Copy Link",
+    "accessGranted": "Access granted to {email} as {permission}.",
+    "failedShare": "Failed to share document",
+    "failedUpdate": "Failed to update share",
+    "failedRevoke": "Failed to revoke share"
+  },
+  "cookie": {
+    "ariaLabel": "EU Cookie Notice",
+    "title": "EU Cookie & Privacy Notice",
+    "badge": "ePrivacy & GDPR Compliant",
+    "description": "Trans Edit uses strictly functional cookies and local storage to provide essential services such as user authentication, session security, and theme preferences. In accordance with EU Directive 2002/58/EC (ePrivacy) and GDPR Art. 6, all cookies used on this site are strictly necessary for core functionality.",
+    "descriptionStrong": "We do not use any advertising, profiling, or third-party tracking cookies.",
+    "detailsTitle": "Active Storage & Cookies Inventory",
+    "detailsSubtitle": "The following technical storage items are set by this website for core site functionality:",
+    "columnName": "Name",
+    "columnMechanism": "Mechanism",
+    "columnCategory": "Category",
+    "columnDuration": "Duration",
+    "columnPurpose": "Purpose",
+    "columnStatus": "Status",
+    "alwaysActive": "Always Active",
+    "essential": "Essential for site operation",
+    "hideDetails": "Hide Details",
+    "viewDetails": "View Cookie Details",
+    "accept": "Got it & Accept Functional Cookies",
+    "categories": {
+      "strictlyNecessary": "Strictly Necessary",
+      "functionality": "Functionality"
+    },
+    "types": {
+      "cookie": "Cookie",
+      "localStorage": "Local Storage"
+    },
+    "durations": {
+      "sevenDays": "7 days",
+      "persistent": "Persistent",
+      "oneYear": "1 year"
+    },
+    "items": {
+      "token": {
+        "purpose": "Stores your authenticated session (JWT) to keep you logged in and secure real-time collaboration."
+      },
+      "theme": {
+        "purpose": "Remembers your interface display theme preference (light or dark mode) across browser visits."
+      },
+      "consent": {
+        "purpose": "Remembers your acknowledgment of this EU cookie disclosure to prevent repeated popups."
+      }
+    }
+  },
+  "admin": {
+    "title": "Admin View",
+    "users": {
+      "showing": "Showing {from}–{to} of {total} users",
+      "perPage": "Users per page:",
+      "nextPage": "Next Page",
+      "previousPage": "Previous Page",
+      "sortBy": "Sort by:",
+      "createdAt": "Created At",
+      "username": "Username",
+      "userEmail": "Email",
+      "userId": "User ID",
+      "role": "Role"
+    },
+    "modal": {
+      "title": "Manage User",
+      "createdAt": "Created at",
+      "updatedAt": "Updated at",
+      "promote": "Promote to Admin",
+      "revoke": "Revoke Admin",
+      "delete": "Delete User",
+      "updateUsernamePlaceholder": "Update Username",
+      "updateUsername": "Update Username",
+      "deleteTitle": "Delete User",
+      "permanentlyDelete": "Permanently delete {login}?",
+      "deleteWarning": "This account and all associated data will be deleted. This action cannot be undone.",
+      "typeToConfirm": "Type “{login}” to confirm",
+      "enterUsername": "Enter the username",
+      "unavailable": "Unavailable"
+    },
+    "errors": {
+      "notLoaded": "User data is not loaded yet.",
+      "revokeFailed": "Failed to revoke admin. Please try again.",
+      "promoteFailed": "Failed to promote to admin. Please try again.",
+      "deleteFailed": "Failed to delete user. Please try again.",
+      "updateFailed": "Failed to update username. Please try again.",
+      "fetchFailed": "Failed to fetch user details. Please try again."
+    }
+  },
+  "validation": {
+    "required": "{label} is required.",
+    "loginLength": "{label} must be {min}-{max} characters long.",
+    "loginChars": "{label} may only contain letters, numbers, and underscores.",
+    "emailLength": "{label} must be at most {max} characters long.",
+    "invalidEmail": "Invalid email format.",
+    "passwordLength": "{label} must be {min}-{max} characters long.",
+    "otpDigits": "{label} must contain only digits.",
+    "maxLength": "{label} must be at most {max} characters long.",
+    "searchMax": "Search query must be at most {max} characters long."
+  },
+  "errors": {
+    "sessionExpired": "User session expired",
+    "oauth": {
+      "unsupportedProvider": "Unsupported sign-in provider.",
+      "duplicateParams": "Invalid OAuth callback: duplicate parameters.",
+      "invalidState": "Invalid OAuth state. Please start sign-in again.",
+      "sessionMissing": "Your login session is missing, invalid, or expired. Please start again.",
+      "callbackMismatch": "This callback does not match your login session. Please start again.",
+      "storageUnavailable": "Browser storage is unavailable. Please start sign-in again.",
+      "signInCancelled": "Sign-in was cancelled.",
+      "providerFailed": "The provider could not complete sign-in. Please try again.",
+      "invalidCode": "Invalid authorization code. Please start sign-in again."
+    }
+  }
+}

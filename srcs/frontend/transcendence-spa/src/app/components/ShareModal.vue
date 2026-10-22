@@ -1,21 +1,21 @@
 <template>
   <Modal
     :model-value="modelValue"
-    title="Share Document"
+    :title="$t('share.title')"
     size="default"
     @update:model-value="$emit('update:modelValue', $event)"
   >
     <div class="flex flex-col gap-5">
       <!-- Add new collaborator section -->
       <section v-if="isOwner" class="flex flex-col gap-2.5 border-b border-line-subtle pb-4">
-        <h3 class="m-0 text-[0.95rem] font-semibold text-ink">Invite Collaborator</h3>
+        <h3 class="m-0 text-[0.95rem] font-semibold text-ink">{{ $t('share.inviteTitle') }}</h3>
         <form class="flex flex-col gap-3" @submit.prevent="handleShare">
           <div class="flex flex-col gap-2.5">
             <Input
               v-model="email"
               type="email"
-              placeholder="Enter user email (e.g. bob@example.com)"
-              label="Collaborator Email"
+              :placeholder="$t('share.emailPlaceholder')"
+              :label="$t('share.emailLabel')"
               :disabled="loading"
               required
               :error="emailError"
@@ -23,14 +23,14 @@
             />
 
             <label class="flex flex-col gap-1.5">
-              <span class="text-sm text-ink-secondary">Permission</span>
+              <span class="text-sm text-ink-secondary">{{ $t('share.permission') }}</span>
               <select
                 v-model="permission"
                 class="rounded-lg border border-line-subtle bg-surface px-3 py-2 text-sm text-ink outline-none transition-colors duration-150 focus:border-brand disabled:cursor-not-allowed disabled:opacity-50"
                 :disabled="loading"
               >
-                <option value="editor">Editor (Can edit and write)</option>
-                <option value="viewer">Viewer (Read-only)</option>
+                <option value="editor">{{ $t('share.permissionEditorLong') }}</option>
+                <option value="viewer">{{ $t('share.permissionViewerLong') }}</option>
               </select>
             </label>
           </div>
@@ -43,7 +43,7 @@
               :loading="loading"
               :disabled="!email.trim() || loading"
             >
-              Add Collaborator
+              {{ $t('share.addCollaborator') }}
             </Button>
           </div>
         </form>
@@ -64,20 +64,22 @@
 
       <section v-else class="flex flex-col gap-2.5 border-b border-line-subtle pb-4">
         <p class="m-0 text-sm text-muted">
-          Only the document owner can manage shares and invite new collaborators.
+          {{ $t('share.ownerOnly') }}
         </p>
       </section>
 
       <!-- Existing collaborators section -->
       <section class="flex flex-col gap-2.5 border-b border-line-subtle pb-4">
-        <h3 class="m-0 text-[0.95rem] font-semibold text-ink">People with Access</h3>
+        <h3 class="m-0 text-[0.95rem] font-semibold text-ink">
+          {{ $t('share.peopleWithAccess') }}
+        </h3>
 
         <div v-if="loadingShares" class="px-0 py-2 text-sm text-muted italic">
-          Loading collaborators...
+          {{ $t('share.loading') }}
         </div>
 
         <div v-else-if="shares.length === 0" class="px-0 py-2 text-sm text-muted italic">
-          No collaborators shared yet. Invite someone using their email above.
+          {{ $t('share.empty') }}
         </div>
 
         <ul v-else class="m-0 flex max-h-[180px] list-none flex-col gap-2 overflow-y-auto p-0">
@@ -104,8 +106,8 @@
                   )
                 "
               >
-                <option value="editor">Editor</option>
-                <option value="viewer">Viewer</option>
+                <option value="editor">{{ $t('share.permissionEditor') }}</option>
+                <option value="viewer">{{ $t('share.permissionViewer') }}</option>
               </select>
               <span
                 v-else
@@ -119,11 +121,11 @@
                 variant="outlined"
                 color="alert"
                 size="x-small"
-                title="Revoke access"
+                :title="$t('share.revokeAccess')"
                 :disabled="loading"
                 @click="handleRevoke(share.userId)"
               >
-                Remove
+                {{ $t('common.remove') }}
               </Button>
             </div>
           </li>
@@ -133,9 +135,9 @@
       <!-- Share link section -->
       <section class="flex flex-col gap-2.5 pb-0">
         <div class="flex w-full items-end gap-2">
-          <Input :model-value="shareUrl" label="Room Link" readonly />
+          <Input :model-value="shareUrl" :label="$t('share.roomLink')" readonly />
           <Button variant="outlined" size="small" @click="handleCopyLink">
-            {{ copied ? 'Copied!' : 'Copy Link' }}
+            {{ copied ? $t('share.copied') : $t('share.copyLink') }}
           </Button>
         </div>
       </section>
@@ -145,6 +147,7 @@
 
 <script lang="ts" setup>
 import { ref, computed, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import Modal from '@/app/components/Modal.vue'
 import Button from '@/app/components/Button.vue'
 import Input from '@/app/components/Input.vue'
@@ -156,6 +159,7 @@ import {
   type ShareData,
 } from '@/app/editor/document.api'
 import { validateEmail } from '@/utils/validation'
+import { logger } from '@/utils/logger'
 
 const props = withDefaults(
   defineProps<{
@@ -181,12 +185,19 @@ const error = ref<string | null>(null)
 const emailError = ref('')
 
 const validateCollaboratorEmail = () => {
-  const result = validateEmail(email.value, 'Collaborator email')
+  const result = validateEmail(email.value, t('share.emailLabel'))
   emailError.value = result.error ?? ''
   return result
 }
 const successMessage = ref<string | null>(null)
 const copied = ref(false)
+
+const { t } = useI18n()
+
+const permissionLabelKeys = {
+  editor: 'share.permissionEditor',
+  viewer: 'share.permissionViewer',
+} as const
 
 const shareUrl = computed(() => {
   if (typeof window === 'undefined') return ''
@@ -199,7 +210,7 @@ async function fetchShares() {
   try {
     shares.value = await listShares(props.documentId)
   } catch (err) {
-    console.error('Failed to load shares:', err)
+    logger.error('Failed to load shares:', err)
   } finally {
     loadingShares.value = false
   }
@@ -215,12 +226,15 @@ async function handleShare() {
 
   try {
     await createShare(props.documentId, result.value, permission.value)
-    successMessage.value = `Access granted to ${result.value} as ${permission.value}.`
+    successMessage.value = t('share.accessGranted', {
+      email: email.value.trim(),
+      permission: t(permissionLabelKeys[permission.value]),
+    })
     email.value = ''
     emailError.value = ''
     await fetchShares()
   } catch (err) {
-    error.value = err instanceof Error ? err.message : 'Failed to share document'
+    error.value = err instanceof Error ? err.message : t('share.failedShare')
   } finally {
     loading.value = false
   }
@@ -235,7 +249,7 @@ async function handleUpdatePermission(userId: string, newPermission: 'viewer' | 
     await updateShare(props.documentId, userId, newPermission)
     await fetchShares()
   } catch (err) {
-    error.value = err instanceof Error ? err.message : 'Failed to update share'
+    error.value = err instanceof Error ? err.message : t('share.failedUpdate')
   } finally {
     loading.value = false
   }
@@ -250,7 +264,7 @@ async function handleRevoke(userId: string) {
     await deleteShare(props.documentId, userId)
     await fetchShares()
   } catch (err) {
-    error.value = err instanceof Error ? err.message : 'Failed to revoke share'
+    error.value = err instanceof Error ? err.message : t('share.failedRevoke')
   } finally {
     loading.value = false
   }

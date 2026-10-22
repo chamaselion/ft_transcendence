@@ -1,4 +1,8 @@
+import { i18n } from '@/i18n'
+
 export type OAuthProvider = 'github' | '42'
+
+const oauthError = (key: string) => i18n.global.t(`errors.oauth.${key}`)
 
 const STORAGE_KEY = 'oauth_pending'
 const MAX_AGE_MS = 10 * 60 * 1000
@@ -70,11 +74,11 @@ export function getPendingOAuth(): PendingOAuth | null {
 }
 
 export function validateOAuthCallback(provider: unknown, query: URLSearchParams) {
-  if (!isOAuthProvider(provider)) throw new Error('Unsupported sign-in provider.')
+  if (!isOAuthProvider(provider)) throw new Error(oauthError('unsupportedProvider'))
 
   const getValue = (name: string) => {
     const values = query.getAll(name)
-    if (values.length > 1) throw new Error('Invalid OAuth callback: duplicate parameters.')
+    if (values.length > 1) throw new Error(oauthError('duplicateParams'))
     return values[0] ?? null
   }
 
@@ -83,7 +87,7 @@ export function validateOAuthCallback(provider: unknown, query: URLSearchParams)
   const providerError = getValue('error')
 
   if (!rawState || rawState.length > 4096) {
-    throw new Error('Invalid OAuth state. Please start sign-in again.')
+    throw new Error(oauthError('invalidState'))
   }
 
   let state: unknown
@@ -93,12 +97,12 @@ export function validateOAuthCallback(provider: unknown, query: URLSearchParams)
     const bytes = Uint8Array.from(atob(padded), (char) => char.charCodeAt(0))
     state = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes))
   } catch {
-    throw new Error('Invalid OAuth state. Please start sign-in again.')
+    throw new Error(oauthError('invalidState'))
   }
 
   const pending = getPendingOAuth()
   if (!pending) {
-    throw new Error('Your login session is missing, invalid, or expired. Please start again.')
+    throw new Error(oauthError('sessionMissing'))
   }
 
   if (
@@ -111,7 +115,7 @@ export function validateOAuthCallback(provider: unknown, query: URLSearchParams)
     state.p !== provider ||
     state.m !== pending.mode
   ) {
-    throw new Error('This callback does not match your login session. Please start again.')
+    throw new Error(oauthError('callbackMismatch'))
   }
 
   // Consume only the matching transaction, including provider cancellations.
@@ -119,18 +123,18 @@ export function validateOAuthCallback(provider: unknown, query: URLSearchParams)
   try {
     sessionStorage.removeItem(STORAGE_KEY)
   } catch {
-    throw new Error('Browser storage is unavailable. Please start sign-in again.')
+    throw new Error(oauthError('storageUnavailable'))
   }
 
   if (providerError !== null) {
     throw new Error(
       providerError === 'access_denied'
-        ? 'Sign-in was cancelled.'
-        : 'The provider could not complete sign-in. Please try again.',
+        ? oauthError('signInCancelled')
+        : oauthError('providerFailed'),
     )
   }
   if (!code?.trim() || code.length > 4096) {
-    throw new Error('Invalid authorization code. Please start sign-in again.')
+    throw new Error(oauthError('invalidCode'))
   }
 
   return { provider, code, state: rawState }

@@ -1,3 +1,5 @@
+import { i18n } from '@/i18n'
+
 export const LOGIN_MIN_LENGTH = 3
 export const LOGIN_MAX_LENGTH = 32
 export const PASSWORD_MIN_LENGTH = 8
@@ -16,70 +18,100 @@ export interface ValidatedField {
   error: string | null
 }
 
+function t(key: string, params?: Record<string, unknown>): string {
+  return i18n.global.t(key, params ?? {})
+}
+
 const valid = (value: string): ValidatedField => ({ value, error: null })
 const invalid = (error: string, value = ''): ValidatedField => ({ value, error })
 
-export function validateLogin(value: string, label = 'Username'): ValidatedField {
+export function validateLogin(
+  value: string,
+  label = t('auth.register.usernameLabel'),
+): ValidatedField {
   const normalized = value.trim()
-  if (!normalized) return invalid(`${label} is required.`, normalized)
+  if (!normalized) return invalid(t('validation.required', { label }), normalized)
   if (normalized.length < LOGIN_MIN_LENGTH || normalized.length > LOGIN_MAX_LENGTH) {
     return invalid(
-      `${label} must be ${LOGIN_MIN_LENGTH}-${LOGIN_MAX_LENGTH} characters long.`,
+      t('validation.loginLength', {
+        label,
+        min: LOGIN_MIN_LENGTH,
+        max: LOGIN_MAX_LENGTH,
+      }),
       normalized,
     )
   }
   if (!LOGIN_REGEX.test(normalized)) {
-    return invalid(`${label} may only contain letters, numbers, and underscores.`, normalized)
+    return invalid(t('validation.loginChars', { label }), normalized)
   }
   return valid(normalized)
 }
 
-export function validateEmail(value: string, label = 'Email'): ValidatedField {
+export function validateEmail(
+  value: string,
+  label = t('auth.register.emailLabel'),
+): ValidatedField {
   const normalized = value.trim()
-  if (!normalized) return invalid(`${label} is required.`, normalized)
+  if (!normalized) return invalid(t('validation.required', { label }), normalized)
   if (normalized.length > EMAIL_MAX_LENGTH) {
-    return invalid(`${label} must be at most ${EMAIL_MAX_LENGTH} characters long.`, normalized)
+    return invalid(t('validation.emailLength', { label, max: EMAIL_MAX_LENGTH }), normalized)
   }
-  if (!EMAIL_REGEX.test(normalized)) return invalid('Invalid email format.', normalized)
+  if (!EMAIL_REGEX.test(normalized)) return invalid(t('validation.invalidEmail'), normalized)
   return valid(normalized)
 }
 
-export function validatePassword(value: string, label = 'Password'): ValidatedField {
-  if (!value.trim()) return invalid(`${label} is required.`, value)
+export function validatePassword(
+  value: string,
+  label = t('auth.register.passwordLabel'),
+): ValidatedField {
+  if (!value.trim()) return invalid(t('validation.required', { label }), value)
   if (value.length < PASSWORD_MIN_LENGTH || value.length > PASSWORD_MAX_LENGTH) {
     return invalid(
-      `${label} must be ${PASSWORD_MIN_LENGTH}-${PASSWORD_MAX_LENGTH} characters long.`,
+      t('validation.passwordLength', {
+        label,
+        min: PASSWORD_MIN_LENGTH,
+        max: PASSWORD_MAX_LENGTH,
+      }),
       value,
     )
   }
   return valid(value)
 }
 
-export function validateOtpCode(value: string, label = 'Code'): ValidatedField {
+export function validateOtpCode(
+  value: string,
+  label = t('auth.otp.codeLabel'),
+): ValidatedField {
   const normalized = value.trim()
-  if (!normalized) return invalid(`${label} is required.`, normalized)
+  if (!normalized) return invalid(t('validation.required', { label }), normalized)
   if (!DIGITS_ONLY_REGEX.test(normalized)) {
-    return invalid(`${label} must contain only digits.`, normalized)
+    return invalid(t('validation.otpDigits', { label }), normalized)
   }
   return valid(normalized)
 }
 
-export function validateDocumentTitle(value: string, label = 'Title'): ValidatedField {
+export function validateDocumentTitle(
+  value: string,
+  label = t('documents.columnName'),
+): ValidatedField {
   const normalized = value.trim()
-  if (!normalized) return invalid(`${label} is required.`, normalized)
+  if (!normalized) return invalid(t('validation.required', { label }), normalized)
   if (normalized.length > DOCUMENT_TITLE_MAX_LENGTH) {
     return invalid(
-      `${label} must be at most ${DOCUMENT_TITLE_MAX_LENGTH} characters long.`,
+      t('validation.maxLength', { label, max: DOCUMENT_TITLE_MAX_LENGTH }),
       normalized.slice(0, DOCUMENT_TITLE_MAX_LENGTH),
     )
   }
   return valid(normalized)
 }
 
-export function validateEditorBlockText(value: string, label = 'Block content'): ValidatedField {
+export function validateEditorBlockText(
+  value: string,
+  label = t('editor.blockType.p'),
+): ValidatedField {
   if (value.length > EDITOR_BLOCK_MAX_LENGTH) {
     return invalid(
-      `${label} must be at most ${EDITOR_BLOCK_MAX_LENGTH} characters long.`,
+      t('validation.maxLength', { label, max: EDITOR_BLOCK_MAX_LENGTH }),
       value.slice(0, EDITOR_BLOCK_MAX_LENGTH),
     )
   }
@@ -90,7 +122,7 @@ export function validateSearchQuery(value: string): ValidatedField {
   const normalized = value.trim()
   if (normalized.length > SEARCH_QUERY_MAX_LENGTH) {
     return invalid(
-      `Search query must be at most ${SEARCH_QUERY_MAX_LENGTH} characters long.`,
+      t('validation.searchMax', { max: SEARCH_QUERY_MAX_LENGTH }),
       normalized.slice(0, SEARCH_QUERY_MAX_LENGTH),
     )
   }

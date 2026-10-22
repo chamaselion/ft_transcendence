@@ -6,6 +6,7 @@ import {
   createBlock,
 } from '@/app/editor/types'
 import { escapeHtml, unescapeHtml } from '@/app/editor/textCodec'
+import { i18n } from '@/i18n'
 
 const decodeBlock = (block: Block): Block => ({
   ...block,
@@ -68,11 +69,8 @@ export class WebSocketEditorDataProvider implements EditorDataProvider {
     userId?: string | null
   }) => void = () => {}
   public onDeleted: (e: { blockId: string }) => void = () => {}
-  public onLocked: (e: {
-    blockId: string
-    userId?: string | null
-    clientId?: string
-  }) => void = () => {}
+  public onLocked: (e: { blockId: string; userId?: string | null; clientId?: string }) => void =
+    () => {}
   public onUnlocked: (e: { blockId: string }) => void = () => {}
   public onTitleUpdated: (e: { title: string; userId?: string | null }) => void = () => {}
   public onError: (e: { error: string }) => void = () => {}
@@ -203,7 +201,7 @@ export class WebSocketEditorDataProvider implements EditorDataProvider {
           break
 
         case 'session_expired':
-          this.onError({ error: 'User session expired' })
+          this.onError({ error: i18n.global.t('errors.sessionExpired') })
           break
       }
     }
@@ -314,11 +312,8 @@ export class LocalEditorDataProvider implements EditorDataProvider {
     userId?: string | null
   }) => void = () => {}
   public onDeleted: (e: { blockId: string }) => void = () => {}
-  public onLocked: (e: {
-    blockId: string
-    userId?: string | null
-    clientId?: string
-  }) => void = () => {}
+  public onLocked: (e: { blockId: string; userId?: string | null; clientId?: string }) => void =
+    () => {}
   public onUnlocked: (e: { blockId: string }) => void = () => {}
   public onTitleUpdated: (e: { title: string; userId?: string | null }) => void = () => {}
   public onError: (e: { error: string }) => void = () => {}

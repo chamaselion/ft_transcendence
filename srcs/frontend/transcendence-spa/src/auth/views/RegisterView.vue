@@ -14,7 +14,7 @@ const authStore = useAuthStore()
     <Toast
       :model-value="authStore.isAuthenticated"
       type="good"
-      message="You are already logged in."
+      :message="$t('common.alreadyLoggedIn')"
     />
   </div>
 </template>

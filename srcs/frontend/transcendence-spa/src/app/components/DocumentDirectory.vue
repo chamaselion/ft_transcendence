@@ -9,10 +9,7 @@ import DocumentToolbar from '@/app/components/documents/DocumentToolbar.vue'
 import DocumentTable from '@/app/components/documents/DocumentTable.vue'
 import DocumentPagination from '@/app/components/documents/DocumentPagination.vue'
 import DeleteDocumentModal from '@/app/components/documents/DeleteDocumentModal.vue'
-import {
-  useDocumentDirectory,
-  type DocumentScope,
-} from '@/app/composables/useDocumentDirectory'
+import { useDocumentDirectory, type DocumentScope } from '@/app/composables/useDocumentDirectory'
 import type { DocumentData } from '@/app/editor/document.api'
 
 const router = useRouter()
@@ -75,10 +72,10 @@ function openShareDialog(doc: DocumentData) {
     <!-- Top toolbar / header -->
     <div class="flex flex-wrap items-center justify-between gap-4">
       <div class="flex items-center gap-2.5">
-        <h2 class="m-0 text-[1.6rem] leading-tight font-bold text-ink">Documents</h2>
+        <h2 class="m-0 text-[1.6rem] leading-tight font-bold text-ink">{{ $t('documents.title') }}</h2>
         <span
           class="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-subtle px-2 text-[0.8rem] font-semibold text-ink-secondary"
-          >{{ totalDocuments }}</span
+          >{{ $n(totalDocuments) }}</span
         >
       </div>
 
@@ -87,7 +84,7 @@ function openShareDialog(doc: DocumentData) {
           <template #prepend>
             <Icon name="Plus" :size="16" />
           </template>
-          New Document
+          {{ $t('documents.newDocument') }}
         </Button>
       </div>
     </div>
