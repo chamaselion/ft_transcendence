@@ -1,8 +1,12 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import termsOfService from '@/assets/terms-of-service.md?raw'
-import privacyPolicy from '@/assets/privacy-policy.md?raw'
+import termsOfServiceEn from '@/assets/terms-of-service.md?raw'
+import termsOfServiceDe from '@/assets/terms-of-service.de.md?raw'
+import termsOfServiceHu from '@/assets/terms-of-service.hu.md?raw'
+import privacyPolicyEn from '@/assets/privacy-policy.md?raw'
+import privacyPolicyDe from '@/assets/privacy-policy.de.md?raw'
+import privacyPolicyHu from '@/assets/privacy-policy.hu.md?raw'
 import Button from '@/app/components/Button.vue'
 import Modal from '@/app/components/Modal.vue'
 import { renderMarkdown } from '@/utils/markdown'
@@ -26,7 +30,7 @@ const emit = defineEmits<{
   accept: []
 }>()
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const activeDoc = ref<LegalDocType>(props.initialDoc)
 
 watch(
@@ -42,9 +46,26 @@ const modalTitle = computed(() =>
   activeDoc.value === 'privacy' ? t('terms.privacyTitle') : t('terms.title'),
 )
 
-const rendered = computed(() =>
-  renderMarkdown(activeDoc.value === 'privacy' ? privacyPolicy : termsOfService),
-)
+const termsByLocale: Record<string, string> = {
+  en: termsOfServiceEn,
+  de: termsOfServiceDe,
+  hu: termsOfServiceHu,
+}
+
+const privacyByLocale: Record<string, string> = {
+  en: privacyPolicyEn,
+  de: privacyPolicyDe,
+  hu: privacyPolicyHu,
+}
+
+const rendered = computed(() => {
+  const lang = locale.value
+  const source =
+    activeDoc.value === 'privacy'
+      ? (privacyByLocale[lang] ?? privacyPolicyEn)
+      : (termsByLocale[lang] ?? termsOfServiceEn)
+  return renderMarkdown(source)
+})
 
 const close = () => emit('update:modelValue', false)
 
