@@ -45,7 +45,12 @@ export interface EditorDataProvider {
   sendTitleUpdate?: (title: string) => Promise<boolean>
   onInit: (e: EditorInitEvent) => void
   onCreated: (e: { block: Block; afterBlockId?: string | null }) => void
-  onUpdated: (e: { blockId: string; text?: string; decorator?: string; userId?: string | null }) => void
+  onUpdated: (e: {
+    blockId: string
+    text?: string
+    decorator?: string
+    userId?: string | null
+  }) => void
   onDeleted: (e: { blockId: string }) => void
   onLocked?: (e: { blockId: string; userId?: string | null; clientId?: string }) => void
   onUnlocked: (e: { blockId: string }) => void
@@ -55,14 +60,6 @@ export interface EditorDataProvider {
 }
 
 export const blockTypes: BlockType[] = ['p', 'li', 'h', 'cit', 'c']
-
-export const blockTypeLabels: Record<BlockType, string> = {
-  p: 'Paragraph',
-  li: 'List',
-  h: 'Heading',
-  cit: 'Citation',
-  c: 'Code',
-}
 
 export function defaultDecorator(type: BlockType): BlockDecorator {
   switch (type) {

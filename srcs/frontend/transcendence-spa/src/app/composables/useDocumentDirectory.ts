@@ -1,10 +1,8 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import {
-  deleteDocument,
-  listDocuments,
-  type DocumentData,
-} from '@/app/editor/document.api'
+import { useI18n } from 'vue-i18n'
+import { deleteDocument, listDocuments, type DocumentData } from '@/app/editor/document.api'
 import { validateSearchQuery } from '@/utils/validation'
+import { logger } from '@/utils/logger'
 
 export type DocumentScope = 'all' | 'own' | 'shared'
 export type ToastType = 'good' | 'alert' | 'info' | 'warn'
@@ -13,6 +11,7 @@ const DEFAULT_PAGE_SIZE = 10
 const SEARCH_DEBOUNCE_MS = 300
 
 export function useDocumentDirectory() {
+  const { t } = useI18n()
   const documents = ref<DocumentData[]>([])
   const loading = ref(false)
   const errorMessage = ref<string | null>(null)
@@ -25,15 +24,11 @@ export function useDocumentDirectory() {
   const currentPage = ref<number>(1)
   const totalDocuments = ref<number>(0)
 
-  const totalPages = computed(() =>
-    Math.max(1, Math.ceil(totalDocuments.value / pageSize.value)),
-  )
+  const totalPages = computed(() => Math.max(1, Math.ceil(totalDocuments.value / pageSize.value)))
   const fromItem = computed(() =>
     totalDocuments.value === 0 ? 0 : (currentPage.value - 1) * pageSize.value + 1,
   )
-  const toItem = computed(() =>
-    Math.min(currentPage.value * pageSize.value, totalDocuments.value),
-  )
+  const toItem = computed(() => Math.min(currentPage.value * pageSize.value, totalDocuments.value))
 
   const showDeleteModal = ref(false)
   const selectedDeleteDoc = ref<DocumentData | null>(null)
@@ -72,8 +67,8 @@ export function useDocumentDirectory() {
     } catch (err) {
       if (requestId !== lastRequestId) return
 
-      console.error('Failed to load documents:', err)
-      errorMessage.value = err instanceof Error ? err.message : 'Failed to fetch documents'
+      logger.error('Failed to load documents:', err)
+      errorMessage.value = err instanceof Error ? err.message : t('documents.fetchFailed')
     } finally {
       if (requestId === lastRequestId) {
         loading.value = false
@@ -131,7 +126,7 @@ export function useDocumentDirectory() {
     const doc = selectedDeleteDoc.value
     if (!doc) return
 
-    const docTitle = doc.title || 'Untitled Document'
+    const docTitle = doc.title || t('common.untitledDocument')
     isDeleting.value = true
 
     try {
@@ -140,7 +135,7 @@ export function useDocumentDirectory() {
       selectedDeleteDoc.value = null
 
       toastType.value = 'good'
-      toastMessage.value = `"${docTitle}" has been deleted.`
+      toastMessage.value = t('documents.deletedToast', { title: docTitle })
       showToast.value = true
 
       if (documents.value.length === 1 && currentPage.value > 1) {
@@ -148,10 +143,9 @@ export function useDocumentDirectory() {
       }
       await fetchDocuments()
     } catch (err) {
-      console.error('Failed to delete document:', err)
+      logger.error('Failed to delete document:', err)
       toastType.value = 'alert'
-      toastMessage.value =
-        err instanceof Error ? err.message : 'Failed to delete document.'
+      toastMessage.value = err instanceof Error ? err.message : t('documents.deleteFailed')
       showToast.value = true
     } finally {
       isDeleting.value = false

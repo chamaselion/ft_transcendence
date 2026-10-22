@@ -2,6 +2,7 @@ import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 import { httpClient } from '@/auth/auth.api'
 import type { Root, User } from '@/auth/types/user'
+import { logger } from '@/utils/logger'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
@@ -46,7 +47,7 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       await httpClient.post('logout', {})
     } catch (error) {
-      console.error('Logout failed:', error)
+      logger.error('Logout failed:', error)
     } finally {
       invalidate()
     }

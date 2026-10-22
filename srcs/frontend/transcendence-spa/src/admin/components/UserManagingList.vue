@@ -3,6 +3,7 @@ import { onMounted, ref, computed } from 'vue'
 import { httpClient, HttpError } from '@/auth/auth.api'
 import type { User } from '@/auth/types/user'
 import { type Pagination } from '@/types/pagination'
+import { logger } from '@/utils/logger'
 import UserManagmentModal from './UserManagmentModal.vue'
 
 interface ResponseShape {
@@ -36,9 +37,9 @@ async function fetchUsers(limit: number, offset: number) {
     pagination.value = res.value.pagination
   } catch (error) {
     if (error instanceof HttpError) {
-      console.error('HTTP error while fetching users:', error.message)
+      logger.error('HTTP error while fetching users:', error.message)
     } else {
-      console.error('Unexpected error while fetching users:', error)
+      logger.error('Unexpected error while fetching users:', error)
     }
   }
 }
@@ -79,10 +80,12 @@ onMounted(async () => {
       class="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-line-subtle bg-subtle p-4 text-sm max-sm:flex-col max-sm:items-stretch max-sm:p-3"
     >
       <p v-if="pagination" class="m-0 mr-auto leading-normal text-ink-secondary">
-        Showing {{ rangeStart }}–{{ rangeEnd }} of {{ pagination.total }} users
+        {{ $t('admin.users.showing', { from: rangeStart, to: rangeEnd, total: pagination.total }) }}
       </p>
       <div class="flex flex-wrap items-center gap-2">
-        <label class="font-medium text-ink-secondary" for="limit">Users per page:</label>
+        <label class="font-medium text-ink-secondary" for="limit">{{
+          $t('admin.users.perPage')
+        }}</label>
         <select
           id="limit"
           v-model="limit"
@@ -100,27 +103,29 @@ onMounted(async () => {
           :disabled="!hasNext"
           @click="fetchUsers(limit, currentPage())"
         >
-          Next Page
+          {{ $t('admin.users.nextPage') }}
         </button>
         <button
           class="min-h-[38px] cursor-pointer rounded-md border border-line bg-surface px-3 py-2 font-medium text-ink transition-[background-color,border-color] duration-200 [font:inherit] hover:enabled:border-brand hover:enabled:bg-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:cursor-not-allowed disabled:opacity-50 max-sm:flex-1"
           :disabled="!hasPrevious"
           @click="fetchUsers(limit, currentPage() - limit * 2)"
         >
-          Previous Page
+          {{ $t('admin.users.previousPage') }}
         </button>
       </div>
       <div class="flex flex-wrap items-center gap-2">
-        <label class="font-medium text-ink-secondary" for="sort">Sort by:</label>
+        <label class="font-medium text-ink-secondary" for="sort">{{
+          $t('admin.users.sortBy')
+        }}</label>
         <select
           id="sort"
           v-model="sortOption"
           class="min-h-[38px] cursor-pointer rounded-md border border-line bg-surface px-3 py-2 text-ink transition-[background-color,border-color] duration-200 [font:inherit] hover:enabled:border-brand hover:enabled:bg-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand max-sm:min-w-0 max-sm:flex-1"
           @change="fetchUsers(limit, 0)"
         >
-          <option value="createdAt">Created At</option>
-          <option value="login">Username</option>
-          <option value="email">Email</option>
+          <option value="createdAt">{{ $t('admin.users.createdAt') }}</option>
+          <option value="login">{{ $t('admin.users.username') }}</option>
+          <option value="email">{{ $t('admin.users.userEmail') }}</option>
         </select>
       </div>
     </div>
@@ -133,25 +138,25 @@ onMounted(async () => {
               scope="col"
               class="border-b border-line-subtle bg-subtle px-4 py-3.5 text-left font-semibold whitespace-nowrap text-ink-secondary [overflow-wrap:anywhere]"
             >
-              User ID
+              {{ $t('admin.users.userId') }}
             </th>
             <th
               scope="col"
               class="border-b border-line-subtle bg-subtle px-4 py-3.5 text-left font-semibold whitespace-nowrap text-ink-secondary [overflow-wrap:anywhere]"
             >
-              Username
+              {{ $t('admin.users.username') }}
             </th>
             <th
               scope="col"
               class="border-b border-line-subtle bg-subtle px-4 py-3.5 text-left font-semibold whitespace-nowrap text-ink-secondary [overflow-wrap:anywhere]"
             >
-              Email
+              {{ $t('admin.users.userEmail') }}
             </th>
             <th
               scope="col"
               class="border-b border-line-subtle bg-subtle px-4 py-3.5 text-left font-semibold whitespace-nowrap text-ink-secondary [overflow-wrap:anywhere]"
             >
-              Role
+              {{ $t('admin.users.role') }}
             </th>
           </tr>
         </thead>

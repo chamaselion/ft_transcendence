@@ -1,12 +1,15 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import DocumentDirectory from '@/app/components/DocumentDirectory.vue'
 import Button from '@/app/components/Button.vue'
 import Icon from '@/app/components/Icon.vue'
+import TermsOfServiceModal from '@/app/components/TermsOfServiceModal.vue'
 import { useRouter } from 'vue-router'
 
 const authStore = useAuthStore()
 const router = useRouter()
+const termsOpen = ref(false)
 
 function openCookieBanner() {
   window.dispatchEvent(new CustomEvent('open-cookie-banner'))
@@ -27,18 +30,17 @@ function openCookieBanner() {
           class="mb-5 inline-flex items-center gap-1.5 rounded-full bg-brand/12 px-3 py-1 text-[0.8rem] font-semibold text-brand"
         >
           <Icon name="Sparkles" :size="16" />
-          <span>New</span>
+          <span>{{ $t('home.badge') }}</span>
         </div>
         <h1 class="m-0 mb-3 text-[2.4rem] leading-tight font-bold text-ink">
-          Welcome to Trans Edit
+          {{ $t('home.title') }}
         </h1>
         <p class="m-0 mb-8 text-[1.1rem] leading-relaxed text-ink-secondary">
-          A collaborative document editor built for teams. Create, edit, and share documents in
-          real-time with your team members.
+          {{ $t('home.subtitle') }}
         </p>
         <div class="flex flex-wrap items-center justify-center gap-4">
-          <Button @click="router.push('/register')">Register</Button>
-          <Button @click="router.push('/login')">Login</Button>
+          <Button @click="router.push('/register')">{{ $t('home.getStarted') }}</Button>
+          <Button @click="router.push('/login')">{{ $t('home.login') }}</Button>
         </div>
       </section>
     </template>
@@ -46,13 +48,23 @@ function openCookieBanner() {
     <footer
       class="mt-auto flex w-full flex-wrap items-center justify-between gap-4 border-t border-line-subtle pt-6 text-[0.8125rem] text-muted"
     >
-      <span>Trans Edit © 2026 · EU GDPR &amp; ePrivacy Compliant</span>
-      <button
-        class="ml-auto cursor-pointer border-0 bg-transparent p-0 text-[0.8125rem] font-medium text-brand underline underline-offset-[3px] transition-opacity duration-150 hover:opacity-80"
-        @click="openCookieBanner"
-      >
-        Cookie Policy &amp; Preferences
-      </button>
+      <span>{{ $t('home.footerCopyright') }}</span>
+      <div class="ml-auto flex flex-wrap items-center gap-4">
+        <button
+          class="cursor-pointer border-0 bg-transparent p-0 text-[0.8125rem] font-medium text-brand underline underline-offset-[3px] transition-opacity duration-150 hover:bg-transparent hover:opacity-80"
+          @click="termsOpen = true"
+        >
+          {{ $t('home.termsOfService') }}
+        </button>
+        <button
+          class="cursor-pointer border-0 bg-transparent p-0 text-[0.8125rem] font-medium text-brand underline underline-offset-[3px] transition-opacity duration-150 hover:bg-transparent hover:opacity-80"
+          @click="openCookieBanner"
+        >
+          {{ $t('home.cookiePolicy') }}
+        </button>
+      </div>
     </footer>
+
+    <TermsOfServiceModal v-model="termsOpen" />
   </main>
 </template>
