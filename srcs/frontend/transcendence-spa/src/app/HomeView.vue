@@ -4,12 +4,20 @@ import { useAuthStore } from '@/stores/auth'
 import DocumentDirectory from '@/app/components/DocumentDirectory.vue'
 import Button from '@/app/components/Button.vue'
 import Icon from '@/app/components/Icon.vue'
-import TermsOfServiceModal from '@/app/components/TermsOfServiceModal.vue'
+import TermsOfServiceModal, {
+  type LegalDocType,
+} from '@/app/components/TermsOfServiceModal.vue'
 import { useRouter } from 'vue-router'
 
 const authStore = useAuthStore()
 const router = useRouter()
 const termsOpen = ref(false)
+const legalDoc = ref<LegalDocType>('terms')
+
+function openLegal(doc: LegalDocType) {
+  legalDoc.value = doc
+  termsOpen.value = true
+}
 
 function openCookieBanner() {
   window.dispatchEvent(new CustomEvent('open-cookie-banner'))
@@ -52,9 +60,15 @@ function openCookieBanner() {
       <div class="ml-auto flex flex-wrap items-center gap-4">
         <button
           class="cursor-pointer border-0 bg-transparent p-0 text-[0.8125rem] font-medium text-brand underline underline-offset-[3px] transition-opacity duration-150 hover:bg-transparent hover:opacity-80"
-          @click="termsOpen = true"
+          @click="openLegal('terms')"
         >
           {{ $t('home.termsOfService') }}
+        </button>
+        <button
+          class="cursor-pointer border-0 bg-transparent p-0 text-[0.8125rem] font-medium text-brand underline underline-offset-[3px] transition-opacity duration-150 hover:bg-transparent hover:opacity-80"
+          @click="openLegal('privacy')"
+        >
+          {{ $t('home.privacyPolicy') }}
         </button>
         <button
           class="cursor-pointer border-0 bg-transparent p-0 text-[0.8125rem] font-medium text-brand underline underline-offset-[3px] transition-opacity duration-150 hover:bg-transparent hover:opacity-80"
@@ -65,6 +79,6 @@ function openCookieBanner() {
       </div>
     </footer>
 
-    <TermsOfServiceModal v-model="termsOpen" />
+    <TermsOfServiceModal v-model="termsOpen" :initial-doc="legalDoc" />
   </main>
 </template>

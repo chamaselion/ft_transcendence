@@ -2,15 +2,13 @@
 
 **Version 1.0 · Last updated: 21.10.2026**
 
-> Draft text. Review with a qualified EU lawyer before production use.
-
 ## 1. Who we are
 
-Trans Edit ("the Service", "we", "us") is operated by **a 42 Team Lead by bszikora**, with contact address **Weipertstraße 8-10, 74076 Heilbronn** and email **afelger@student.42.fr**. These Terms govern your access to and use of the Service.
+Trans Edit ("the Service", "we", "us") is operated by **a 42 Team Lead by bszikora**, with contact address **Weipertstraße 8-10, 74076 Heilbronn** and email **afelger@student.42heilbronn.de**. These Terms govern your access to and use of the Service.
 
 ## 2. Acceptance and eligibility
 
-By creating an account or using the Service, you agree to these Terms and our Privacy Notice. If you do not agree, do not use the Service.
+By creating an account or using the Service, you agree to these Terms and our Privacy Policy. If you do not agree, do not use the Service.
 
 You must be at least 16 years old, or have valid parental/guardian consent where EU law permits a lower age. You are responsible for ensuring that your use complies with the laws applicable to you.
 
@@ -19,7 +17,7 @@ You must be at least 16 years old, or have valid parental/guardian consent where
 - Provide accurate account information and keep it secure.
 - Do not share your credentials or let others use your account.
 - You are responsible for activity carried out through your account.
-- Notify us promptly at **[CONTACT EMAIL]** if you suspect unauthorized access.
+- Notify us promptly at **afelger@student.42heilbronn.de** if you suspect unauthorized access.
 
 ## 4. Prohibited use
 
@@ -32,14 +30,14 @@ You must not use the Service to:
 - evade security measures, rate limits, or access controls;
 - impersonate another person or misrepresent your affiliation.
 
-## 5. Translation feature — fair use
+## 5. AI elaboration & translation — fair use
 
-The translation feature must be used fairly. You must not:
+The AI elaboration and translation features must be used fairly. You must not:
 
-- scrape, bulk-extract, or automate translation in a way that bypasses quotas or burdens the Service;
-- resell, sublicense, or commercially exploit translation output without permission;
+- scrape, bulk-extract, or automate AI requests in a way that bypasses quotas or burdens the Service;
+- resell, sublicense, or commercially exploit AI output without permission;
 - misrepresent machine translation as a certified or human translation where that would mislead others;
-- use translation to infringe third-party rights or to process content you are not entitled to process.
+- use AI features to infringe third-party rights or to process content you are not entitled to process.
 
 ## 6. Your content
 
@@ -73,7 +71,7 @@ We process personal data in accordance with the EU General Data Protection Regul
 
 **Retention:** we keep personal data only as long as necessary for the purposes described above, for the duration of your account, or as required by law.
 
-**Recipients:** limited hosting, email-delivery, and infrastructure providers acting as processors under Art. 28 GDPR. A current list is available on request at **[CONTACT EMAIL]**.
+**Recipients:** limited hosting, email-delivery, and infrastructure providers acting as processors under Art. 28 GDPR. A current list is available on request at **afelger@student.42heilbronn.de**.
 
 **GDPR data availability:** You can export a copy of your data in JSON or CSV, and you can request deletion of your account, from the Settings page.
 
@@ -89,13 +87,13 @@ Subject to applicable law, you have the right to:
 - withdraw consent where processing is based on consent;
 - lodge a complaint with your national supervisory authority.
 
-To exercise these rights, use the Settings page or contact **[CONTACT EMAIL]**. You also have the right to complain to the supervisory authority in your EU member state.
+To exercise these rights, use the Settings page or contact **afelger@student.42heilbronn.de**. You also have the right to complain to the supervisory authority in your EU member state.
 
 ## 10. Suspension, termination, and appeals
 
 You may stop using the Service at any time and delete your account in Settings. We may suspend or terminate access for material or repeated breaches of these Terms, illegal activity, security risks, or where required by law.
 
-Where reasonable and lawful, we will provide notice and a way to appeal by contacting **[CONTACT EMAIL]**.
+Where reasonable and lawful, we will provide notice and a way to appeal by contacting **afelger@student.42heilbronn.de**.
 
 ## 11. Liability and mandatory rights
 
@@ -113,4 +111,4 @@ We may update these Terms to reflect legal, technical, or operational changes. W
 
 ### Weipertstraße 8-10, 74076 Heilbronn
 
-### afelger@student.42.fr
+### afelger@student.42heilbronn.de
