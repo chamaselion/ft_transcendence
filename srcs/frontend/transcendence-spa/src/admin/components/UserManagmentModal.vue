@@ -2,6 +2,7 @@
 import { computed, ref, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { httpClient, HttpError } from '@/auth/auth.api'
+import { logger } from '@/utils/logger'
 import type { UserDetailed } from '@/auth/types/user'
 import Button from '@/app/components/Button.vue'
 import Input from '@/app/components/Input.vue'
@@ -145,6 +146,11 @@ onMounted(async () => {
     const response = await httpClient.get<{ user: UserDetailed }>(`/api/users/${props.userID}`)
     user.value = response.user
   } catch (error) {
+    if (error instanceof DOMException && error.name === 'TimeoutError') {
+      logger.error(
+        '[TimeoutError] Logout request timed out. Please check your network connection.',
+      )
+    }
     showError(error, t('admin.errors.fetchFailed'))
   }
 })
