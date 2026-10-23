@@ -1,21 +1,28 @@
-const bcrypt = require('bcryptjs');
-const { randomInt, randomUUID } = require('crypto');
-const { requireNumberEnv } = require('../config');
-const sequelize = require('../db');
+const bcrypt = require("bcryptjs");
+const { randomInt, randomUUID } = require("crypto");
+const { requireNumberEnv } = require("../config");
+const sequelize = require("../db");
 
-const CODE_HASH_ROUNDS = requireNumberEnv('BCRYPT_SALT_ROUNDS');
+const CODE_HASH_ROUNDS = requireNumberEnv("BCRYPT_SALT_ROUNDS");
 
-const normalizeRecipient = (value) => String(value || '').trim().toLowerCase();
-const normalizeCode = (value) => String(value || '').trim();
-const buildPurposeLabel = (purpose) => String(purpose || 'confirmation').trim();
+const normalizeRecipient = (value) =>
+  String(value || "")
+    .trim()
+    .toLowerCase();
+const normalizeCode = (value) => String(value || "").trim();
+const buildPurposeLabel = (purpose) => String(purpose || "confirmation").trim();
 
-const defaultTextBuilder = ({ code, purposeLabel, expiresInMinutes, attemptsRemaining }) => (
+const defaultTextBuilder = ({
+  code,
+  purposeLabel,
+  expiresInMinutes,
+  attemptsRemaining,
+}) =>
   [
     `Your ${purposeLabel} code is ${code}.`,
     `It expires in ${expiresInMinutes} minute(s).`,
     `You have ${attemptsRemaining} attempt(s) to enter it correctly.`,
-  ].join(' ')
-);
+  ].join(" ");
 
 const createOneTimeCodeService = ({
   emailService,
@@ -24,7 +31,7 @@ const createOneTimeCodeService = ({
   ttlMs = Number(process.env.ONE_TIME_CODE_TTL_MS) || 10 * 60 * 1000,
 } = {}) => {
   if (!emailService) {
-    throw new Error('createOneTimeCodeService requires an emailService');
+    throw new Error("createOneTimeCodeService requires an emailService");
   }
 
   const getChallengeModel = () => sequelize.models.oneTimeChallenge;
@@ -46,7 +53,10 @@ const createOneTimeCodeService = ({
     return deleted;
   };
 
-  const buildCode = () => randomInt(0, 10 ** codeLength).toString().padStart(codeLength, '0');
+  const buildCode = () =>
+    randomInt(0, 10 ** codeLength)
+      .toString()
+      .padStart(codeLength, "0");
 
   const issueChallenge = async ({
     purpose,
@@ -58,7 +68,7 @@ const createOneTimeCodeService = ({
   }) => {
     const challengeModel = getChallengeModel();
     if (!challengeModel) {
-      throw new Error('One-time challenge storage is not available');
+      throw new Error("One-time challenge storage is not available");
     }
 
     const challengeId = randomUUID();
@@ -100,7 +110,7 @@ const createOneTimeCodeService = ({
       expiresAt,
       attemptsRemaining: maxAttempts,
       codeLength,
-      debugCode: emailService.transportMode === 'console' ? code : undefined,
+      debugCode: process.env.DEBUG_CODES_ENABLED === "true" ? code : undefined,
     };
   };
 
@@ -110,7 +120,7 @@ const createOneTimeCodeService = ({
       return {
         ok: false,
         statusCode: 500,
-        error: 'Confirmation service unavailable',
+        error: "Confirmation service unavailable",
       };
     }
 
@@ -124,7 +134,7 @@ const createOneTimeCodeService = ({
         return {
           ok: false,
           statusCode: 410,
-          error: 'Confirmation code expired or was not found',
+          error: "Confirmation code expired or was not found",
         };
       }
 
@@ -132,7 +142,7 @@ const createOneTimeCodeService = ({
         return {
           ok: false,
           statusCode: 400,
-          error: 'Confirmation code purpose mismatch',
+          error: "Confirmation code purpose mismatch",
         };
       }
 
@@ -140,7 +150,7 @@ const createOneTimeCodeService = ({
         return {
           ok: false,
           statusCode: 400,
-          error: 'Confirmation code recipient mismatch',
+          error: "Confirmation code recipient mismatch",
         };
       }
 
@@ -149,11 +159,14 @@ const createOneTimeCodeService = ({
         return {
           ok: false,
           statusCode: 410,
-          error: 'Confirmation code expired',
+          error: "Confirmation code expired",
         };
       }
 
-      const isMatch = await bcrypt.compare(normalizeCode(code), challenge.codeHash);
+      const isMatch = await bcrypt.compare(
+        normalizeCode(code),
+        challenge.codeHash,
+      );
 
       if (!isMatch) {
         challenge.attemptsRemaining -= 1;
@@ -163,7 +176,8 @@ const createOneTimeCodeService = ({
           return {
             ok: false,
             statusCode: 401,
-            error: 'Invalid code. Confirmation cancelled after maximum failed attempts.',
+            error:
+              "Invalid code. Confirmation cancelled after maximum failed attempts.",
             attemptsRemaining: 0,
           };
         }
@@ -193,7 +207,10 @@ const createOneTimeCodeService = ({
         console.log(`[OTC Cleanup] Removed ${deleted} expired challenge(s)`);
       }
     } catch (error) {
-      console.error('[OTC Cleanup] Failed to cleanup expired challenges:', error.message);
+      console.error(
+        "[OTC Cleanup] Failed to cleanup expired challenges:",
+        error.message,
+      );
     }
   }, 60_000).unref?.();
 

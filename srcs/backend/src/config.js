@@ -20,6 +20,18 @@ const loadEnvFile = () => {
 
 loadEnvFile();
 
+const exposeDebugCode = () => {
+  if (
+    process.env.ALLOW_DEBUG_CODES === 'true' &&
+    process.env.NODE_ENV !== 'production' &&
+    emailService.transportMode === 'console'
+  ){
+    process.env.DEBUG_CODES_ENABLED = 'true';
+  }
+}
+
+exposeDebugCode();
+
 const requireEnv = (name) => {
   const value = process.env[name];
   if (value === undefined || value === '') {
