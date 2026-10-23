@@ -9,6 +9,9 @@ const { validateUuid } = require('../controllers/auth/validation');
 const {
   DOCUMENT_TITLE_MAX_LENGTH,
   EDITOR_BLOCK_MAX_LENGTH,
+  MAX_BLOCKS,
+  MAX_DECORATOR_LENGTH,
+  MAX_BLOCK_ID_LENGTH,
   sanitizeText,
   sanitizeContent,
   validateTextLength,
@@ -45,6 +48,8 @@ const WS_PATH = '/api/ws';
 
 const HEARTBEAT_INTERVAL_MS = 30_000;
 const SERVER_LOCK_TIMEOUT_MS = 5500;
+const MAX_RAW_MESSAGE_BYTES = 256 * 1024;
+const MAX_CLIENT_ID_LENGTH = 128;
 
 
 const rooms = new Map();
@@ -222,7 +227,7 @@ const attachDocumentSocket = (
     return authenticated.id ? authenticated : null;
   };
 
-  const wss = new WebSocketServer({ noServer: true });
+  const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_RAW_MESSAGE_BYTES });
   activeServer = wss;
 
   const hasLiveSession = async (ws) => {
@@ -373,6 +378,9 @@ const attachDocumentSocket = (
       if (typeof msg.content !== 'string') {
         return sendError(ws, 'content must be a string');
       }
+      if (msg.content.length > MAX_RAW_MESSAGE_BYTES) {
+        return sendError(ws, 'content exceeds maximum size');
+      }
       if (!validateContentLength(msg.content)) {
         return sendError(ws, `content blocks must be objects with string text of at most ${EDITOR_BLOCK_MAX_LENGTH} characters`);
       }
@@ -402,10 +410,12 @@ const attachDocumentSocket = (
     if (msg.type === 'block_edit') {
       if (!ws.documentId) return sendError(ws, 'Join a document first');
       if (!atLeast(ws.permission, 'editor')) return sendError(ws, 'Read-only access');
-      if (!msg.blockId || typeof msg.blockId !== 'string') {
-        return sendError(ws, 'blockId must be a string');
+      if (!msg.blockId || typeof msg.blockId !== 'string' || msg.blockId.length > MAX_BLOCK_ID_LENGTH) {
+        return sendError(ws, 'Invalid block id');
       }
-
+      if (msg.decorator !== undefined && (typeof msg.decorator !== 'string' || msg.decorator.length > MAX_DECORATOR_LENGTH)) {
+        return sendError(ws, `decorator must be a string of at most ${MAX_DECORATOR_LENGTH} characters`);
+      }
       if (lockHolder(ws.documentId, msg.blockId, ws)) {
         return sendError(ws, 'Block is locked by another user');
       }
@@ -460,6 +470,19 @@ const attachDocumentSocket = (
         typeof msg.block.id === 'string' && msg.block.id
           ? msg.block.id
           : (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()));
+      if (typeof blockId !== 'string' || blockId.length > MAX_BLOCK_ID_LENGTH) {
+        return sendError(ws, 'Invalid block id');
+      }
+      if (msg.afterBlockId !== undefined && msg.afterBlockId !== null) {
+        if (typeof msg.afterBlockId !== 'string' || msg.afterBlockId.length > MAX_BLOCK_ID_LENGTH) {
+          return sendError(ws, 'Invalid afterBlockId');
+        }
+      }
+      if (msg.block.decorator !== undefined && msg.block.decorator !== null) {
+        if (typeof msg.block.decorator !== 'string' || msg.block.decorator.length > MAX_DECORATOR_LENGTH) {
+          return sendError(ws, `decorator must be a string of at most ${MAX_DECORATOR_LENGTH} characters`);
+        }
+      }
       if (!validateTextLength(String(msg.block.text ?? ''), EDITOR_BLOCK_MAX_LENGTH)) {
         return sendError(ws, `block text must be at most ${EDITOR_BLOCK_MAX_LENGTH} characters`);
       }
@@ -477,6 +500,9 @@ const attachDocumentSocket = (
         if (!doc) return sendError(ws, 'Document not found');
 
         const blocks = parseDocBlocks(doc.content);
+        if (blocks.length >= MAX_BLOCKS) {
+          return sendError(ws, `Document cannot exceed ${MAX_BLOCKS} blocks`);
+        }
         if (blocks.some((b) => b && b.id === blockId)) {
           return sendError(ws, 'Block id already exists');
         }
@@ -511,8 +537,8 @@ const attachDocumentSocket = (
     if (msg.type === 'block_delete') {
       if (!ws.documentId) return sendError(ws, 'Join a document first');
       if (!atLeast(ws.permission, 'editor')) return sendError(ws, 'Read-only access');
-      if (!msg.blockId || typeof msg.blockId !== 'string') {
-        return sendError(ws, 'blockId must be a string');
+      if (!msg.blockId || typeof msg.blockId !== 'string' || msg.blockId.length > MAX_BLOCK_ID_LENGTH) {
+        return sendError(ws, 'Invalid block id');
       }
 
       if (lockHolder(ws.documentId, msg.blockId, ws)) {
@@ -551,8 +577,13 @@ const attachDocumentSocket = (
     if (msg.type === 'block_lock') {
       if (!ws.documentId) return sendError(ws, 'Join a document first');
       if (!atLeast(ws.permission, 'editor')) return sendError(ws, 'Read-only access');
-      if (!msg.blockId || typeof msg.blockId !== 'string') {
-        return sendError(ws, 'blockId must be a string');
+      if (!msg.blockId || typeof msg.blockId !== 'string' || msg.blockId.length > MAX_BLOCK_ID_LENGTH) {
+        return sendError(ws, 'Invalid block id');
+      }
+      if (msg.clientId !== undefined && msg.clientId !== null) {
+        if (typeof msg.clientId !== 'string' || msg.clientId.length > MAX_CLIENT_ID_LENGTH) {
+          return sendError(ws, 'Invalid client id');
+        }
       }
 
       // Race condition check: first wins
@@ -603,8 +634,13 @@ const attachDocumentSocket = (
     if (msg.type === 'block_unlock') {
       if (!ws.documentId) return sendError(ws, 'Join a document first');
       if (!atLeast(ws.permission, 'editor')) return sendError(ws, 'Read-only access');
-      if (!msg.blockId || typeof msg.blockId !== 'string') {
-        return sendError(ws, 'blockId must be a string');
+      if (!msg.blockId || typeof msg.blockId !== 'string' || msg.blockId.length > MAX_BLOCK_ID_LENGTH) {
+        return sendError(ws, 'Invalid block id');
+      }
+      if (msg.clientId !== undefined && msg.clientId !== null) {
+        if (typeof msg.clientId !== 'string' || msg.clientId.length > MAX_CLIENT_ID_LENGTH) {
+          return sendError(ws, 'Invalid client id');
+        }
       }
       if (ws.lockedBlockId !== msg.blockId) {
         return;
@@ -661,11 +697,20 @@ const attachDocumentSocket = (
 
   wss.on('connection', (ws) => {
     ws.on('message', async (raw) => {
+      const byteLength = Buffer.isBuffer(raw) ? raw.length : Buffer.byteLength(raw);
+      if (byteLength > MAX_RAW_MESSAGE_BYTES) {
+        return sendError(ws, 'Payload too large');
+      }
+
       let msg;
       try {
         msg = JSON.parse(raw.toString());
       } catch (err) {
         return sendError(ws, 'Invalid JSON');
+      }
+
+      if (!msg || typeof msg !== 'object' || Array.isArray(msg)) {
+        return sendError(ws, 'Message must be an object');
       }
 
       try {
