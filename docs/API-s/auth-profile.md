@@ -18,10 +18,14 @@ Success response (`200`):
     "id": "uuid",
     "login": "john_doe",
     "email": "john@example.com",
-    "role": "user"
+    "role": "user",
+    "avatarUrl": "/api/auth/me/icon?v=..."
   }
 }
 ```
+
+`avatarUrl` is `null` when no avatar is configured yet. The value is populated
+from the user icon service and is safe to use as a per-session cache-busting URL.
 
 `role` is either `"user"` or `"admin"` and is what the frontend uses to decide
 whether to show admin-only views (see [Users API](users-api.md)).
@@ -33,6 +37,32 @@ Unauthenticated response (`401`):
   "loggedIn": false
 }
 ```
+
+## List active sessions
+
+- Method: `GET`
+- Path: `/sessions`
+
+Success response (`200`):
+
+```json
+{
+  "count": 2,
+  "sessions": [
+    {
+      "sessionId": "jwt-or-session-token",
+      "userId": "uuid",
+      "login": "john_doe",
+      "email": "john@example.com",
+      "loginAt": "timestamp",
+      "lastSeenAt": "timestamp",
+      "expiresAt": "timestamp"
+    }
+  ]
+}
+```
+
+This endpoint shows the currently active sessions for the authenticated user.
 
 ## Request profile update
 

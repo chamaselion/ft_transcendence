@@ -1,4 +1,6 @@
-const http = require('http');
+const fs = require('fs');
+const path = require('path');
+const https = require('https');
 const sequelize = require('./db');
 const { createApp } = require('./app');
 const { requireEnv, requireNumberEnv } = require('./config');
@@ -12,10 +14,15 @@ const PORT = requireNumberEnv('PORT');
 const DB_RETRY_LIMIT = requireNumberEnv('DB_RETRY_LIMIT');
 const DB_RETRY_DELAY_MS = requireNumberEnv('DB_RETRY_DELAY_MS');
 const NODE_ENV = process.env.NODE_ENV || 'development';
-const httpServer = http.createServer(app);
+const certPath = path.resolve(__dirname, '../certs');
+const httpsOptions = {
+  key: fs.readFileSync(path.join(certPath, 'backend.key')),
+  cert: fs.readFileSync(path.join(certPath, 'backend.crt')),
+};
+const httpsServer = https.createServer(httpsOptions, app);
 
 // Real-time collaboration layer (WebSocket on /api/ws).
-attachDocumentSocket(httpServer);
+attachDocumentSocket(httpsServer);
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -44,8 +51,8 @@ async function start() {
     await hydrateSessionCacheFromDb();
     await ensureAdminRole();
     console.log('Database connected');
-    httpServer.listen(PORT, () => {
-      console.log(`Server running on port ${PORT} in ${NODE_ENV} mode`);
+    httpsServer.listen(PORT, () => {
+      console.log(`HTTPS server running on port ${PORT} in ${NODE_ENV} mode`);
     });
   } catch (err) {
     console.error('Failed to start server:', err);
@@ -66,7 +73,7 @@ const shutdown = async (signal) => {
     console.error('Failed to flush session state during shutdown:', err);
   }
 
-  httpServer.close(() => {
+  httpsServer.close(() => {
     process.exit(0);
   });
 
