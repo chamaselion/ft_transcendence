@@ -15,6 +15,7 @@ export interface RequestConfig<TBody = unknown> {
 
 export interface HttpClientConfig {
   baseUrl?: string
+  timeoutMs?: number
 }
 
 export class HttpError extends Error {
@@ -61,9 +62,17 @@ function buildUrl(path: string, baseUrl?: string, query?: QueryParams): URL {
 
 export class HttpClient {
   private baseUrl?: string
+  private timeoutMs: number
 
   constructor(config: HttpClientConfig = {}) {
     this.baseUrl = config?.baseUrl
+    this.timeoutMs = config.timeoutMs ?? 15000 // 15 seconds
+  }
+
+  private createRequestSignal(config: RequestConfig): AbortSignal {
+    const timeoutSignal = AbortSignal.timeout(config.timeoutMs ?? this.timeoutMs)
+
+    return config.signal ? AbortSignal.any([config.signal, timeoutSignal]) : timeoutSignal
   }
 
   async request<TResponse, TBody = unknown>(
@@ -85,7 +94,7 @@ export class HttpClient {
         : config.body
           ? JSON.stringify(config.body)
           : undefined,
-      signal: config.signal,
+      signal: this.createRequestSignal(config),
     })
     if (!response.ok) {
       let message = `HTTP ${response.status} ${response.statusText}`
@@ -143,7 +152,7 @@ export class HttpClient {
         : config.body
           ? JSON.stringify(config.body)
           : undefined,
-      signal: config.signal,
+      signal: this.createRequestSignal(config),
     })
 
     if (!response.ok) {
@@ -177,7 +186,7 @@ export class HttpClient {
     const response = await fetch(buildUrl(path, this.baseUrl, config.query), {
       method: config.method ?? 'GET',
       headers,
-      signal: config.signal,
+      signal: this.createRequestSignal(config),
     })
 
     if (!response.ok) {
