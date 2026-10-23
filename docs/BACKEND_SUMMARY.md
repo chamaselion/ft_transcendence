@@ -9,7 +9,8 @@ This document summarizes how the current backend starts, what it exposes, and wh
 - PostgreSQL
 - Sequelize
 - Nodemailer
-- JWT + bcryptjs authentication
+- JWT in an HTTP-only cookie + bcryptjs authentication
+- S3-compatible object storage for user avatars
 
 ## Why these choices are used
 
@@ -83,6 +84,12 @@ const info = await transporter.sendMail({
 
 This comes from [srcs/backend/src/services/emailService.js](../srcs/backend/src/services/emailService.js).
 
+### User avatars and session tracking
+
+The backend keeps a signed JWT in the `token` cookie and tracks active sessions in-memory with a database-backed cache. The same session flow is used for auth checks and for listing the current user's active logins.
+
+User avatars are stored in S3-compatible object storage (for example `user-icons/<user-id>.webp`), and the current `avatarUrl` is exposed by the profile response. This is implemented in [srcs/backend/src/controllers/auth/helpers.js](../srcs/backend/src/controllers/auth/helpers.js) and [srcs/backend/src/services/userIconService.js](../srcs/backend/src/services/userIconService.js).
+
 ## Startup flow
 
 1. [srcs/backend/src/config.js](../srcs/backend/src/config.js) loads environment variables from a local `.env` file.
@@ -94,8 +101,10 @@ This comes from [srcs/backend/src/services/emailService.js](../srcs/backend/src/
 - [srcs/backend/src/app.js](../srcs/backend/src/app.js) — Express app and middleware setup
 - [srcs/backend/src/server.js](../srcs/backend/src/server.js) — HTTP server startup
 - [srcs/backend/src/db/index.js](../srcs/backend/src/db/index.js) — Sequelize connection and model registration
-- [srcs/backend/src/routes/auth.js](../srcs/backend/src/routes/auth.js) — auth + GDPR routes
-
+- [srcs/backend/src/routes/auth.js](../srcs/backend/src/routes/auth.js) — auth, session, user-icon, and GDPR routes
+- [srcs/backend/src/routes/documents.js](../srcs/backend/src/routes/documents.js) — authenticated document and share routes
+- [srcs/backend/src/routes/users.js](../srcs/backend/src/routes/users.js) — admin-only account management
+- [srcs/backend/src/routes/ai.js](../srcs/backend/src/routes/ai.js) — translation endpoint
 - [srcs/backend/src/controllers/documents/permissions.js](../srcs/backend/src/controllers/documents/permissions.js) — the single place document access is resolved (ownership, shares, admin role); both the REST controllers and the WebSocket go through it
 - [srcs/backend/src/ws/documentSocket.js](../srcs/backend/src/ws/documentSocket.js) — live collaboration rooms
 
@@ -105,9 +114,14 @@ This comes from [srcs/backend/src/services/emailService.js](../srcs/backend/src/
 - `POST /api/auth/register`
 - `POST /api/auth/login`
 - `POST /api/auth/login/confirm`
+- `GET|POST /api/auth/oauth/:provider/authorize` and `/oauth/:provider/exchange`
+- `GET /api/auth/oauth/:provider/link`
+- `POST /api/auth/oauth/:provider/password`
 - `POST /api/auth/password-reset/request`
 - `POST /api/auth/password-reset/confirm`
 - `GET /api/auth/me`
+- `GET /api/auth/sessions`
+- `PUT|GET|DELETE /api/auth/me/icon`
 - `PATCH /api/auth/me`
 - `POST /api/auth/me/update/confirm`
 - `POST /api/auth/logout`
@@ -121,9 +135,10 @@ This comes from [srcs/backend/src/services/emailService.js](../srcs/backend/src/
 - `GET|PATCH|DELETE /api/documents/:id`
 - `GET|POST /api/documents/:id/shares`
 - `PATCH|DELETE /api/documents/:id/shares/:userId`
+- `POST /api/ai/translate`
 - `WS /api/ws` — live document collaboration
 
-Detailed endpoint docs live in [docs/API-s/auth-register.md](API-s/auth-register.md), [docs/API-s/auth-login.md](API-s/auth-login.md), [docs/API-s/auth-password-reset.md](API-s/auth-password-reset.md), [docs/API-s/auth-profile.md](API-s/auth-profile.md), [docs/API-s/auth-logout.md](API-s/auth-logout.md), [docs/API-s/gdpr-api.md](API-s/gdpr-api.md), [docs/API-s/users-api.md](API-s/users-api.md), [docs/API-s/documents/](API-s/documents/README.md), and [docs/API-s/shares/](API-s/shares/README.md).
+Detailed endpoint docs live in [docs/API-s/auth-register.md](API-s/auth-register.md), [docs/API-s/auth-login.md](API-s/auth-login.md), [docs/API-s/auth-oauth.md](API-s/auth-oauth.md), [docs/API-s/auth-password-reset.md](API-s/auth-password-reset.md), [docs/API-s/auth-profile.md](API-s/auth-profile.md), [docs/API-s/auth-logout.md](API-s/auth-logout.md), [docs/API-s/gdpr-api.md](API-s/gdpr-api.md), [docs/API-s/users-api.md](API-s/users-api.md), [docs/API-s/ai-api.md](API-s/ai-api.md), [docs/API-s/documents/](API-s/documents/README.md), [docs/API-s/shares/](API-s/shares/README.md), and [docs/user-icons.md](user-icons.md).
 
 ## Configuration sources
 
