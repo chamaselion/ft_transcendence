@@ -398,8 +398,10 @@ async function translateDocumentTo(targetLang: string) {
   store.isTranslating = true
   store.translationError = null
   try {
-    const saved = await flushPendingEdit()
-    if (!saved) return
+    if (hasPendingData()) {
+      const saved = await flushPendingEdit()
+      if (!saved) return
+    }
     if (requestId !== translationRequestId) return
 
     if (targetLang === 'en') {
