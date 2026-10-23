@@ -50,6 +50,7 @@ const HEARTBEAT_INTERVAL_MS = 30_000;
 const SERVER_LOCK_TIMEOUT_MS = 5500;
 const MAX_RAW_MESSAGE_BYTES = 256 * 1024;
 const MAX_CLIENT_ID_LENGTH = 128;
+const MAX_PENDING_MESSAGES = 100;
 
 
 const rooms = new Map();
@@ -739,7 +740,13 @@ const attachDocumentSocket = (
   };
 
   wss.on('connection', (ws) => {
-    ws.on('message', async (raw) => {
+    // Process this socket's messages in order. block_edit queues a DB write and
+    // re-checks the lock inside it; a following block_unlock must not overtake
+    // that write, otherwise the edit is rejected as "no longer locked by you".
+    let messageChain = Promise.resolve();
+    let pendingMessages = 0;
+
+    ws.on('message', (raw) => {
       const byteLength = Buffer.isBuffer(raw) ? raw.length : Buffer.byteLength(raw);
       if (byteLength > MAX_RAW_MESSAGE_BYTES) {
         return sendError(ws, 'Payload too large');
@@ -756,12 +763,21 @@ const attachDocumentSocket = (
         return sendError(ws, 'Message must be an object');
       }
 
-      try {
-        return await handleMessage(ws, msg);
-      } catch (err) {
-        console.error('[WS] message handling failed:', err);
-        return sendError(ws, 'Internal error');
+      if (pendingMessages >= MAX_PENDING_MESSAGES) {
+        return ws.terminate();
       }
+
+      pendingMessages += 1;
+      messageChain = messageChain
+        .catch(() => {})
+        .then(() => handleMessage(ws, msg)) // attach message here
+        .catch((err) => {
+          console.error('[WS] message handling failed:', err);
+          return sendError(ws, 'Internal error');
+        })
+        .finally(() => {
+          pendingMessages -= 1;
+        });
     });
 
     ws.on('pong', () => {

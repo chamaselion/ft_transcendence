@@ -37,6 +37,28 @@ const showPermissionToast = ref(false)
 const permissionToastMessage = ref('')
 const connectionStatus = ref<'connecting' | 'connected' | 'disconnected'>('connecting')
 const errorMessage = ref<string | null>(null)
+const ERROR_BANNER_TIMEOUT_MS = 3000
+let errorBannerTimer: ReturnType<typeof setTimeout> | null = null
+
+function clearErrorBanner() {
+  if (errorBannerTimer !== null) {
+    clearTimeout(errorBannerTimer)
+    errorBannerTimer = null
+  }
+  errorMessage.value = null
+}
+
+function showErrorBanner(message: string) {
+  errorMessage.value = message
+  if (errorBannerTimer !== null) {
+    clearTimeout(errorBannerTimer)
+  }
+  errorBannerTimer = setTimeout(() => {
+    errorMessage.value = null
+    errorBannerTimer = null
+  }, ERROR_BANNER_TIMEOUT_MS)
+}
+
 const titleError = ref('')
 const isLoading = ref<boolean>(true)
 const editorElement = ref<typeof Editor | null>(null)
@@ -54,7 +76,7 @@ function openRoom(docId: string, initialTitle?: string) {
   if (initialTitle) documentTitle.value = initialTitle
   documentId.value = docId
   connectionStatus.value = 'connecting'
-  errorMessage.value = null
+  clearErrorBanner()
 
   if (provider.value) {
     provider.value.destroy?.()
@@ -103,7 +125,7 @@ function openRoom(docId: string, initialTitle?: string) {
   }
 
   wsProvider.onError = (e) => {
-    errorMessage.value = e.error
+    showErrorBanner(e.error)
     if (e.error === 'Document not found' || e.error === 'Access to document was revoked') {
       router.push('/')
     }
@@ -199,7 +221,7 @@ function onTitleKeydown(e: KeyboardEvent) {
 
 async function loadEditor(idParam?: string) {
   isLoading.value = true
-  errorMessage.value = null
+  clearErrorBanner()
 
   const user = await authStore.checkForAuthentication()
   if (!user) {
@@ -265,6 +287,10 @@ watch(
 )
 
 onBeforeUnmount(() => {
+  if (errorBannerTimer !== null) {
+    clearTimeout(errorBannerTimer)
+    errorBannerTimer = null
+  }
   provider.value?.destroy?.()
   provider.value = null
 })
@@ -357,7 +383,7 @@ onBeforeUnmount(() => {
       nav-position="top"
       :filename="documentTitle"
       :editable="isDocumentEditable"
-      @error="errorMessage = $event"
+      @error="showErrorBanner"
       @readonly-enter="onReadonlyEnter"
       ref="editorElement"
     />

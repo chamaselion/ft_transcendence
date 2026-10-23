@@ -989,7 +989,8 @@ const onFocus = async (block: Block) => {
     !store.isLockedByOther({ id: previousId } as Block)
   ) {
     if (!previousIsElaborating) {
-      flushPendingEdit()
+      await flushPendingEdit()
+      if (!props.editable) return
       clearLockTimers()
       store.unlock(previousId)
       await props.provider.sendBlockUnlock?.(previousId)
