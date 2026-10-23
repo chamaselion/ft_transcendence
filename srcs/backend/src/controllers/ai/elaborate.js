@@ -22,6 +22,10 @@ const createElaborateHandler = ({ elaborationService } = {}) => {
       return res.status(400).json({ error: 'text must be a string' });
     }
 
+    if (context !== undefined && typeof context !== 'string') {
+      return res.status(400).json({ error: 'context must be a string' });
+    }
+
     const service = getService();
     if (!service.isSupportedPersona(persona)) {
       return res.status(400).json({
@@ -29,7 +33,7 @@ const createElaborateHandler = ({ elaborationService } = {}) => {
       });
     }
 
-    if (context.length > 10000 || text.length > 5000) {
+    if ((context?.length ?? 0) > 10000 || text.length > 5000) {
       return res.status(400).json({ error: 'Request exceeds size limits' });
     }
 

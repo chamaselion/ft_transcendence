@@ -17,7 +17,33 @@ const createTranslateHandler = ({ translationService } = {}) => {
       if (!targetLang || typeof targetLang !== 'string') {
         return res.status(400).json({ error: 'targetLang is required (en, de, hu)' });
       }
-      if (text.length > 5000 || (blocks && blocks.some((block) => block.text.length > 5000)) || (context && context.length > 10000)) {
+      if (text !== undefined && typeof text !== 'string') {
+        return res.status(400).json({ error: 'text must be a string' });
+      }
+      if (context !== undefined && typeof context !== 'string') {
+        return res.status(400).json({ error: 'context must be a string' });
+      }
+      if (blocks !== undefined && !Array.isArray(blocks)) {
+        return res.status(400).json({ error: 'blocks must be an array of { id, text }' });
+      }
+      if (
+        Array.isArray(blocks) &&
+        blocks.some(
+          (block) =>
+            !block ||
+            typeof block !== 'object' ||
+            Array.isArray(block) ||
+            (block.text !== undefined && typeof block.text !== 'string'),
+        )
+      ) {
+        return res.status(400).json({ error: 'blocks must be an array of { id, text }' });
+      }
+      if (
+        (typeof text === 'string' && text.length > 5000) ||
+        (Array.isArray(blocks) &&
+          blocks.some((block) => typeof block.text === 'string' && block.text.length > 5000)) ||
+        (typeof context === 'string' && context.length > 10000)
+      ) {
         return res.status(400).json({ error: 'Request exceeds size limits' });
       }
 
@@ -29,9 +55,6 @@ const createTranslateHandler = ({ translationService } = {}) => {
       }
 
       if (blocks !== undefined) {
-        if (!Array.isArray(blocks)) {
-          return res.status(400).json({ error: 'blocks must be an array of { id, text }' });
-        }
         const translatedBlocks = await service.translateBatch({
           blocks,
           sourceLang,
