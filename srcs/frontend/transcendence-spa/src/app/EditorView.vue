@@ -14,6 +14,7 @@ import { DOCUMENT_TITLE_MAX_LENGTH } from '@/utils/validation'
 import { truncateTitle } from '@/utils/title'
 import { logger } from '@/utils/logger'
 import ShareModal from '@/app/components/ShareModal.vue'
+import Toast from '@/app/components/Toast.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -30,7 +31,10 @@ const userPermission = ref<'owner' | 'editor' | 'viewer'>('viewer')
 const isTitleEditable = computed(
   () => userPermission.value === 'owner' || userPermission.value === 'editor',
 )
+const isDocumentEditable = computed(() => userPermission.value !== 'viewer')
 const showShareModal = ref(false)
+const showPermissionToast = ref(false)
+const permissionToastMessage = ref('')
 const connectionStatus = ref<'connecting' | 'connected' | 'disconnected'>('connecting')
 const errorMessage = ref<string | null>(null)
 const titleError = ref('')
@@ -80,6 +84,15 @@ function openRoom(docId: string, initialTitle?: string) {
     connectionStatus.value = 'connected'
   }
 
+  wsProvider.onPermission = (permission) => {
+    userPermission.value = permission
+    if (permission === 'viewer' && titleEl.value) {
+      // Drop any in-progress title draft; it will not be saved anymore.
+      titleEl.value.blur()
+      titleEl.value.innerText = truncateTitle(documentTitle.value)
+    }
+  }
+
   wsProvider.onTitleUpdated = (e) => {
     if (e.title) {
       documentTitle.value = e.title
@@ -97,6 +110,13 @@ function openRoom(docId: string, initialTitle?: string) {
   }
 
   provider.value = wsProvider
+}
+
+function onReadonlyEnter(hadPendingEdits: boolean) {
+  permissionToastMessage.value = hadPendingEdits
+    ? t('editor.permissionChangedDiscarded')
+    : t('editor.permissionChanged')
+  showPermissionToast.value = true
 }
 
 async function onTitleBlur() {
@@ -336,9 +356,20 @@ onBeforeUnmount(() => {
       :scrollable="false"
       nav-position="top"
       :filename="documentTitle"
+      :editable="isDocumentEditable"
       @error="errorMessage = $event"
+      @readonly-enter="onReadonlyEnter"
       ref="editorElement"
     />
+
+    <div class="pointer-events-auto fixed right-6 bottom-6 z-[1001]">
+      <Toast
+        v-model="showPermissionToast"
+        type="info"
+        :message="permissionToastMessage"
+        :duration="5000"
+      />
+    </div>
 
     <ShareModal
       v-if="documentId"
