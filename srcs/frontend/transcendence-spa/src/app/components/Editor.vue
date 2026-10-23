@@ -497,7 +497,9 @@ async function flushPendingEdit(): Promise<boolean> {
           store.clearBlockDirty(blockId)
           textToSend = canonical
         } catch (err) {
+          emit('error', t('editor.translationFailed'));
           logger.error('Back-translation failed during save:', err)
+          return false;
         }
       }
     }
