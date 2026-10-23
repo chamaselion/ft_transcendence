@@ -80,7 +80,11 @@ export class HttpClient {
     const response = await fetch(buildUrl(path, this.baseUrl, config.query), {
       method: config.method ?? 'GET',
       headers,
-      body: isFormData ? config.body as FormData : config.body ? JSON.stringify(config.body) : undefined,
+      body: isFormData
+        ? (config.body as FormData)
+        : config.body
+          ? JSON.stringify(config.body)
+          : undefined,
       signal: config.signal,
     })
     if (!response.ok) {
@@ -122,9 +126,48 @@ export class HttpClient {
     return this.request<TReponse>(path, { ...config, method: 'DELETE' })
   }
 
+  async stream(path: string, config: RequestConfig = {}): Promise<Response> {
+    const headers: Record<string, string> = {
+      ...DEFAULT_HEADERS,
+      Accept: 'text/event-stream',
+      ...(config.headers ?? {}),
+    }
+    const isFormData = config.body instanceof FormData
+    if (isFormData) delete headers['Content-Type']
+
+    const response = await fetch(buildUrl(path, this.baseUrl, config.query), {
+      method: config.method ?? 'POST',
+      headers,
+      body: isFormData
+        ? (config.body as FormData)
+        : config.body
+          ? JSON.stringify(config.body)
+          : undefined,
+      signal: config.signal,
+    })
+
+    if (!response.ok) {
+      let message = `HTTP ${response.status} ${response.statusText}`
+
+      try {
+        const errorResponse = (await response.json()) as ErrorResponseShape
+
+        if (errorResponse.error) {
+          message = errorResponse.error
+        }
+      } catch {
+        // Keep fallback message
+      }
+
+      throw new HttpError(message, response.status)
+    }
+
+    return response
+  }
+
   async download(
     path: string,
-    config: RequestConfig = {}
+    config: RequestConfig = {},
   ): Promise<{ blob: Blob; filename: string }> {
     const headers: Record<string, string> = {
       ...DEFAULT_HEADERS,

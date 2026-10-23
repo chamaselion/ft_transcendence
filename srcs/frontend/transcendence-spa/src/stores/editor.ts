@@ -25,6 +25,25 @@ export const useEditorStore = defineStore('editor', () => {
     blocks.value.findIndex((block) => block.id === activeBlockId.value),
   )
 
+  const elaboratingBlockId = ref<string | null>(null)
+  const isElaborating = computed(() => elaboratingBlockId.value !== null)
+
+  function beginElaboration(id: string) {
+    elaboratingBlockId.value = id
+  }
+
+  function endElaboration() {
+    elaboratingBlockId.value = null
+  }
+
+  function previewBlockText(id: string, text: string) {
+    const index = blocks.value.findIndex((item) => item.id === id)
+    const current = blocks.value[index]
+    if (index !== -1 && current) {
+      blocks.value[index] = { ...current, text }
+    }
+  }
+
   function setClientId(id: string) {
     clientId.value = id
   }
@@ -208,6 +227,8 @@ export const useEditorStore = defineStore('editor', () => {
     activeBlockId,
     activeBlock,
     activeIndex,
+    elaboratingBlockId,
+    isElaborating,
     clientId,
     activeLanguage,
     canonicalEnglishMap,
@@ -215,6 +236,9 @@ export const useEditorStore = defineStore('editor', () => {
     isTranslating,
     translationError,
     setClientId,
+    beginElaboration,
+    endElaboration,
+    previewBlockText,
     setBlocks,
     setActive,
     addBlock,

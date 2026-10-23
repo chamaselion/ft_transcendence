@@ -125,8 +125,14 @@ export function useEditable(
     beforeRange.setEnd(range.startContainer, range.startOffset)
     const offset = beforeRange.toString().length
     const itemText = item.innerText
-    const beforeLines = [...items.slice(0, index).map((entry) => entry.innerText), itemText.slice(0, offset)]
-    const afterLines = [itemText.slice(offset), ...items.slice(index + 1).map((entry) => entry.innerText)]
+    const beforeLines = [
+      ...items.slice(0, index).map((entry) => entry.innerText),
+      itemText.slice(0, offset),
+    ]
+    const afterLines = [
+      itemText.slice(offset),
+      ...items.slice(index + 1).map((entry) => entry.innerText),
+    ]
     return { before: beforeLines.join('\n'), after: afterLines.join('\n') }
   }
 
@@ -146,7 +152,7 @@ export function useEditable(
     if (!el) return
 
     // If local user is currently focused and typing in this element, avoid caret jump
-    if (document.activeElement === el) return
+    if (editable() && document.activeElement === el) return
 
     if (readValue(el) !== nextText) {
       write(nextText)
@@ -184,12 +190,7 @@ export function useEditable(
     }
 
     // If block currently holds standard/placeholder text and user starts typing new text, clear it
-    if (
-      event.key.length === 1 &&
-      !event.ctrlKey &&
-      !event.metaKey &&
-      !event.altKey
-    ) {
+    if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
       const el = element.value
       if (!el) return
       const current = readValue(el)
@@ -266,7 +267,11 @@ export function useEditable(
     if (parsed.kind === 'single') {
       if (standard) write('')
       const remaining = Math.max(0, maxLength - before.length - after.length)
-      insertPlainText(el, (parsed.lines[0] ?? plainText).slice(0, remaining), options.multiline ?? false)
+      insertPlainText(
+        el,
+        (parsed.lines[0] ?? plainText).slice(0, remaining),
+        options.multiline ?? false,
+      )
       return
     }
 

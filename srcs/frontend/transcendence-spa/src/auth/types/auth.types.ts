@@ -25,3 +25,13 @@ export interface GdprDataRequestResponse {
   message?: string
 }
 
+export interface PasswordResetRequestResponse {
+  accepted: boolean
+  message: string
+  confirmationId: string
+  codeLength?: number
+}
+
+export interface PasswordResetConfirmResponse {
+  passwordReset: boolean
+}

@@ -2,6 +2,53 @@
  * AI Provider Adapters for OpenAI, DeepSeek, Anthropic, and Mock testing.
  */
 
+const parseSseData = (raw) =>
+  raw
+    .split(/\r?\n/)
+    .filter((line) => line.startsWith('data:'))
+    .map((line) => line.slice(5).trimStart())
+    .join('\n');
+
+async function* readSseData(response) {
+  if (!response.body) {
+    throw new Error('AI provider response has no body');
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  const drain = () => {
+    const events = [];
+    let separator = buffer.match(/\r?\n\r?\n/);
+    while (separator && separator.index !== undefined) {
+      events.push(buffer.slice(0, separator.index));
+      buffer = buffer.slice(separator.index + separator[0].length);
+      separator = buffer.match(/\r?\n\r?\n/);
+    }
+    return events;
+  };
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    for (const raw of drain()) {
+      const data = parseSseData(raw);
+      if (data) yield data;
+    }
+  }
+
+  buffer += decoder.decode();
+  for (const raw of drain()) {
+    const data = parseSseData(raw);
+    if (data) yield data;
+  }
+
+  const trailing = parseSseData(buffer);
+  if (trailing) yield trailing;
+}
+
 class BaseAiProvider {
   constructor(config = {}) {
     this.config = config;
@@ -13,6 +60,10 @@ class BaseAiProvider {
 
   async complete({ systemPrompt, userPrompt }) {
     throw new Error('complete() must be implemented by subclass');
+  }
+
+  async *stream() {
+    throw new Error('stream() must be implemented by subclass');
   }
 
   createSignal() {
@@ -70,6 +121,56 @@ class OpenAiCompatibleProvider extends BaseAiProvider {
       throw new Error('Unexpected response shape from AI provider');
     }
     return content.trim();
+  }
+
+  async *stream({ systemPrompt, userPrompt, signal }) {
+    if (!this.apiKey) {
+      throw new Error(`API key is required for ${this.constructor.name}`);
+    }
+
+    const messages = [];
+    if (systemPrompt) {
+      messages.push({ role: 'system', content: systemPrompt });
+    }
+    messages.push({ role: 'user', content: userPrompt });
+
+    const response = await fetch(this.endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${this.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: this.model,
+        messages,
+        temperature: 0.2,
+        stream: true,
+      }),
+      signal,
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text().catch(() => '');
+      throw new Error(
+        `AI request failed with HTTP ${response.status}: ${errorBody || response.statusText}`
+      );
+    }
+
+    for await (const data of readSseData(response)) {
+      if (data === '[DONE]') return;
+
+      let event;
+      try {
+        event = JSON.parse(data);
+      } catch {
+        continue;
+      }
+
+      const delta = event.choices?.[0]?.delta?.content;
+      if (typeof delta === 'string' && delta) {
+        yield delta;
+      }
+    }
   }
 }
 
@@ -133,6 +234,64 @@ class AnthropicProvider extends BaseAiProvider {
     }
     return content.trim();
   }
+
+  async *stream({ systemPrompt, userPrompt, signal }) {
+    if (!this.apiKey) {
+      throw new Error('API key is required for AnthropicProvider');
+    }
+
+    const body = {
+      model: this.model,
+      max_tokens: 4096,
+      messages: [{ role: 'user', content: userPrompt }],
+      temperature: 0.2,
+      stream: true,
+    };
+    if (systemPrompt) {
+      body.system = systemPrompt;
+    }
+
+    const response = await fetch(this.endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': this.apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify(body),
+      signal,
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text().catch(() => '');
+      throw new Error(
+        `Anthropic request failed with HTTP ${response.status}: ${errorBody || response.statusText}`
+      );
+    }
+
+    for await (const data of readSseData(response)) {
+      let event;
+      try {
+        event = JSON.parse(data);
+      } catch {
+        continue;
+      }
+
+      if (event.type === 'message_stop') {
+        return;
+      }
+      if (event.type === 'error') {
+        throw new Error(event.error?.message || 'Anthropic stream failed');
+      }
+      if (
+        event.type === 'content_block_delta' &&
+        event.delta?.type === 'text_delta' &&
+        typeof event.delta.text === 'string'
+      ) {
+        yield event.delta.text;
+      }
+    }
+  }
 }
 
 // Mock provider for testing and development without real API calls.
@@ -168,6 +327,19 @@ class MockProvider extends BaseAiProvider {
       }
     }
 
+    // Check if this is an AI block elaboration request
+    if (userPrompt.includes('Text to rewrite:\n') || systemPrompt.includes('rewriting a block')) {
+      let targetText = userPrompt;
+      const textMarker = 'Text to rewrite:\n';
+      if (userPrompt.includes(textMarker)) {
+        targetText = userPrompt.split(textMarker)[1].trim();
+      }
+      const cleanText = targetText.replace(/^\[(DE|HU)\]\s*/, '').trim();
+      const personaMatch = systemPrompt.match(/You are (The [^.]+)\./);
+      const personaName = personaMatch ? personaMatch[1] : 'Elaborated Persona';
+      return `[${personaName}] ${cleanText}`;
+    }
+
     // Single text back-translation / translation
     const isToEnglish = /english|"en"/i.test(systemPrompt + userPrompt);
     let targetText = userPrompt;
@@ -182,6 +354,17 @@ class MockProvider extends BaseAiProvider {
     const isHungarian = /hungarian|magyar|"hu"/i.test(systemPrompt + userPrompt);
     const tag = isHungarian ? 'HU' : 'DE';
     return `[${tag}] ${cleanText}`;
+  }
+
+  async *stream({ systemPrompt, userPrompt, signal }) {
+    const result = await this.complete({ systemPrompt, userPrompt });
+    const chunks = result.match(/\S+\s*/g) ?? [result];
+
+    for (const chunk of chunks) {
+      if (signal?.aborted) return;
+      await new Promise((resolve) => setTimeout(resolve, 25));
+      yield chunk;
+    }
   }
 }
 

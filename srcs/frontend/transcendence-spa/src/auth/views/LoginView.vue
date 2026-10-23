@@ -35,7 +35,7 @@ const isRegisterRedirect = computed(() => {
     <Toast
       :model-value="authStore.isAuthenticated === true"
       type="good"
-      message="You are already logged in."
+      :message="$t('common.alreadyLoggedIn')"
     />
   </div>
 </template>

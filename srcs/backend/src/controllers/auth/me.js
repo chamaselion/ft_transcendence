@@ -21,7 +21,7 @@ const createMeHandler = ({
         token: getTokenFromCookie(req) ? "present" : "missing",
       });
       const token = getTokenFromCookie(req);
-      if (!token) return res.status(401).json({ loggedIn: false });
+      if (!token) return res.json({ loggedIn: false });
 
       const payload = tokenLib.verify(token, secret);
       if (!(await isSessionActive(token))) {

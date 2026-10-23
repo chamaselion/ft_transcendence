@@ -18,18 +18,20 @@ const emit = defineEmits<{
 <template>
   <Modal
     :model-value="props.modelValue"
-    title="Delete Document"
+    :title="$t('documents.deleteTitle')"
     size="small"
     @update:model-value="emit('update:modelValue', $event)"
   >
     <div class="flex flex-col gap-3 text-[0.95rem] text-ink">
       <p>
-        Are you sure you want to delete
-        <strong>"{{ props.document?.title || 'Untitled Document' }}"</strong>?
+        {{
+          $t('documents.deleteConfirm', {
+            title: props.document?.title || $t('common.untitledDocument'),
+          })
+        }}
       </p>
       <p class="m-0 text-[0.85rem] text-ink-secondary">
-        This document and all its contents will be permanently deleted. This action cannot be
-        undone.
+        {{ $t('documents.deleteWarning') }}
       </p>
     </div>
     <template #footer>
@@ -39,10 +41,10 @@ const emit = defineEmits<{
         :disabled="props.deleting"
         @click="emit('update:modelValue', false)"
       >
-        Cancel
+        {{ $t('common.cancel') }}
       </Button>
       <Button color="alert" size="small" :loading="props.deleting" @click="emit('confirm')">
-        Delete Document
+        {{ $t('documents.deleteSubmit') }}
       </Button>
     </template>
   </Modal>
