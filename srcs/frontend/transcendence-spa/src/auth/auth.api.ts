@@ -11,6 +11,7 @@ export interface RequestConfig<TBody = unknown> {
   headers?: Record<string, string>
   query?: QueryParams
   signal?: AbortSignal
+  timeoutMs?: number
 }
 
 export interface HttpClientConfig {
