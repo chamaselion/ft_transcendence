@@ -17,6 +17,9 @@ const createTranslateHandler = ({ translationService } = {}) => {
       if (!targetLang || typeof targetLang !== 'string') {
         return res.status(400).json({ error: 'targetLang is required (en, de, hu)' });
       }
+      if (text.length > 5000 || (blocks && blocks.some((block) => block.text.length > 5000)) || (context && context.length > 10000)) {
+        return res.status(400).json({ error: 'Request exceeds size limits' });
+      }
 
       const service = getService();
       if (!service.isSupportedLanguage(sourceLang) || !service.isSupportedLanguage(targetLang)) {
