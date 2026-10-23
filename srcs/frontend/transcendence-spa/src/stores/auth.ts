@@ -3,6 +3,7 @@ import { defineStore } from 'pinia'
 import { httpClient } from '@/auth/auth.api'
 import type { Root, User } from '@/auth/types/user'
 import { logger } from '@/utils/logger'
+import router from '@/router'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
@@ -46,10 +47,10 @@ export const useAuthStore = defineStore('auth', () => {
   async function logout() {
     try {
       await httpClient.post('logout', {})
+      invalidate()
+      router.push('/login')
     } catch (error) {
       logger.error('Logout failed:', error)
-    } finally {
-      invalidate()
     }
   }
 
