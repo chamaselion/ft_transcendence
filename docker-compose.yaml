@@ -7,14 +7,11 @@ services:
     volumes:
       # Frontend static files (edit without rebuilding the image).
       - ./srcs/frontend:/usr/share/nginx/html:ro
+      - ./certs:/etc/nginx/certs:ro
     depends_on:
       - backend
       - obj-storage
 
-  # Placeholder until the real SPA exists. Keeps the service wired into
-  # the stack (idles via the Dockerfile keep-alive CMD). nginx still serves
-  # the static placeholder page directly for now; once the SPA is ready,
-  # this container will build/serve it and nginx will point here.
   frontend:
     build: srcs/frontend
     restart: unless-stopped

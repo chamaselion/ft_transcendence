@@ -10,6 +10,7 @@ const routeTitles = {
   settings: 'routes.settings',
   componentTest: 'routes.componentCatalogue',
   oauthCallback: 'routes.oauthCallback',
+  notFound: 'routes.notFound',
 } as const
 
 declare module 'vue-router' {
@@ -71,6 +72,12 @@ const router = createRouter({
       path: '/admin',
       name: 'Admin',
       component: () => import('@/app/AdminView.vue'),
+    },
+    {
+      path: '/:pathMatch(.*)*',
+      name: 'not-found',
+      component: () => import('@/app/NotFoundView.vue'),
+      meta: { titleKey: routeTitles.notFound },
     },
   ],
 })

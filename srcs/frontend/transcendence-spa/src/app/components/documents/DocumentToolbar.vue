@@ -1,12 +1,18 @@
 <script setup lang="ts">
 import Icon from '@/app/components/Icon.vue'
-import type { DocumentScope } from '@/app/composables/useDocumentDirectory'
+import type {
+  DocumentScope,
+  DocumentSortField,
+  DocumentSortOrder,
+} from '@/app/composables/useDocumentDirectory'
 import { SEARCH_QUERY_MAX_LENGTH } from '@/utils/validation'
 
 const props = defineProps<{
   searchQuery: string
   searchError: string
   scope: DocumentScope
+  sortField: DocumentSortField
+  sortOrder: DocumentSortOrder
   loading: boolean
 }>()
 
@@ -14,11 +20,17 @@ const emit = defineEmits<{
   'search-input': [value: string]
   clear: []
   'update:scope': [value: DocumentScope]
+  'update:sort-field': [value: DocumentSortField]
+  'toggle-sort-order': []
   refresh: []
 }>()
 
 function onInput(event: Event) {
   emit('search-input', (event.target as HTMLInputElement).value)
+}
+
+function onSortChange(event: Event) {
+  emit('update:sort-field', (event.target as HTMLSelectElement).value as DocumentSortField)
 }
 
 const tabClass = (scope: DocumentScope) => [
@@ -57,27 +69,53 @@ const tabClass = (scope: DocumentScope) => [
       <span v-if="props.searchError" class="text-[13px] text-danger">{{ props.searchError }}</span>
     </div>
 
-    <div class="flex items-center gap-1 rounded-lg bg-subtle p-1">
-      <button type="button" :class="tabClass('all')" @click="emit('update:scope', 'all')">
-        {{ $t('documents.filterAll') }}
-      </button>
-      <button type="button" :class="tabClass('own')" @click="emit('update:scope', 'own')">
-        {{ $t('documents.filterOwned') }}
-      </button>
-      <button type="button" :class="tabClass('shared')" @click="emit('update:scope', 'shared')">
-        {{ $t('documents.filterShared') }}
-      </button>
+    <div class="flex flex-wrap items-center gap-2">
+      <div class="flex items-center gap-1.5 rounded-lg bg-subtle p-1">
+        <select
+          :value="props.sortField"
+          :aria-label="$t('documents.sortBy')"
+          class="cursor-pointer rounded-md border border-transparent bg-surface px-2.5 py-1.5 text-[0.82rem] font-medium text-ink shadow-[var(--shadow-sm)] outline-none focus:border-brand"
+          @change="onSortChange"
+        >
+          <option value="updatedAt">{{ $t('documents.sortUpdated') }}</option>
+          <option value="createdAt">{{ $t('documents.sortCreated') }}</option>
+          <option value="title">{{ $t('documents.sortTitle') }}</option>
+        </select>
+        <button
+          type="button"
+          class="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md border-none bg-surface p-0 text-xs font-bold text-ink shadow-[var(--shadow-sm)] transition-colors duration-150 hover:text-brand"
+          :title="props.sortOrder === 'DESC' ? $t('documents.orderDesc') : $t('documents.orderAsc')"
+          :aria-label="
+            props.sortOrder === 'DESC' ? $t('documents.orderDesc') : $t('documents.orderAsc')
+          "
+          @click="emit('toggle-sort-order')"
+        >
+          {{ props.sortOrder === 'DESC' ? '↓' : '↑' }}
+        </button>
+      </div>
 
-      <button
-        type="button"
-        class="ml-1 inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md border-none bg-transparent p-0 text-ink-secondary transition-[background-color,color] duration-150 hover:bg-surface hover:text-ink"
-        :title="$t('documents.refresh')"
-        :aria-label="$t('documents.refresh')"
-        :disabled="props.loading"
-        @click="emit('refresh')"
-      >
-        <Icon name="Refresh" :size="16" :class="{ 'animate-spin': props.loading }" />
-      </button>
+      <div class="flex items-center gap-1 rounded-lg bg-subtle p-1">
+        <button type="button" :class="tabClass('all')" @click="emit('update:scope', 'all')">
+          {{ $t('documents.filterAll') }}
+        </button>
+        <button type="button" :class="tabClass('own')" @click="emit('update:scope', 'own')">
+          {{ $t('documents.filterOwned') }}
+        </button>
+        <button type="button" :class="tabClass('shared')" @click="emit('update:scope', 'shared')">
+          {{ $t('documents.filterShared') }}
+        </button>
+
+        <button
+          type="button"
+          class="ml-1 inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md border-none bg-transparent p-0 text-ink-secondary transition-[background-color,color] duration-150 hover:bg-surface hover:text-ink"
+          :title="$t('documents.refresh')"
+          :aria-label="$t('documents.refresh')"
+          :disabled="props.loading"
+          @click="emit('refresh')"
+        >
+          <Icon name="Refresh" :size="16" :class="{ 'animate-spin': props.loading }" />
+        </button>
+      </div>
     </div>
   </div>
 </template>
