@@ -38,7 +38,12 @@ export const useAuthStore = defineStore('auth', () => {
       const res = await httpClient.get<Root>('me')
       setStoreToApiResponse(res)
       return user.value
-    } catch {
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'TimeoutError') {
+        logger.error(
+          '[TimeoutError] Logout request timed out. Please check your network connection.',
+        )
+      }
       invalidate()
       return null
     }
@@ -50,6 +55,11 @@ export const useAuthStore = defineStore('auth', () => {
       invalidate()
       router.push('/login')
     } catch (error) {
+      if (error instanceof DOMException && error.name === 'TimeoutError') {
+        logger.error(
+          '[TimeoutError] Logout request timed out. Please check your network connection.',
+        )
+      }
       logger.error('Logout failed:', error)
     }
   }

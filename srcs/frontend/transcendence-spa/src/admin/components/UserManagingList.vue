@@ -53,6 +53,10 @@ async function fetchUsers(limitVal: number, offsetVal: number) {
   } catch (error) {
     if (requestId !== lastRequestId) return
 
+    if (error instanceof DOMException && error.name == 'TimeoutError') {
+      logger.error('[TIMEOUT] Timeout error while fetching users:', error)
+    }
+
     if (error instanceof HttpError) {
       logger.error('HTTP error while fetching users:', error.message)
     } else {
