@@ -519,7 +519,7 @@ function resetLockTimeout(blockId: string) {
 
   lockTimeoutTimer = setTimeout(async () => {
     // 5 seconds elapsed without any new edit -> lock timeout expires!
-    flushPendingEdit()
+    await flushPendingEdit()
     store.unlock(blockId)
     await props.provider.sendBlockUnlock?.(blockId)
     lockTimeoutTimer = null
@@ -720,7 +720,7 @@ const onAdd = async (type: BlockType) => {
   if (store.isElaborating || store.isTranslating) return
   const previousId = store.activeBlockId
   if (previousId && !store.isLockedByOther({ id: previousId } as Block)) {
-    flushPendingEdit()
+    await flushPendingEdit()
     clearLockTimers()
     store.unlock(previousId)
     await props.provider.sendBlockUnlock?.(previousId)
@@ -837,9 +837,16 @@ const onDelete = async () => {
     return
   }
 
-  flushPendingEdit()
+  // Ensure this client holds the lock before deleting (double to backend to avoid race conditions)
+  if (currentBlock && currentBlock.lockedBy !== store.clientId) {
+    const lockSuccess = await props.provider.sendBlockLock?.(blockId)
+    if (lockSuccess === false) return
+    store.lock(blockId)
+  }
+
+  await flushPendingEdit()
   clearLockTimers()
-  await props.provider.sendBlockUnlock?.(blockId)
+  store.unlock(blockId)
   store.removeBlock(blockId)
 
   await props.provider.sendBlockDelete({
@@ -957,7 +964,7 @@ const onFocus = async (block: Block) => {
 const onBlur = async (block: Block) => {
   if (store.elaboratingBlockId === block.id || store.isTranslating) return
   if (!store.isLockedByOther(block)) {
-    flushPendingEdit()
+    await flushPendingEdit()
     clearLockTimers()
     store.unlock(block.id)
     await props.provider.sendBlockUnlock?.(block.id)

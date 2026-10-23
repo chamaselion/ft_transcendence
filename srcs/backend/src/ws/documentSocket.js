@@ -385,7 +385,25 @@ const attachDocumentSocket = (
         return sendError(ws, `content blocks must be objects with string text of at most ${EDITOR_BLOCK_MAX_LENGTH} characters`);
       }
 
+      const hasLockedBlock = () => {
+        const room = rooms.get(ws.documentId);
+        if (room) {
+          for (const client of room) {
+            if (client !== ws && client.lockedBlockId) return true;
+          }
+        }
+        return false;
+      };
+
+      if (hasLockedBlock()) {
+        return sendError(ws, 'Cannot overwrite document while blocks are locked');
+      }
+
       return withDocumentWriteLock(ws.documentId, async () => {
+        if (hasLockedBlock()) {
+          return sendError(ws, 'Block is locked by another user');
+        }
+
         const doc = await resolveModel().findByPk(ws.documentId);
         if (!doc) return sendError(ws, 'Document not found');
 
@@ -416,11 +434,20 @@ const attachDocumentSocket = (
       if (msg.decorator !== undefined && (typeof msg.decorator !== 'string' || msg.decorator.length > MAX_DECORATOR_LENGTH)) {
         return sendError(ws, `decorator must be a string of at most ${MAX_DECORATOR_LENGTH} characters`);
       }
+      if (ws.lockedBlockId !== msg.blockId) {
+        return sendError(ws, 'Edit before lock recieved');
+      }
       if (lockHolder(ws.documentId, msg.blockId, ws)) {
         return sendError(ws, 'Block is locked by another user');
       }
 
       return withDocumentWriteLock(ws.documentId, async () => {
+        // The lock may have timed out
+        const holder = lockHolder(ws.documentId, msg.blockId, ws);
+        if (holder || ws.lockedBlockId !== msg.blockId) {
+          return sendError(ws, 'Block is no longer locked by you');
+        }
+
         const doc = await resolveModel().findByPk(ws.documentId);
         if (!doc) return sendError(ws, 'Document not found');
 
@@ -477,6 +504,9 @@ const attachDocumentSocket = (
         if (typeof msg.afterBlockId !== 'string' || msg.afterBlockId.length > MAX_BLOCK_ID_LENGTH) {
           return sendError(ws, 'Invalid afterBlockId');
         }
+        if (lockHolder(ws.documentId, msg.afterBlockId, ws)) {
+          return sendError(ws, 'Preceding block is locked by another user');
+        }
       }
       if (msg.block.decorator !== undefined && msg.block.decorator !== null) {
         if (typeof msg.block.decorator !== 'string' || msg.block.decorator.length > MAX_DECORATOR_LENGTH) {
@@ -496,6 +526,10 @@ const attachDocumentSocket = (
       };
 
       return withDocumentWriteLock(ws.documentId, async () => {
+        if (msg.afterBlockId && lockHolder(ws.documentId, msg.afterBlockId, ws)) {
+          return sendError(ws, 'Preceding block is locked by another user');
+        }
+
         const doc = await resolveModel().findByPk(ws.documentId);
         if (!doc) return sendError(ws, 'Document not found');
 
@@ -541,11 +575,20 @@ const attachDocumentSocket = (
         return sendError(ws, 'Invalid block id');
       }
 
+      if (ws.lockedBlockId !== msg.blockId) {
+        return sendError(ws, 'Delete before lock recieved');
+      }
       if (lockHolder(ws.documentId, msg.blockId, ws)) {
         return sendError(ws, 'Block is locked by another user');
       }
 
       return withDocumentWriteLock(ws.documentId, async () => {
+        // The lock may have timed out
+        const holder = lockHolder(ws.documentId, msg.blockId, ws);
+        if (holder || ws.lockedBlockId !== msg.blockId) {
+          return sendError(ws, 'Block is no longer locked by you');
+        }
+
         const doc = await resolveModel().findByPk(ws.documentId);
         if (!doc) return sendError(ws, 'Document not found');
 
