@@ -22,7 +22,7 @@ const createElaborateHandler = ({ elaborationService } = {}) => {
       return res.status(400).json({ error: 'text must be a string' });
     }
 
-    if (context !== undefined && typeof context !== 'string') {
+    if (context !== undefined && context !== null && typeof context !== 'string') {
       return res.status(400).json({ error: 'context must be a string' });
     }
 

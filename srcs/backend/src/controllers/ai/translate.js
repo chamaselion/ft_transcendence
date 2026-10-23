@@ -20,7 +20,7 @@ const createTranslateHandler = ({ translationService } = {}) => {
       if (text !== undefined && typeof text !== 'string') {
         return res.status(400).json({ error: 'text must be a string' });
       }
-      if (context !== undefined && typeof context !== 'string') {
+      if (context !== undefined && context !== null && typeof context !== 'string') {
         return res.status(400).json({ error: 'context must be a string' });
       }
       if (blocks !== undefined && !Array.isArray(blocks)) {
@@ -68,9 +68,6 @@ const createTranslateHandler = ({ translationService } = {}) => {
       }
 
       if (text !== undefined) {
-        if (typeof text !== 'string') {
-          return res.status(400).json({ error: 'text must be a string' });
-        }
         const translatedText = await service.translateSingle({
           text,
           sourceLang,

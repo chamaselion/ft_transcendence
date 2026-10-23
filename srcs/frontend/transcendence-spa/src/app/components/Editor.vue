@@ -398,7 +398,8 @@ async function translateDocumentTo(targetLang: string) {
   store.isTranslating = true
   store.translationError = null
   try {
-    await flushPendingEdit()
+    const saved = await flushPendingEdit()
+    if (!saved) return
     if (requestId !== translationRequestId) return
 
     if (targetLang === 'en') {
@@ -436,17 +437,46 @@ const filename = computed(() => props.filename)
 
 const EDIT_DEBOUNCE_MS = 2000
 const LOCK_TIMEOUT_MS = 5000
+const LOCK_REFRESH_MS = 3000
 
 let editDebounceTimer: ReturnType<typeof setTimeout> | null = null
 let lockTimeoutTimer: ReturnType<typeof setTimeout> | null = null
 let elaborationLockInterval: ReturnType<typeof setInterval> | null = null
+let flushLockInterval: ReturnType<typeof setInterval> | null = null
 let elaborationAbortController: AbortController | null = null
 let pendingEditBlockId: string | null = null
 let pendingEditText: string | null = null
 let pendingEditDecorator: string | null = null
+let flushPromise: Promise<boolean> | null = null
 
 function hasPendingData(): boolean {
-  return Boolean(editDebounceTimer || (pendingEditBlockId !== null && pendingEditText !== null))
+  return Boolean(
+    flushPromise || editDebounceTimer || (pendingEditBlockId !== null && pendingEditText !== null),
+  )
+}
+
+function discardPendingEdit() {
+  pendingEditBlockId = null
+  pendingEditText = null
+  pendingEditDecorator = null
+  stopFlushLockHeartbeat()
+}
+
+function startFlushLockHeartbeat(blockId: string) {
+  stopFlushLockHeartbeat()
+  const refreshLock = () => {
+    if (!props.editable) return
+    void props.provider.sendBlockLock?.(blockId)
+  }
+  refreshLock()
+  flushLockInterval = setInterval(refreshLock, LOCK_REFRESH_MS)
+}
+
+function stopFlushLockHeartbeat() {
+  if (flushLockInterval) {
+    clearInterval(flushLockInterval)
+    flushLockInterval = null
+  }
 }
 
 function getSurroundingContext(blockId: string): string {
@@ -457,59 +487,103 @@ function getSurroundingContext(blockId: string): string {
   return [prev ? `Previous: ${prev}` : '', next ? `Next: ${next}` : ''].filter(Boolean).join('\n')
 }
 
-async function flushPendingEdit(): Promise<boolean> {
-  if (editDebounceTimer) {
-    clearTimeout(editDebounceTimer)
-    editDebounceTimer = null
-  }
-  if (!props.editable) {
-    // The server has already downgraded this socket; never send queued edits.
-    pendingEditBlockId = null
-    pendingEditText = null
-    pendingEditDecorator = null
-    return false
-  }
-  if (pendingEditBlockId && pendingEditText !== null) {
-    const blockId = pendingEditBlockId
-    let textToSend = pendingEditText
-    const decorator = pendingEditDecorator ?? undefined
-    pendingEditBlockId = null
-    pendingEditText = null
-    pendingEditDecorator = null
-
-    // If edited in non-English mode, back-translate dirty block to English before saving to DB/WS
-    if (store.activeLanguage !== 'en' && store.isBlockDirty(blockId)) {
-      const currentBlock = store.blocks.find((b) => b.id === blockId)
-      if (currentBlock && isCodeOrCitation(currentBlock.decorator)) {
-        store.setCanonicalText(blockId, textToSend)
-        store.clearBlockDirty(blockId)
-      } else {
-        try {
-          const surroundingContext = getSurroundingContext(blockId)
-          const canonical = await backTranslateBlock(
-            textToSend,
-            store.activeLanguage,
-            'en',
-            surroundingContext,
-          )
-          if (!props.editable) return false
-          store.setCanonicalText(blockId, canonical)
-          store.clearBlockDirty(blockId)
-          textToSend = canonical
-        } catch (err) {
-          emit('error', t('editor.translationFailed'));
-          logger.error('Back-translation failed during save:', err)
-          return false;
-        }
-      }
-    }
-
-    return await props.provider.sendEdit({
-      blockId,
-      text: textToSend,
-      decorator,
+function flushPendingEdit(): Promise<boolean> {
+  if (!flushPromise) {
+    flushPromise = doFlushPendingEdit().finally(() => {
+      flushPromise = null
     })
   }
+  return flushPromise
+}
+
+async function doFlushPendingEdit(): Promise<boolean> {
+  if (!props.editable) {
+    // The server has already downgraded this socket; never send queued edits.
+    discardPendingEdit()
+    if (editDebounceTimer) {
+      clearTimeout(editDebounceTimer)
+      editDebounceTimer = null
+    }
+    return false
+  }
+
+  while (pendingEditBlockId && pendingEditText !== null) {
+    if (editDebounceTimer) {
+      clearTimeout(editDebounceTimer)
+      editDebounceTimer = null
+    }
+
+    const blockId = pendingEditBlockId
+    const snapshotText = pendingEditText
+    const snapshotDecorator = pendingEditDecorator
+    const decorator = snapshotDecorator ?? undefined
+    let textToSend = snapshotText
+    let canonical: string | null = null
+    let lockMayHaveExpired = false
+
+    try {
+      // If edited in non-English mode, back-translate dirty block to English before saving to DB/WS
+      if (store.activeLanguage !== 'en' && store.isBlockDirty(blockId)) {
+        const currentBlock = store.blocks.find((b) => b.id === blockId)
+        if (currentBlock && isCodeOrCitation(currentBlock.decorator)) {
+          canonical = textToSend
+        } else {
+          startFlushLockHeartbeat(blockId)
+          lockMayHaveExpired = true
+          try {
+            const surroundingContext = getSurroundingContext(blockId)
+            canonical = await backTranslateBlock(
+              textToSend,
+              store.activeLanguage,
+              'en',
+              surroundingContext,
+            )
+          } catch (err) {
+            emit('error', t('editor.translationFailed'))
+            logger.error('Back-translation failed during save:', err)
+            return false
+          }
+          if (!props.editable) return false
+          if (
+            pendingEditBlockId !== blockId ||
+            pendingEditText !== snapshotText ||
+            pendingEditDecorator !== snapshotDecorator
+          ) {
+            // A newer edit arrived while translating; loop again with the latest snapshot.
+            continue
+          }
+          textToSend = canonical
+        }
+      }
+
+      const currentBlock = store.blocks.find((b) => b.id === blockId)
+      if (lockMayHaveExpired || (currentBlock && currentBlock.lockedBy !== store.clientId)) {
+        const lockSuccess = await props.provider.sendBlockLock?.(blockId)
+        if (lockSuccess === false) return false
+        if (!props.editable) return false
+        store.lock(blockId)
+      }
+
+      const sent = await props.provider.sendEdit({
+        blockId,
+        text: textToSend,
+        decorator,
+      })
+      if (!sent) return false
+
+      const isCurrentText = pendingEditBlockId === blockId && pendingEditText === snapshotText
+      if (isCurrentText && canonical !== null) {
+        store.setCanonicalText(blockId, canonical)
+        store.clearBlockDirty(blockId)
+      }
+      if (isCurrentText && pendingEditDecorator === snapshotDecorator) {
+        discardPendingEdit()
+      }
+    } finally {
+      stopFlushLockHeartbeat()
+    }
+  }
+
   return true
 }
 
@@ -531,15 +605,19 @@ function clearLockTimeout() {
 function resetLockTimeout(blockId: string) {
   clearLockTimeout()
 
-  lockTimeoutTimer = setTimeout(async () => {
+  const timer = setTimeout(async () => {
     // 5 seconds elapsed without any new edit -> lock timeout expires!
-    await flushPendingEdit()
+    const success = await flushPendingEdit()
+    if (lockTimeoutTimer !== timer) return
+    lockTimeoutTimer = null
+    if (!success || hasPendingData()) return
+
     store.unlock(blockId)
     if (props.editable) {
       await props.provider.sendBlockUnlock?.(blockId)
     }
-    lockTimeoutTimer = null
   }, LOCK_TIMEOUT_MS)
+  lockTimeoutTimer = timer
 }
 
 function clearLockTimers() {
@@ -548,9 +626,6 @@ function clearLockTimers() {
     editDebounceTimer = null
   }
   clearLockTimeout()
-  pendingEditBlockId = null
-  pendingEditText = null
-  pendingEditDecorator = null
 }
 
 function startElaborationLockHeartbeat(blockId: string) {
@@ -582,6 +657,7 @@ function enterReadOnlyMode() {
   const hadPendingEdits = hasPendingData() || Boolean(store.elaboratingBlockId)
   abortElaboration()
   clearLockTimers()
+  discardPendingEdit()
 
   const activeBlockId = store.activeBlockId
   if (activeBlockId) {
@@ -683,6 +759,7 @@ function wireProvider(provider: EditorDataProvider) {
       if (store.activeBlockId === e.blockId) {
         // Race condition: another client acquired the lock first! Drop uncommitted local edits
         clearLockTimers()
+        discardPendingEdit()
       }
     }
     store.lock(e.blockId, e.clientId || e.userId || 'remote')
@@ -759,7 +836,8 @@ const onAdd = async (type: BlockType) => {
   if (!props.editable || store.isElaborating || store.isTranslating) return
   const previousId = store.activeBlockId
   if (previousId && !store.isLockedByOther({ id: previousId } as Block)) {
-    await flushPendingEdit()
+    const saved = await flushPendingEdit()
+    if (!saved) return
     clearLockTimers()
     store.unlock(previousId)
     await props.provider.sendBlockUnlock?.(previousId)
@@ -822,9 +900,7 @@ const onInsertBlocks = async (block: Block, event: EditableInsertEvent) => {
       clearTimeout(editDebounceTimer)
       editDebounceTimer = null
     }
-    pendingEditBlockId = null
-    pendingEditText = null
-    pendingEditDecorator = null
+    discardPendingEdit()
   }
 
   store.updateBlockText(block.id, event.currentText)
@@ -889,7 +965,8 @@ const onDelete = async () => {
     store.lock(blockId)
   }
 
-  await flushPendingEdit()
+  const saved = await flushPendingEdit()
+  if (!saved) return
   if (!props.editable) return
   clearLockTimers()
   store.unlock(blockId)
@@ -916,6 +993,11 @@ const onUpdateText = async (block: Block, text: string) => {
     if (lockSuccess === false) return
     if (!props.editable) return
     store.lock(block.id)
+  }
+
+  if (pendingEditBlockId && pendingEditBlockId !== block.id) {
+    const saved = await flushPendingEdit()
+    if (!saved) return
   }
 
   const oldText = block.text
@@ -959,6 +1041,11 @@ const onUpdateDecorator = async (block: Block | null, newDecorator: BlockDecorat
     store.lock(block.id)
   }
 
+  if (pendingEditBlockId && pendingEditBlockId !== block.id) {
+    const saved = await flushPendingEdit()
+    if (!saved) return
+  }
+
   const serialized = serializeDecorator(newDecorator)
   store.updateBlockDecorator(block.id, serialized)
   resetLockTimeout(block.id)
@@ -991,7 +1078,11 @@ const onFocus = async (block: Block) => {
     !store.isLockedByOther({ id: previousId } as Block)
   ) {
     if (!previousIsElaborating) {
-      await flushPendingEdit()
+      const saved = await flushPendingEdit()
+      if (!saved) {
+        focusBlock(previousId, 'end')
+        return
+      }
       if (!props.editable) return
       clearLockTimers()
       store.unlock(previousId)
@@ -1016,7 +1107,8 @@ const onFocus = async (block: Block) => {
 const onBlur = async (block: Block) => {
   if (!props.editable || store.elaboratingBlockId === block.id || store.isTranslating) return
   if (!store.isLockedByOther(block)) {
-    await flushPendingEdit()
+    const saved = await flushPendingEdit()
+    if (!saved) return
     clearLockTimers()
     store.unlock(block.id)
     await props.provider.sendBlockUnlock?.(block.id)
@@ -1057,7 +1149,8 @@ const onElaborate = async (personaKey: PersonaKey) => {
     }
 
     startElaborationLockHeartbeat(blockId)
-    await flushPendingEdit()
+    const saved = await flushPendingEdit()
+    if (!saved) return
     if (!props.editable) return
 
     let englishText = store.getCanonicalText(blockId)
@@ -1150,10 +1243,7 @@ const onElaborate = async (personaKey: PersonaKey) => {
 
     const currentBlock = store.blocks.find((item) => item.id === blockId)
     if (currentBlock) {
-      if (
-        !committed &&
-        (sourceText === null || store.getCanonicalText(blockId) === sourceText)
-      ) {
+      if (!committed && (sourceText === null || store.getCanonicalText(blockId) === sourceText)) {
         store.previewBlockText(blockId, previousText)
       }
 

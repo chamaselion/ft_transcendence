@@ -45,15 +45,18 @@ class TranslationService {
 
     // Identity translation
     if (sourceLang.toLowerCase() === targetLang.toLowerCase()) {
-      return blocks.map((b) => ({ id: b.id, text: unescapeHtml(String(b.text ?? '')) }));
+      return blocks.map((b) => ({
+        id: b?.id ?? '',
+        text: unescapeHtml(String(b?.text ?? '')),
+      }));
     }
 
     const sourceName = this.getLanguageName(sourceLang);
     const targetName = this.getLanguageName(targetLang);
 
     const inputBlocks = blocks.map((b) => ({
-      id: String(b.id),
-      text: String(b.text ?? ''),
+      id: String(b?.id ?? ''),
+      text: String(b?.text ?? ''),
     }));
 
     const systemPrompt = [
