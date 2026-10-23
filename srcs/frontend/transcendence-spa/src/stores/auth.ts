@@ -3,6 +3,7 @@ import { defineStore } from 'pinia'
 import { httpClient } from '@/auth/auth.api'
 import type { Root, User } from '@/auth/types/user'
 import { logger } from '@/utils/logger'
+import router from '@/router'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
@@ -37,7 +38,12 @@ export const useAuthStore = defineStore('auth', () => {
       const res = await httpClient.get<Root>('me')
       setStoreToApiResponse(res)
       return user.value
-    } catch {
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'TimeoutError') {
+        logger.error(
+          '[TimeoutError] Logout request timed out. Please check your network connection.',
+        )
+      }
       invalidate()
       return null
     }
@@ -46,10 +52,15 @@ export const useAuthStore = defineStore('auth', () => {
   async function logout() {
     try {
       await httpClient.post('logout', {})
-    } catch (error) {
-      logger.error('Logout failed:', error)
-    } finally {
       invalidate()
+      router.push('/login')
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'TimeoutError') {
+        logger.error(
+          '[TimeoutError] Logout request timed out. Please check your network connection.',
+        )
+      }
+      logger.error('Logout failed:', error)
     }
   }
 

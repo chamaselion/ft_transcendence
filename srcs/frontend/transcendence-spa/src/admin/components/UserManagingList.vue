@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, computed } from 'vue'
+import { onMounted, onBeforeUnmount, ref, computed } from 'vue'
 import { httpClient, HttpError } from '@/auth/auth.api'
 import type { User } from '@/auth/types/user'
 import { type Pagination } from '@/types/pagination'
@@ -22,6 +22,15 @@ const roleFilter = ref<string>('')
 const searchQuery = ref<string>('')
 const lastClickedUser = ref<User | null>(null)
 let lastRequestId = 0
+
+let debounceTimer: ReturnType<typeof setTimeout> | undefined
+
+function clearDebounceTimer() {
+  if (debounceTimer !== undefined) {
+    clearTimeout(debounceTimer)
+    debounceTimer = undefined
+  }
+}
 
 const hasNext = computed(() => {
   const p = pagination.value
@@ -53,12 +62,25 @@ async function fetchUsers(limitVal: number, offsetVal: number) {
   } catch (error) {
     if (requestId !== lastRequestId) return
 
+    if (error instanceof DOMException && error.name == 'TimeoutError') {
+      logger.error('[TIMEOUT] Timeout error while fetching users:', error)
+    }
+
     if (error instanceof HttpError) {
       logger.error('HTTP error while fetching users:', error.message)
     } else {
       logger.error('Unexpected error while fetching users:', error)
     }
   }
+}
+
+// Avoid making request on each keystroke
+// 500ms timeout
+function debouncedSearch() {
+  clearDebounceTimer()
+  debounceTimer = setTimeout(() => {
+    void fetchUsers(limit.value, 0)
+  }, 500)
 }
 
 function toggleSortOrder() {
@@ -93,6 +115,11 @@ const closeModal = () => {
 onMounted(async () => {
   await fetchUsers(10, 0)
 })
+
+// Prevents pending timer from executing after component unmounts
+onBeforeUnmount(() => {
+  clearDebounceTimer()
+})
 </script>
 
 <template>
@@ -100,7 +127,10 @@ onMounted(async () => {
     <div
       class="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-line-subtle bg-subtle p-4 text-sm max-sm:flex-col max-sm:items-stretch max-sm:p-3"
     >
-      <p v-if="pagination" class="m-0 mr-auto leading-normal text-ink-secondary">
+      <p
+        v-if="pagination"
+        class="m-0 mr-auto leading-normal text-ink-secondary"
+      >
         {{ $t('admin.users.showing', { from: rangeStart, to: rangeEnd, total: pagination.total }) }}
       </p>
       <div class="flex flex-wrap items-center gap-2">
@@ -110,7 +140,7 @@ onMounted(async () => {
           :placeholder="$t('admin.users.searchPlaceholder')"
           :aria-label="$t('admin.users.searchPlaceholder')"
           class="min-h-[38px] rounded-md border border-line bg-surface px-3 py-2 text-ink outline-none transition-[border-color] duration-200 [font:inherit] focus:border-brand max-sm:min-w-0 max-sm:flex-1"
-          @input="fetchUsers(limit, 0)"
+          @input="debouncedSearch"
         />
         <select
           v-model="roleFilter"
@@ -124,9 +154,11 @@ onMounted(async () => {
         </select>
       </div>
       <div class="flex flex-wrap items-center gap-2">
-        <label class="font-medium text-ink-secondary" for="limit">{{
-          $t('admin.users.perPage')
-        }}</label>
+        <label
+          class="font-medium text-ink-secondary"
+          for="limit"
+          >{{ $t('admin.users.perPage') }}</label
+        >
         <select
           id="limit"
           v-model="limit"
@@ -155,9 +187,11 @@ onMounted(async () => {
         </button>
       </div>
       <div class="flex flex-wrap items-center gap-2">
-        <label class="font-medium text-ink-secondary" for="sort">{{
-          $t('admin.users.sortBy')
-        }}</label>
+        <label
+          class="font-medium text-ink-secondary"
+          for="sort"
+          >{{ $t('admin.users.sortBy') }}</label
+        >
         <select
           id="sort"
           v-model="sortOption"

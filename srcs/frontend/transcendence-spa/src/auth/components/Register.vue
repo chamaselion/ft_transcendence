@@ -65,7 +65,8 @@ const handleRegister = async () => {
       email: email.value.trim(),
       password: password.value,
     })
-    window.location.href = `/login?email=${email.value}&redirect=true`
+    const params = new URLSearchParams({ email: email.value, redirect: 'true' })
+    window.location.href = `/login?${params.toString()}`
   } catch (error) {
     errorFlag.value = true
     msg.value =
@@ -101,8 +102,17 @@ const handleRegister = async () => {
       <p class="m-0 text-sm text-ink-secondary">{{ $t('auth.register.subtitle') }}</p>
     </header>
     <div class="flex flex-col gap-6">
-      <Toast v-model="errorFlag" type="alert" :message="msg" :duration="6000" fluid />
-      <form class="flex flex-col gap-4" @submit.prevent="handleRegister">
+      <Toast
+        v-model="errorFlag"
+        type="alert"
+        :message="msg"
+        :duration="6000"
+        fluid
+      />
+      <form
+        class="flex flex-col gap-4"
+        @submit.prevent="handleRegister"
+      >
         <Input
           :label="$t('auth.register.usernameLabel')"
           type="text"
@@ -147,9 +157,19 @@ const handleRegister = async () => {
               >{{ $t('auth.register.termsAgreeSuffix') }}
             </span>
           </label>
-          <p v-if="termsError" class="m-0 text-[13px] text-danger">{{ termsError }}</p>
+          <p
+            v-if="termsError"
+            class="m-0 text-[13px] text-danger"
+          >
+            {{ termsError }}
+          </p>
         </div>
-        <Button type="submit" size="large" class="w-full">{{ $t('auth.register.submit') }}</Button>
+        <Button
+          type="submit"
+          size="large"
+          class="w-full"
+          >{{ $t('auth.register.submit') }}</Button
+        >
       </form>
 
       <div
@@ -180,6 +200,13 @@ const handleRegister = async () => {
     </p>
   </div>
 
-  <PasswordResetModal v-model="resetOpen" :initial-email="email" />
-  <TermsOfServiceModal v-model="termsOpen" show-accept @accept="acceptTerms" />
+  <PasswordResetModal
+    v-model="resetOpen"
+    :initial-email="email"
+  />
+  <TermsOfServiceModal
+    v-model="termsOpen"
+    show-accept
+    @accept="acceptTerms"
+  />
 </template>

@@ -1,47 +1,70 @@
-const jwt = require('jsonwebtoken');
-const { requireEnv } = require('../../config');
-const sequelize = require('../../db');
-const { clearAuthCookie, ensureSession, getTokenFromCookie, isSessionActive, purgeUserData } = require('../auth/helpers');
-const { oneTimeCodeService: defaultOneTimeCodeService } = require('../auth/oneTimeCodeToolkit');
-const { createGdprNotificationService } = require('../../services/gdprNotificationService');
-const { validateChallengeId, validateOtpCode } = require('../auth/validation');
+const jwt = require("jsonwebtoken");
+const { requireEnv } = require("../../config");
+const sequelize = require("../../db");
+const {
+  clearAuthCookie,
+  ensureSession,
+  getTokenFromCookie,
+  isSessionActive,
+  purgeUserData,
+} = require("../auth/helpers");
+const {
+  oneTimeCodeService: defaultOneTimeCodeService,
+} = require("../auth/oneTimeCodeToolkit");
+const {
+  createGdprNotificationService,
+} = require("../../services/gdprNotificationService");
+const { validateChallengeId, validateOtpCode } = require("../auth/validation");
+const { deleteUserIcon, iconKey } = require("../../services/userIconService");
 
 const gdprNotificationService = createGdprNotificationService();
 
-const createDataDeletionConfirmHandler = ({ userModel, tokenLib = jwt, secret = requireEnv('JWT_SECRET'), oneTimeCodeService = defaultOneTimeCodeService } = {}) => {
+const createDataDeletionConfirmHandler = ({
+  userModel,
+  tokenLib = jwt,
+  secret = requireEnv("JWT_SECRET"),
+  oneTimeCodeService = defaultOneTimeCodeService,
+} = {}) => {
   const resolvedUserModel = userModel || sequelize.models.user;
 
   const dataDeletionConfirm = async (req, res) => {
     try {
-      console.log(`[AUTH] POST /me/data-deletion/confirm from ${req.ip}`, { token: getTokenFromCookie(req) ? 'present' : 'missing' });
+      console.log(`[AUTH] POST /me/data-deletion/confirm from ${req.ip}`, {
+        token: getTokenFromCookie(req) ? "present" : "missing",
+      });
       const token = getTokenFromCookie(req);
-      if (!token) return res.status(401).json({ error: 'Unauthorized' });
+      if (!token) return res.status(401).json({ error: "Unauthorized" });
 
       const payload = tokenLib.verify(token, secret);
       if (!(await isSessionActive(token))) {
-        return res.status(401).json({ error: 'Unauthorized' });
+        return res.status(401).json({ error: "Unauthorized" });
       }
 
-      const confirmationIdValidation = validateChallengeId(req.body?.confirmationId, 'confirmationId');
-      if (!confirmationIdValidation.ok) return res.status(400).json({ error: confirmationIdValidation.error });
+      const confirmationIdValidation = validateChallengeId(
+        req.body?.confirmationId,
+        "confirmationId",
+      );
+      if (!confirmationIdValidation.ok)
+        return res.status(400).json({ error: confirmationIdValidation.error });
 
       const codeValidation = validateOtpCode(req.body?.code);
-      if (!codeValidation.ok) return res.status(400).json({ error: codeValidation.error });
+      if (!codeValidation.ok)
+        return res.status(400).json({ error: codeValidation.error });
 
       const confirmationId = confirmationIdValidation.value;
       const code = codeValidation.value;
 
       const user = await resolvedUserModel.findByPk(payload.id, {
-        attributes: ['id', 'login', 'email'],
+        attributes: ["id", "login", "email"],
       });
 
-      if (!user) return res.status(401).json({ error: 'Unauthorized' });
+      if (!user) return res.status(401).json({ error: "Unauthorized" });
       await ensureSession({ token, user });
 
       const verification = await oneTimeCodeService.verifyChallenge({
         challengeId: confirmationId,
         recipient: user.email,
-        purpose: 'data deletion',
+        purpose: "data deletion",
         code,
       });
 
@@ -53,28 +76,43 @@ const createDataDeletionConfirmHandler = ({ userModel, tokenLib = jwt, secret = 
       }
 
       if (String(verification.payload.userId) !== String(payload.id)) {
-        return res.status(401).json({ error: 'Unauthorized' });
+        return res.status(401).json({ error: "Unauthorized" });
       }
 
-      const deletionCounts = await purgeUserData(user.id, { userModel: resolvedUserModel });
+      const deletionCounts = await purgeUserData(user.id, {
+        userModel: resolvedUserModel,
+      });
       clearAuthCookie(res);
 
-      void gdprNotificationService.sendDataDeletionConfirmation({
-        to: user.email,
-        reference: verification.payload.reference || `deletion-${user.id}-${Date.now()}`,
-      }).catch((err) => {
-        console.error(`[AUTH] Data deletion notification error: ${err.message}`);
-      });
+      // NOTE: Deletion of s3 icon object on gdpr deletion request
+      try {
+        await deleteUserIcon(iconKey(user.id));
+      } catch (err) {
+        console.error("[GDPR] Failed to delete profile icon:", err.message);
+      }
+
+      void gdprNotificationService
+        .sendDataDeletionConfirmation({
+          to: user.email,
+          reference:
+            verification.payload.reference ||
+            `deletion-${user.id}-${Date.now()}`,
+        })
+        .catch((err) => {
+          console.error(
+            `[AUTH] Data deletion notification error: ${err.message}`,
+          );
+        });
 
       return res.json({
         deleted: true,
         loggedOut: true,
-        message: 'Your data has been deleted.',
+        message: "Your data has been deleted.",
         deletedRecords: deletionCounts,
       });
     } catch (err) {
       console.error(`[AUTH] Data deletion confirm error: ${err.message}`);
-      return res.status(500).json({ error: 'Internal server error' });
+      return res.status(500).json({ error: "Internal server error" });
     }
   };
 
