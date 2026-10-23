@@ -266,6 +266,8 @@
     "titleTooLong": "A cím legfeljebb {max} karakter lehet.",
     "emptyDocument": "Ez a dokumentum üres. Adjon hozzá egy blokkot az eszköztárból.",
     "unsavedChanges": "A függőben lévő módosításokat nem sikerült elmenteni a szerverre. Biztosan elhagyja az oldalt?",
+    "permissionChanged": "A dokumentumhoz való hozzáférése csak olvasásra változott. Továbbra is olvashatja, fordíthatja és exportálhatja.",
+    "permissionChangedDiscarded": "A hozzáférése csak olvasásra változott. A függőben lévő módosítások nem lettek elmentve.",
     "previewDraft": "Piszkozat",
     "previewSynced": "Szinkronizálva",
     "previewDirtyTooltip": "Függőben lévő visszafordítás a mező elhagyásakor",

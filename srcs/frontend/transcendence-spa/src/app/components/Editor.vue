@@ -1,7 +1,7 @@
 <template>
   <div class="editor w-full [margin:0_auto]" :class="layoutClass">
     <EditorNav
-      v-if="navPosition !== 'bottom'"
+      v-if="props.editable && navPosition !== 'bottom'"
       :active-block-id="store.activeBlockId"
       :active-block="store.activeBlock"
       :delete-disabled="isDeleteDisabled"
@@ -47,6 +47,7 @@
               :elaborating="block.id === store.elaboratingBlockId"
               :translating="store.isTranslating"
               :export-mode="isExporting"
+              :editable="props.editable"
               @focus="onFocus(block)"
               @blur="onBlur(block)"
               @update:text="onUpdateText(block, $event)"
@@ -65,7 +66,7 @@
     </div>
 
     <EditorNav
-      v-if="navPosition === 'bottom'"
+      v-if="props.editable && navPosition === 'bottom'"
       :active-block-id="store.activeBlockId"
       :active-block="store.activeBlock"
       :delete-disabled="isDeleteDisabled"
@@ -360,10 +361,12 @@ const props = withDefaults(
     scrollable?: boolean
     navPosition?: 'top' | 'left' | 'bottom'
     filename?: string
+    editable?: boolean
   }>(),
   {
     scrollable: false,
     navPosition: 'top',
+    editable: true,
   },
 )
 
@@ -375,6 +378,7 @@ const layoutClass = computed(() =>
 
 const emit = defineEmits<{
   error: [error: string]
+  'readonly-enter': [hadPendingEdits: boolean]
 }>()
 
 const store = useEditorStore()
@@ -423,7 +427,7 @@ async function translateDocumentTo(targetLang: string) {
 }
 
 const isDeleteDisabled = computed(() => {
-  if (!store.activeBlock) return true
+  if (!props.editable || !store.activeBlock) return true
   return store.isLockedByOther(store.activeBlock) || store.isElaborating || store.isTranslating
 })
 
@@ -458,6 +462,13 @@ async function flushPendingEdit(): Promise<boolean> {
     clearTimeout(editDebounceTimer)
     editDebounceTimer = null
   }
+  if (!props.editable) {
+    // The server has already downgraded this socket; never send queued edits.
+    pendingEditBlockId = null
+    pendingEditText = null
+    pendingEditDecorator = null
+    return false
+  }
   if (pendingEditBlockId && pendingEditText !== null) {
     const blockId = pendingEditBlockId
     let textToSend = pendingEditText
@@ -481,6 +492,7 @@ async function flushPendingEdit(): Promise<boolean> {
             'en',
             surroundingContext,
           )
+          if (!props.editable) return false
           store.setCanonicalText(blockId, canonical)
           store.clearBlockDirty(blockId)
           textToSend = canonical
@@ -521,7 +533,9 @@ function resetLockTimeout(blockId: string) {
     // 5 seconds elapsed without any new edit -> lock timeout expires!
     await flushPendingEdit()
     store.unlock(blockId)
-    await props.provider.sendBlockUnlock?.(blockId)
+    if (props.editable) {
+      await props.provider.sendBlockUnlock?.(blockId)
+    }
     lockTimeoutTimer = null
   }, LOCK_TIMEOUT_MS)
 }
@@ -560,6 +574,22 @@ function abortElaboration() {
   elaborationAbortController?.abort()
   elaborationAbortController = null
   stopElaborationLockHeartbeat()
+}
+
+function enterReadOnlyMode() {
+  const hadPendingEdits = hasPendingData() || Boolean(store.elaboratingBlockId)
+  abortElaboration()
+  clearLockTimers()
+
+  const activeBlockId = store.activeBlockId
+  if (activeBlockId) {
+    store.unlock(activeBlockId)
+    store.setActive('')
+  }
+
+  // The server rejects block_unlock from a viewer; its 5.5s lock timer
+  // releases the lock for the other clients.
+  emit('readonly-enter', hadPendingEdits)
 }
 
 function wireProvider(provider: EditorDataProvider) {
@@ -709,6 +739,13 @@ watch(
 )
 
 watch(
+  () => props.editable,
+  (editable) => {
+    if (!editable) enterReadOnlyMode()
+  },
+)
+
+watch(
   () => locale.value,
   async (nextLocale) => {
     if (store.isElaborating) return
@@ -717,7 +754,7 @@ watch(
 )
 
 const onAdd = async (type: BlockType) => {
-  if (store.isElaborating || store.isTranslating) return
+  if (!props.editable || store.isElaborating || store.isTranslating) return
   const previousId = store.activeBlockId
   if (previousId && !store.isLockedByOther({ id: previousId } as Block)) {
     await flushPendingEdit()
@@ -725,6 +762,7 @@ const onAdd = async (type: BlockType) => {
     store.unlock(previousId)
     await props.provider.sendBlockUnlock?.(previousId)
   }
+  if (!props.editable) return
 
   const block = createBlock(type)
   const afterBlockId = previousId
@@ -761,6 +799,7 @@ function focusBlock(blockId: string, position: 'start' | 'end' = 'start') {
 
 const onInsertBlocks = async (block: Block, event: EditableInsertEvent) => {
   if (
+    !props.editable ||
     store.isLockedByOther(block) ||
     store.elaboratingBlockId === block.id ||
     store.isTranslating
@@ -771,6 +810,7 @@ const onInsertBlocks = async (block: Block, event: EditableInsertEvent) => {
   if (block.lockedBy !== store.clientId) {
     const lockSuccess = await props.provider.sendBlockLock?.(block.id)
     if (lockSuccess === false) return
+    if (!props.editable) return
     store.lock(block.id)
   }
 
@@ -791,6 +831,7 @@ const onInsertBlocks = async (block: Block, event: EditableInsertEvent) => {
     text: event.currentText,
     decorator: block.decorator,
   })
+  if (!props.editable) return
 
   clearLockTimers()
   store.unlock(block.id)
@@ -800,6 +841,7 @@ const onInsertBlocks = async (block: Block, event: EditableInsertEvent) => {
   let firstCreated: Block | null = null
 
   for (const spec of event.blocks) {
+    if (!props.editable) return
     const newBlock = createBlock(spec.type, spec.text)
     if (spec.type === 'li') {
       newBlock.decorator = serializeDecorator({
@@ -831,7 +873,7 @@ const onInsertBlocks = async (block: Block, event: EditableInsertEvent) => {
 
 const onDelete = async () => {
   const blockId = store.activeBlockId
-  if (!blockId || store.isElaborating || store.isTranslating) return
+  if (!props.editable || !blockId || store.isElaborating || store.isTranslating) return
   const currentBlock = store.blocks.find((b) => b.id === blockId)
   if (currentBlock && store.isLockedByOther(currentBlock)) {
     return
@@ -841,10 +883,12 @@ const onDelete = async () => {
   if (currentBlock && currentBlock.lockedBy !== store.clientId) {
     const lockSuccess = await props.provider.sendBlockLock?.(blockId)
     if (lockSuccess === false) return
+    if (!props.editable) return
     store.lock(blockId)
   }
 
   await flushPendingEdit()
+  if (!props.editable) return
   clearLockTimers()
   store.unlock(blockId)
   store.removeBlock(blockId)
@@ -856,6 +900,7 @@ const onDelete = async () => {
 
 const onUpdateText = async (block: Block, text: string) => {
   if (
+    !props.editable ||
     store.isLockedByOther(block) ||
     store.elaboratingBlockId === block.id ||
     store.isTranslating
@@ -867,6 +912,7 @@ const onUpdateText = async (block: Block, text: string) => {
   if (block.lockedBy !== store.clientId) {
     const lockSuccess = await props.provider.sendBlockLock?.(block.id)
     if (lockSuccess === false) return
+    if (!props.editable) return
     store.lock(block.id)
   }
 
@@ -894,6 +940,7 @@ const onUpdateText = async (block: Block, text: string) => {
 
 const onUpdateDecorator = async (block: Block | null, newDecorator: BlockDecorator) => {
   if (
+    !props.editable ||
     !block ||
     store.isLockedByOther(block) ||
     store.elaboratingBlockId === block.id ||
@@ -906,6 +953,7 @@ const onUpdateDecorator = async (block: Block | null, newDecorator: BlockDecorat
   if (block.lockedBy !== store.clientId) {
     const lockSuccess = await props.provider.sendBlockLock?.(block.id)
     if (lockSuccess === false) return
+    if (!props.editable) return
     store.lock(block.id)
   }
 
@@ -929,7 +977,7 @@ const onUpdateDecorator = async (block: Block | null, newDecorator: BlockDecorat
 }
 
 const onFocus = async (block: Block) => {
-  if (store.isLockedByOther(block) || store.isTranslating) {
+  if (!props.editable || store.isLockedByOther(block) || store.isTranslating) {
     return
   }
 
@@ -957,12 +1005,13 @@ const onFocus = async (block: Block) => {
     store.unlock(block.id)
     return
   }
+  if (!props.editable) return
 
   resetLockTimeout(block.id)
 }
 
 const onBlur = async (block: Block) => {
-  if (store.elaboratingBlockId === block.id || store.isTranslating) return
+  if (!props.editable || store.elaboratingBlockId === block.id || store.isTranslating) return
   if (!store.isLockedByOther(block)) {
     await flushPendingEdit()
     clearLockTimers()
@@ -973,7 +1022,15 @@ const onBlur = async (block: Block) => {
 
 const onElaborate = async (personaKey: PersonaKey) => {
   const block = store.activeBlock
-  if (!block || store.isLockedByOther(block) || store.isElaborating || store.isTranslating) return
+  if (
+    !props.editable ||
+    !block ||
+    store.isLockedByOther(block) ||
+    store.isElaborating ||
+    store.isTranslating
+  ) {
+    return
+  }
   const decorator = parseDecorator(block.decorator)
   if (decorator.type !== 'p') return
 
@@ -992,11 +1049,13 @@ const onElaborate = async (personaKey: PersonaKey) => {
     if (block.lockedBy !== store.clientId) {
       const lockSuccess = await props.provider.sendBlockLock?.(blockId)
       if (lockSuccess === false) return
+      if (!props.editable) return
       store.lock(blockId)
     }
 
     startElaborationLockHeartbeat(blockId)
     await flushPendingEdit()
+    if (!props.editable) return
 
     let englishText = store.getCanonicalText(blockId)
     if (!englishText && store.activeLanguage === 'en') {
@@ -1012,6 +1071,7 @@ const onElaborate = async (personaKey: PersonaKey) => {
           'en',
           surroundingContext,
         )
+        if (!props.editable) return
         store.setCanonicalText(blockId, englishText)
         store.clearBlockDirty(blockId)
       } catch (err) {
@@ -1043,6 +1103,7 @@ const onElaborate = async (personaKey: PersonaKey) => {
       logger.warn('Discarding stale AI elaboration result')
       return
     }
+    if (!props.editable) return
 
     store.setCanonicalText(blockId, elaboratedEnglish)
 
@@ -1097,7 +1158,9 @@ const onElaborate = async (personaKey: PersonaKey) => {
         resetLockTimeout(blockId)
       } else {
         store.unlock(blockId)
-        await props.provider.sendBlockUnlock?.(blockId)
+        if (props.editable) {
+          await props.provider.sendBlockUnlock?.(blockId)
+        }
       }
     }
   }

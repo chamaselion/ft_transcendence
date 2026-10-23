@@ -266,6 +266,8 @@
     "titleTooLong": "Der Titel darf höchstens {max} Zeichen lang sein.",
     "emptyDocument": "Dieses Dokument ist leer. Fügen Sie über die Werkzeugleiste einen Block hinzu.",
     "unsavedChanges": "Ausstehende Änderungen konnten nicht auf dem Server gespeichert werden. Möchten Sie die Seite wirklich verlassen?",
+    "permissionChanged": "Ihr Zugriff auf dieses Dokument wurde auf „Nur Lesen“ geändert. Sie können es weiterhin lesen, übersetzen und exportieren.",
+    "permissionChangedDiscarded": "Ihr Zugriff wurde auf „Nur Lesen“ geändert. Ausstehende Änderungen wurden nicht gespeichert.",
     "previewDraft": "Entwurf",
     "previewSynced": "Synchronisiert",
     "previewDirtyTooltip": "Ausstehende Rückübersetzung beim Verlassen des Feldes",

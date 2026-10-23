@@ -266,6 +266,8 @@
     "titleTooLong": "Title must be at most {max} characters long.",
     "emptyDocument": "This document is empty. Add a block from the toolbar.",
     "unsavedChanges": "Pending changes could not be saved to the server. Are you sure you want to leave?",
+    "permissionChanged": "Your access to this document changed to view-only. You can still read, translate and export it.",
+    "permissionChangedDiscarded": "Your access changed to view-only. Pending changes were not saved.",
     "previewDraft": "Draft",
     "previewSynced": "Synced",
     "previewDirtyTooltip": "Pending back-translation on blur",
