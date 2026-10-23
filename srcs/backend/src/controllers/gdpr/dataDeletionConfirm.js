@@ -5,6 +5,7 @@ const { clearAuthCookie, ensureSession, getTokenFromCookie, isSessionActive, pur
 const { oneTimeCodeService: defaultOneTimeCodeService } = require('../auth/oneTimeCodeToolkit');
 const { createGdprNotificationService } = require('../../services/gdprNotificationService');
 const { validateChallengeId, validateOtpCode } = require('../auth/validation');
+const { deleteUserIcon, iconKey } = require('../../services/userIconService');
 
 const gdprNotificationService = createGdprNotificationService();
 
@@ -44,6 +45,13 @@ const createDataDeletionConfirmHandler = ({ userModel, tokenLib = jwt, secret = 
         purpose: 'data deletion',
         code,
       });
+
+      // NOTE: Deletion of s3 icon object on gdpr deletion request
+      try {
+        await deleteUserIcon(iconKey(user.id));
+      } catch (err) {
+        console.error('[GDPR] Failed to delete profile icon:', err.message);
+      }
 
       if (!verification.ok) {
         return res.status(verification.statusCode || 400).json({
