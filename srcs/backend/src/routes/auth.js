@@ -89,7 +89,7 @@ router.get('/me/icon', requireAuth, getIcon);
 router.delete('/me/icon', requireAuth, iconUploadLimiter, deleteIcon);
 router.patch('/me', authRequestLimiter, otpIssueLimiter, updateMe);
 router.post('/me/update/confirm', authRequestLimiter, otpVerifyLimiter, updateMeConfirm);
-router.get('/sessions', authRequestLimiter, listSessions);
+// router.get('/sessions', authRequestLimiter, listSessions);
 router.post('/me/data-request', dataRequest);
 router.get('/me/data-export', dataExport);
 router.get('/me/data-export/csv', dataExportCsv);
