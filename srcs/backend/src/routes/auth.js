@@ -30,7 +30,11 @@ const { updateMe } = createUpdateMeHandler();
 const { updateMeConfirm } = createUpdateMeConfirmHandler();
 const { logout } = createLogoutHandler();
 const { listSessions } = createListSessionsHandler();
-const { startAuthorization, exchange: oauthExchange } = createOAuth2Handler();
+const {
+  callbackRedirect: oauthCallbackRedirect,
+  startAuthorization,
+  exchange: oauthExchange,
+} = createOAuth2Handler();
 const { setPassword, startLinkProvider } = createOAuthAccountManager();
 const { dataRequest } = createDataRequestHandler();
 const { dataExport } = createDataExportHandler();
@@ -78,6 +82,7 @@ router.post('/password-reset/request', authRequestLimiter, otpIssueLimiter, pass
 router.post('/password-reset/confirm', authRequestLimiter, otpVerifyLimiter, passwordResetConfirm);
 router.post('/login', authRequestLimiter, otpIssueLimiter, login);
 router.post('/login/confirm', authRequestLimiter, otpVerifyLimiter, loginConfirm);
+router.get('/oauth/:provider/callback', oauthCallbackRedirect);
 router.get('/oauth/:provider/authorize', authRequestLimiter, startAuthorization);
 router.post('/oauth/:provider/exchange', authRequestLimiter, oauthExchange);
 router.get('/oauth/:provider/link', authRequestLimiter, requireAuth, startLinkProvider);
