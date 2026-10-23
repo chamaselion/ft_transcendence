@@ -29,6 +29,10 @@ const createElaborateHandler = ({ elaborationService } = {}) => {
       });
     }
 
+    if (context.length > 10000 || text.length > 5000) {
+      return res.status(400).json({ error: 'Request exceeds size limits' });
+    }
+
     res.status(200);
     res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
     res.setHeader('Cache-Control', 'no-cache, no-transform');
