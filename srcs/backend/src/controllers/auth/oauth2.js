@@ -120,20 +120,6 @@ const createOAuthAccountManager = ({
 };
 
 const createOAuth2Handler = ({ logger = console } = {}) => {
-  const callbackRedirect = (req, res) => {
-    const provider = normalizeProvider(req.params?.provider);
-
-    if (!supportedProviders.includes(provider)) {
-      return res.status(400).json({ error: 'Unsupported OAuth provider', provider });
-    }
-
-    const originalUrl = req.originalUrl || req.url || '';
-    const queryIndex = originalUrl.indexOf('?');
-    const query = queryIndex >= 0 ? originalUrl.slice(queryIndex) : '';
-
-    return res.redirect(302, `/auth/oauth/${provider}/callback${query}`);
-  };
-
   const startAuthorization = async (req, res) => {
     try {
       const provider = normalizeProvider(req.params?.provider);
@@ -372,7 +358,6 @@ const createOAuth2Handler = ({ logger = console } = {}) => {
   };
 
   return {
-    callbackRedirect,
     startAuthorization,
     exchange,
     getProviderConfig,

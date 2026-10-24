@@ -32,24 +32,17 @@ Common errors:
 - `501` provider is not configured yet
 - `500` server error
 
-## Provider callback redirect
-
-- Method: `GET`
-- Path: `/oauth/:provider/callback`
-
-This is the redirect URI registered with the OAuth provider. The backend validates the provider name, preserves the raw query string (including `code`, `state`, and any provider error parameters), and responds with `302` to the SPA callback route `/auth/oauth/:provider/callback`.
-
-Important:
-
-- Configure the provider redirect URI as `/api/auth/oauth/:provider/callback`.
-- The token exchange sends this identical `redirect_uri`, as required by the providers.
-
 ## Finish OAuth from frontend callback
 
 - Method: `POST`
 - Path: `/oauth/:provider/exchange`
 
-Use this endpoint after the provider redirects through the backend callback to the SPA. The frontend validates `nonce` from `state`, then forwards `code` and `state` to backend.
+Use this endpoint when the OAuth provider redirects to the frontend first. The frontend validates `nonce` from `state`, then forwards `code` and `state` to backend.
+
+Important:
+
+- The backend does not accept provider callbacks directly.
+- Configure the provider redirect URI to point to the SPA callback route, for example `https://localhost:8443/auth/oauth/<provider>/callback`.
 
 Request body:
 

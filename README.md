@@ -45,9 +45,9 @@ docker will the proceed with the dev build, serving it on the configured HTTPS_H
   - `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`: SMTP server configuration and credentials when `EMAIL_TRANSPORT=smtp`.
   - `ONE_TIME_CODE_LENGTH`, `ONE_TIME_CODE_MAX_ATTEMPTS`, `ONE_TIME_CODE_TTL_MS`: OTP length (default `6`), max verification tries (`3`), and expiration time in ms (`600000` = 10 min).
 
-  - `OAUTH_GITHUB_CLIENT_ID`, `OAUTH_GITHUB_CLIENT_SECRET`, `OAUTH_GITHUB_REDIRECT_URI`: GitHub OAuth app credentials and callback URL.
+  - `OAUTH_GITHUB_CLIENT_ID`, `OAUTH_GITHUB_CLIENT_SECRET`, `OAUTH_GITHUB_REDIRECT_URI`: GitHub OAuth app credentials and SPA callback URL (`https://localhost:8443/auth/oauth/github/callback`).
   - `OAUTH_GITHUB_AUTHORIZE_URL`, `OAUTH_GITHUB_TOKEN_URL`, `OAUTH_GITHUB_USERINFO_URL`: GitHub OAuth endpoints.
-  - `OAUTH_42_CLIENT_ID`, `OAUTH_42_CLIENT_SECRET`, `OAUTH_42_REDIRECT_URI`: 42 Intra OAuth app credentials and callback URL.
+  - `OAUTH_42_CLIENT_ID`, `OAUTH_42_CLIENT_SECRET`, `OAUTH_42_REDIRECT_URI`: 42 Intra OAuth app credentials and SPA callback URL (`https://localhost:8443/auth/oauth/42/callback`).
   - `OAUTH_42_AUTHORIZE_URL`, `OAUTH_42_TOKEN_URL`, `OAUTH_42_USERINFO_URL`: 42 Intra OAuth endpoints.
 
   - `RUSTFS_ADMIN_ACCESS_KEY`, `RUSTFS_ADMIN_SECRET_KEY`: Root credentials for the RustFS container.
