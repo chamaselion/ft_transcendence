@@ -99,6 +99,14 @@ export const useEditorStore = defineStore('editor', () => {
     }
   }
 
+  function applyRemoteText(id: string, text: string) {
+    const index = blocks.value.findIndex((item) => item.id === id)
+    const current = blocks.value[index]
+    if (index !== -1 && current) {
+      blocks.value[index] = { ...current, text }
+    }
+  }
+
   function startTranslationProgress(total: number) {
     translationProgress.value = { done: 0, total }
   }
@@ -278,6 +286,7 @@ export const useEditorStore = defineStore('editor', () => {
     clearBlockDirty,
     isBlockDirty,
     applyTranslations,
+    applyRemoteText,
     startTranslationProgress,
     setTranslationProgress,
     finishTranslationProgress,

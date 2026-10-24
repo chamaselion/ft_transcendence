@@ -176,6 +176,9 @@ const pdfStyling: PdfStylingOptions = {
     }
 
     .pdf-content .editor-block__lock,
+    .pdf-content .editor-block__elaborating,
+    .pdf-content .editor-block__translating,
+    .pdf-content .canonical-preview,
     .pdf-content .code__language-select {
       display: none !important;
     }
@@ -851,25 +854,27 @@ function wireProvider(provider: EditorDataProvider) {
       if (store.activeLanguage === 'en') {
         store.updateBlockText(e.blockId, e.text)
       } else {
-        // If local user is not actively editing this block, translate it to activeLanguage
-        if (store.activeBlockId !== e.blockId) {
-          const currentBlock = store.blocks.find((b) => b.id === e.blockId)
-          if (!currentBlock || !isCodeOrCitation(currentBlock.decorator)) {
-            const requestedLang = store.activeLanguage
-            const requestId = translationRequestId
-            translateBlocks([{ id: e.blockId, text: e.text }], 'en', requestedLang)
-              .then((res) => {
-                const first = res[0]
-                if (
-                  first &&
-                  requestId === translationRequestId &&
-                  store.activeLanguage === requestedLang
-                ) {
-                  store.updateBlockText(e.blockId, first.text)
-                }
-              })
-              .catch((err) => logger.error('Failed to translate updated block:', err))
-          }
+        const currentBlock = store.blocks.find((b) => b.id === e.blockId)
+        const decorator = e.decorator ?? currentBlock?.decorator ?? ''
+        if (isCodeOrCitation(decorator)) {
+          // Code and citation blocks are never translated, so show the canonical text directly.
+          store.applyRemoteText(e.blockId, e.text)
+        } else if (store.activeBlockId !== e.blockId) {
+          // If local user is not actively editing this block, translate it to activeLanguage
+          const requestedLang = store.activeLanguage
+          const requestId = translationRequestId
+          translateBlocks([{ id: e.blockId, text: e.text }], 'en', requestedLang)
+            .then((res) => {
+              const first = res[0]
+              if (
+                first &&
+                requestId === translationRequestId &&
+                store.activeLanguage === requestedLang
+              ) {
+                store.applyRemoteText(e.blockId, first.text)
+              }
+            })
+            .catch((err) => logger.error('Failed to translate updated block:', err))
         }
       }
     }
