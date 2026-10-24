@@ -91,7 +91,10 @@ import { useEditorStore } from '@/stores/editor'
 import {
   translateBlocks,
   backTranslateBlock,
+  chunkBlocks,
+  DEFAULT_TRANSLATE_TIMEOUT_MS,
   type SupportedLanguage,
+  type TranslationBlockPayload,
 } from '@/app/editor/translation.api'
 import { elaborateBlock, type PersonaKey } from '@/app/editor/elaboration.api'
 import { isStandardText, type EditableInsertEvent } from '@/app/editor/useEditable'
@@ -388,13 +391,96 @@ function isSupportedLanguage(value: string): value is SupportedLanguage {
   return value === 'en' || value === 'de' || value === 'hu'
 }
 
+const TRANSLATE_CHUNK_RETRY_DELAY_MS = 1000
+
 let translationRequestId = 0
+let translationAbortController: AbortController | null = null
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+interface ChunkedTranslationOptions {
+  requestId: number
+  signal: AbortSignal
+  applyChunk?: (blocks: TranslationBlockPayload[]) => void
+}
+
+async function translateBlocksInChunks(
+  sourceBlocks: TranslationBlockPayload[],
+  targetLang: SupportedLanguage,
+  { requestId, signal, applyChunk }: ChunkedTranslationOptions,
+): Promise<Map<string, string> | null> {
+  const chunks = chunkBlocks(sourceBlocks)
+  const results = new Map<string, string>()
+  let completed = 0
+
+  if (requestId === translationRequestId) {
+    store.startTranslationProgress(sourceBlocks.length)
+  }
+  try {
+    for (const chunk of chunks) {
+      if (signal.aborted || requestId !== translationRequestId) return null
+
+      const sourceById = new Map(chunk.map((block) => [block.id, block.text]))
+      let translated: TranslationBlockPayload[] | null = null
+      let lastError: unknown = null
+
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        try {
+          translated = await translateBlocks(chunk, 'en', targetLang, {
+            signal,
+            timeoutMs: DEFAULT_TRANSLATE_TIMEOUT_MS,
+          })
+          break
+        } catch (err) {
+          lastError = err
+          if (signal.aborted) return null
+          if (attempt === 0) await delay(TRANSLATE_CHUNK_RETRY_DELAY_MS)
+        }
+      }
+
+      if (!translated) {
+        throw lastError instanceof Error
+          ? lastError
+          : new Error(t('editor.translationFailed'))
+      }
+      if (signal.aborted || requestId !== translationRequestId) return null
+
+      const applied: TranslationBlockPayload[] = []
+      for (const block of translated) {
+        const sourceText = sourceById.get(block.id)
+        if (sourceText === undefined) continue
+        if (store.getCanonicalText(block.id) !== sourceText) continue
+        results.set(block.id, block.text)
+        applied.push(block)
+      }
+      if (applied.length > 0) {
+        applyChunk?.(applied)
+      }
+
+      completed += chunk.length
+      store.setTranslationProgress(completed)
+    }
+
+    store.setTranslationProgress(sourceBlocks.length)
+    return results
+  } finally {
+    if (requestId === translationRequestId) {
+      store.finishTranslationProgress()
+    }
+  }
+}
 
 async function translateDocumentTo(targetLang: string) {
   if (!isSupportedLanguage(targetLang)) return
   if (targetLang === store.activeLanguage) return
 
   const requestId = ++translationRequestId
+  translationAbortController?.abort()
+  const abortController = new AbortController()
+  translationAbortController = abortController
+
   store.isTranslating = true
   store.translationError = null
   try {
@@ -405,6 +491,7 @@ async function translateDocumentTo(targetLang: string) {
     if (requestId !== translationRequestId) return
 
     if (targetLang === 'en') {
+      store.finishTranslationProgress()
       store.setLanguage('en')
       return
     }
@@ -415,17 +502,31 @@ async function translateDocumentTo(targetLang: string) {
         id: block.id,
         text: store.getCanonicalText(block.id) || block.text,
       }))
-    const translated = await translateBlocks(payload, 'en', targetLang)
-    if (requestId !== translationRequestId) return
+
+    const results = await translateBlocksInChunks(payload, targetLang, {
+      requestId,
+      signal: abortController.signal,
+    })
+    if (!results || requestId !== translationRequestId) return
+
+    const translated = payload.map((block) => {
+      const current = store.getCanonicalText(block.id) || block.text
+      const translatedText = current === block.text ? results.get(block.id) : undefined
+      return {
+        id: block.id,
+        text: translatedText ?? current,
+      }
+    })
     store.applyTranslations(translated)
     store.setLanguage(targetLang)
   } catch (err) {
-    if (requestId !== translationRequestId) return
+    if (requestId !== translationRequestId || abortController.signal.aborted) return
     logger.error('Document translation failed:', err)
     store.translationError = err instanceof Error ? err.message : t('editor.translationFailed')
     emit('error', store.translationError)
   } finally {
     if (requestId === translationRequestId) store.isTranslating = false
+    if (translationAbortController === abortController) translationAbortController = null
   }
 }
 
@@ -678,29 +779,54 @@ function wireProvider(provider: EditorDataProvider) {
   }
 
   provider.onInit = (e) => {
+    translationAbortController?.abort()
+    translationAbortController = null
+    const requestId = ++translationRequestId
+
     store.initCanonicalBlocks(e.blocks)
     store.setBlocks(e.blocks)
     if (isSupportedLanguage(locale.value)) {
       store.setLanguage(locale.value)
     }
-    if (store.activeLanguage !== 'en') {
-      const requestedLang = store.activeLanguage
-      const requestId = translationRequestId
-      const translatable = e.blocks.filter((b) => !isCodeOrCitation(b.decorator))
-      const payload = translatable.map((b) => ({ id: b.id, text: b.text }))
-      if (payload.length > 0) {
-        store.isTranslating = true
-        translateBlocks(payload, 'en', requestedLang)
-          .then((res) => {
-            if (requestId !== translationRequestId || store.activeLanguage !== requestedLang) return
-            store.applyTranslations(res)
-          })
-          .catch((err) => logger.error('Failed to translate initial blocks:', err))
-          .finally(() => {
-            if (requestId === translationRequestId) store.isTranslating = false
-          })
-      }
+
+    const requestedLang = store.activeLanguage
+    const payload =
+      requestedLang === 'en'
+        ? []
+        : e.blocks
+            .filter((b) => !isCodeOrCitation(b.decorator))
+            .map((b) => ({ id: b.id, text: b.text }))
+
+    if (payload.length === 0) {
+      store.isTranslating = false
+      store.finishTranslationProgress()
+      return
     }
+
+    const abortController = new AbortController()
+    translationAbortController = abortController
+    store.isTranslating = true
+    store.translationError = null
+    void translateBlocksInChunks(payload, requestedLang, {
+      requestId,
+      signal: abortController.signal,
+      applyChunk: (translated) => {
+        if (requestId !== translationRequestId || store.activeLanguage !== requestedLang) return
+        store.applyTranslations(translated)
+      },
+    })
+      .catch((err) => {
+        if (abortController.signal.aborted || requestId !== translationRequestId) return
+        logger.error('Failed to translate initial blocks:', err)
+        store.translationError = err instanceof Error ? err.message : t('editor.translationFailed')
+        emit('error', store.translationError)
+      })
+      .finally(() => {
+        if (requestId === translationRequestId) store.isTranslating = false
+        if (translationAbortController === abortController) {
+          translationAbortController = null
+        }
+      })
   }
 
   provider.onCreated = (e) => {
@@ -784,6 +910,8 @@ onMounted(() => {
 onBeforeUnmount(() => {
   window.removeEventListener('beforeunload', handleBeforeUnload)
   abortElaboration()
+  translationAbortController?.abort()
+  translationAbortController = null
   flushPendingEdit()
   clearLockTimers()
   if (store.activeBlockId && !store.isLockedByOther({ id: store.activeBlockId } as Block)) {
@@ -793,6 +921,8 @@ onBeforeUnmount(() => {
 
 onBeforeRouteLeave(async () => {
   abortElaboration()
+  translationAbortController?.abort()
+  translationAbortController = null
   if (hasPendingData()) {
     const success = await flushPendingEdit()
     if (!success) {

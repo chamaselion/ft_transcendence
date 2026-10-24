@@ -212,6 +212,7 @@
     "lockedBadge": "Zárolva",
     "yourRole": "Az Ön szerepe",
     "translating": "AI fordítás...",
+    "translatingProgress": "AI fordítás: {done}/{total} blokk...",
     "translationFailed": "A fordítás nem sikerült",
     "elaborate": {
       "trigger": "AI kidolgozás",

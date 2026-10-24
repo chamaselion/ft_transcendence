@@ -86,6 +86,9 @@ const createTranslateHandler = ({ translationService } = {}) => {
       });
     } catch (err) {
       console.error('[AI] translate failed:', err);
+      if (err?.name === 'TimeoutError' || err?.name === 'AbortError') {
+        return res.status(504).json({ error: 'Translation timed out' });
+      }
       return res.status(500).json({ error: err.message || 'Translation failed' });
     }
   };

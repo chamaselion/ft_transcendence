@@ -212,6 +212,7 @@
     "lockedBadge": "Locked",
     "yourRole": "Your Role",
     "translating": "AI Translating...",
+    "translatingProgress": "AI translating {done}/{total} blocks...",
     "translationFailed": "Translation failed",
     "elaborate": {
       "trigger": "AI Elaborate",

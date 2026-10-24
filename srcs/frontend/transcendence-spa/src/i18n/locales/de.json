@@ -212,6 +212,7 @@
     "lockedBadge": "Gesperrt",
     "yourRole": "Ihre Rolle",
     "translating": "KI übersetzt...",
+    "translatingProgress": "KI übersetzt {done}/{total} Blöcke...",
     "translationFailed": "Übersetzung fehlgeschlagen",
     "elaborate": {
       "trigger": "KI ausarbeiten",

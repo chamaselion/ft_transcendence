@@ -55,7 +55,7 @@ class BaseAiProvider {
     this.model = config.model;
     this.apiKey = config.apiKey || '';
     this.baseUrl = config.baseUrl ? config.baseUrl.replace(/\/+$/, '') : '';
-    this.timeoutMs = config.timeoutMs || 15000;
+    this.timeoutMs = config.timeoutMs || 30000;
   }
 
   async complete({ systemPrompt, userPrompt }) {
