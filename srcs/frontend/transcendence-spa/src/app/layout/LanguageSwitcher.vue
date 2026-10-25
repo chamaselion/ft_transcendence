@@ -12,9 +12,14 @@ const editorStore = useEditorStore()
 const isOpen = ref(false)
 const root = ref<HTMLElement | null>(null)
 const isLocked = computed(() => editorStore.isElaborating || editorStore.isTranslating)
-const lockTitle = computed(() =>
-  editorStore.isElaborating ? t('editor.elaborate.triggerLoadingTitle') : t('editor.translating'),
-)
+const translationProgress = computed(() => editorStore.translationProgress)
+const lockTitle = computed(() => {
+  if (editorStore.isElaborating) return t('editor.elaborate.triggerLoadingTitle')
+  if (translationProgress.value) {
+    return t('editor.translatingProgress', translationProgress.value)
+  }
+  return t('editor.translating')
+})
 
 const currentFlag = computed(
   () => locales.find((option) => option.code === currentLocale.value)?.flag ?? '',
@@ -88,6 +93,13 @@ onBeforeUnmount(() => {
         >🟡</span
       >
       <span v-else class="language-switcher__flag" aria-hidden="true">{{ currentFlag }}</span>
+      <span
+        v-if="isLocked && translationProgress"
+        class="language-switcher__progress"
+        aria-hidden="true"
+      >
+        {{ translationProgress.done }}/{{ translationProgress.total }}
+      </span>
       <span v-if="!isLocked" class="language-switcher__caret" aria-hidden="true" />
     </button>
 
@@ -171,6 +183,12 @@ onBeforeUnmount(() => {
 .language-switcher__flag--busy {
   font-size: 0.95em;
   animation: language-switcher-pulse 1.2s ease-in-out infinite;
+}
+
+.language-switcher__progress {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
 }
 
 @keyframes language-switcher-pulse {

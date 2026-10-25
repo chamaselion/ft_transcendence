@@ -36,6 +36,9 @@ const unescapeHtml = (value) => {
 
 const DOCUMENT_TITLE_MAX_LENGTH = 255;
 const EDITOR_BLOCK_MAX_LENGTH = 5000;
+const MAX_BLOCKS = 500;
+const MAX_DECORATOR_LENGTH = 2048;
+const MAX_BLOCK_ID_LENGTH = 128;
 
 const textLength = (value) => unescapeHtml(value).length;
 
@@ -47,13 +50,16 @@ const validateContentLength = (content) => {
   try {
     const parsed = JSON.parse(content);
     if (Array.isArray(parsed)) {
+      if (parsed.length > MAX_BLOCKS) return false;
       return parsed.every(
         (block) =>
           block !== null &&
           typeof block === 'object' &&
           !Array.isArray(block) &&
           typeof block.text === 'string' &&
-          validateTextLength(block.text, EDITOR_BLOCK_MAX_LENGTH),
+          validateTextLength(block.text, EDITOR_BLOCK_MAX_LENGTH) &&
+          (block.id === undefined || (typeof block.id === 'string' && block.id.length <= MAX_BLOCK_ID_LENGTH)) &&
+          (block.decorator === undefined || (typeof block.decorator === 'string' && block.decorator.length <= MAX_DECORATOR_LENGTH)),
       );
     }
   } catch {
@@ -92,6 +98,9 @@ const sanitizeContent = (content) => {
 module.exports = {
   DOCUMENT_TITLE_MAX_LENGTH,
   EDITOR_BLOCK_MAX_LENGTH,
+  MAX_BLOCKS,
+  MAX_DECORATOR_LENGTH,
+  MAX_BLOCK_ID_LENGTH,
   escapeHtml,
   unescapeHtml,
   sanitizeText,

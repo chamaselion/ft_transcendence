@@ -16,6 +16,7 @@ export const useEditorStore = defineStore('editor', () => {
   const dirtyBlockIds = ref<Set<string>>(new Set())
   const isTranslating = ref<boolean>(false)
   const translationError = ref<string | null>(null)
+  const translationProgress = ref<{ done: number; total: number } | null>(null)
 
   const activeBlock = computed(
     () => blocks.value.find((block) => block.id === activeBlockId.value) ?? null,
@@ -96,6 +97,30 @@ export const useEditorStore = defineStore('editor', () => {
         block.text = tMap.get(block.id)!
       }
     }
+  }
+
+  function applyRemoteText(id: string, text: string) {
+    const index = blocks.value.findIndex((item) => item.id === id)
+    const current = blocks.value[index]
+    if (index !== -1 && current) {
+      blocks.value[index] = { ...current, text }
+    }
+  }
+
+  function startTranslationProgress(total: number) {
+    translationProgress.value = { done: 0, total }
+  }
+
+  function setTranslationProgress(done: number) {
+    if (!translationProgress.value) return
+    translationProgress.value = {
+      done: Math.min(Math.max(0, done), translationProgress.value.total),
+      total: translationProgress.value.total,
+    }
+  }
+
+  function finishTranslationProgress() {
+    translationProgress.value = null
   }
 
   function setBlocks(next: Block[]) {
@@ -235,6 +260,7 @@ export const useEditorStore = defineStore('editor', () => {
     dirtyBlockIds,
     isTranslating,
     translationError,
+    translationProgress,
     setClientId,
     beginElaboration,
     endElaboration,
@@ -260,5 +286,9 @@ export const useEditorStore = defineStore('editor', () => {
     clearBlockDirty,
     isBlockDirty,
     applyTranslations,
+    applyRemoteText,
+    startTranslationProgress,
+    setTranslationProgress,
+    finishTranslationProgress,
   }
 })

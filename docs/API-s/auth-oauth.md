@@ -41,8 +41,8 @@ Use this endpoint when the OAuth provider redirects to the frontend first. The f
 
 Important:
 
-- The backend no longer accepts provider callbacks directly.
-- Configure the provider redirect URI to point to the frontend callback route.
+- The backend does not accept provider callbacks directly.
+- Configure the provider redirect URI to point to the SPA callback route, for example `https://localhost:8443/auth/oauth/<provider>/callback`.
 
 Request body:
 

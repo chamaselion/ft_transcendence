@@ -1,5 +1,6 @@
 import {
   type Block,
+  type DocumentPermission,
   type EditorDataProvider,
   type EditorEditEvent,
   type EditorInitEvent,
@@ -7,6 +8,9 @@ import {
 } from '@/app/editor/types'
 import { escapeHtml, unescapeHtml } from '@/app/editor/textCodec'
 import { i18n } from '@/i18n'
+
+const isDocumentPermission = (value: unknown): value is DocumentPermission =>
+  value === 'owner' || value === 'editor' || value === 'viewer'
 
 const decodeBlock = (block: Block): Block => ({
   ...block,
@@ -28,7 +32,7 @@ export interface WebSocketProviderOptions {
 interface WsIncomingMessage {
   type: string
   documentId?: string
-  permission?: 'owner' | 'editor' | 'viewer'
+  permission?: DocumentPermission
   document?: {
     id: string
     title: string
@@ -73,6 +77,7 @@ export class WebSocketEditorDataProvider implements EditorDataProvider {
     () => {}
   public onUnlocked: (e: { blockId: string }) => void = () => {}
   public onTitleUpdated: (e: { title: string; userId?: string | null }) => void = () => {}
+  public onPermission: (permission: DocumentPermission) => void = () => {}
   public onError: (e: { error: string }) => void = () => {}
 
   private onOpenCallback?: () => void
@@ -129,6 +134,12 @@ export class WebSocketEditorDataProvider implements EditorDataProvider {
           })
           break
         }
+
+        case 'permission':
+          if (msg.documentId === this.documentId && isDocumentPermission(msg.permission)) {
+            this.onPermission(msg.permission)
+          }
+          break
 
         case 'block_created':
           if (msg.block) {
@@ -316,6 +327,7 @@ export class LocalEditorDataProvider implements EditorDataProvider {
     () => {}
   public onUnlocked: (e: { blockId: string }) => void = () => {}
   public onTitleUpdated: (e: { title: string; userId?: string | null }) => void = () => {}
+  public onPermission: (permission: DocumentPermission) => void = () => {}
   public onError: (e: { error: string }) => void = () => {}
 
   constructor(initialBlocks: Block[] = []) {

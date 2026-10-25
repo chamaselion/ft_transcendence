@@ -29,11 +29,13 @@ export interface EditorEditEvent {
   userId?: string | null
 }
 
+export type DocumentPermission = 'owner' | 'editor' | 'viewer'
+
 export interface EditorInitEvent {
   blocks: Block[]
   documentId?: string
   title?: string
-  permission?: 'owner' | 'editor' | 'viewer'
+  permission?: DocumentPermission
 }
 
 export interface EditorDataProvider {
@@ -55,6 +57,7 @@ export interface EditorDataProvider {
   onLocked?: (e: { blockId: string; userId?: string | null; clientId?: string }) => void
   onUnlocked: (e: { blockId: string }) => void
   onTitleUpdated?: (e: { title: string; userId?: string | null }) => void
+  onPermission?: (permission: DocumentPermission) => void
   onError: (e: { error: string }) => void
   destroy?: () => void
 }

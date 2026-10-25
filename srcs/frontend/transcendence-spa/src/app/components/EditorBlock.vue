@@ -75,12 +75,17 @@ const props = defineProps<{
   elaborating?: boolean
   translating?: boolean
   exportMode?: boolean
+  editable?: boolean
 }>()
 
 const { t } = useI18n()
 const store = useEditorStore()
 const readOnly = computed(
-  () => Boolean(props.locked) || Boolean(props.elaborating) || Boolean(props.translating),
+  () =>
+    props.editable === false ||
+    Boolean(props.locked) ||
+    Boolean(props.elaborating) ||
+    Boolean(props.translating),
 )
 const canonicalText = computed(() => store.getCanonicalText(props.block.id))
 const isForeignLanguage = computed(() => store.activeLanguage !== 'en')
@@ -113,7 +118,7 @@ function onUpdateLanguage(language: string) {
 
 const componentProps = computed(() => {
   const decoratorValue = decorator.value
-  const base = { editable: true, locked: readOnly.value }
+  const base = { editable: props.editable !== false, locked: readOnly.value }
 
   switch (decoratorValue.type) {
     case 'h':
