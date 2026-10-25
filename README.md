@@ -4,24 +4,24 @@
 
 ## Description
 
-Trans Edit is an web application, that **trans**lates and **edit**s. Since multiple Users can edit the same File at the same time, it **trans**encends so language and space.
+Trans Edit is a web application, that **trans**lates and **edit**s. Since multiple Users can edit the same File at the same time, it **trans**encends so language and space.
 
 ## Instructions
 
 ### Quick Start
 you need
-'''
+```
 docker & docker compose (version 20.10 +)
 make
 openssl
-'''
+```
 
 1. clone the project
 2. run 'cp .env.example .env'
-3. change the keys JWT_SECRET, POSTGRES_PASSWORD, DATABASE_URL (with the POSTGRES_PASSWORD) in the new .env file.
+3. change the keys JWT_SECRET, POSTGRES_PASSWORD, DATABASE_URL (with the POSTGRES_PASSWORD) in the new .env file and configure SMTP, OAUTH providers. Make sure your port is the same as configured with the OAUTH providers apps.
 4. run 'make'
 
-docker will the proceed with the dev build, serving it on the configured HTTPS_HOST_PORT, standard [https://localhost:8443](https://localhost:8443)
+docker will proceed with the dev build, serving it on the configured HTTPS_HOST_PORT, standard [https://localhost:8443](https://localhost:8443)
 
 ### Enviroment options
 
@@ -85,7 +85,7 @@ Nontheless, feature-creep took place, and we added some features like **ai-tranl
 #### Frontend
 - vue, tailwind, pinia, tabler icons
 #### Backend
-- express, bcrypt, websockets, nodemailer, pg & sequlize
+- express, bcrypt, websockets, nodemailer, pg & sequelize
 #### Database
 - postgres 16, since it offers native uuid primary keys, enum types and jsonb columns. There is also row locking, to avoid race conditions
 #### Object Storage
@@ -245,11 +245,17 @@ erDiagram
 
 ##### Balint
 
-- architecture
-- backend auth & OAuth
-- services for backend
+- backend architecture and project structure
+- auth flow, validation and session handling
+- OAuth 2.0 login and provider linking
+- GDPR data request / deletion flow and audit handling
+- SMTP-based OTP and notification setup
+- HTTPS / production backend hardening and environment cleanup
 
-Designing the OTP mechanism was interesting and had a lot of error sources, since the smtp protocol and partners are sometimes out of our control. Finding the right tech stack for the backend was a challenge as well.
+Balint was responsible for the backend foundation and the security-critical flows: authentication, OAuth, GDPR handling, and the production-facing HTTPS setup. He also handled the validation and notification work around OTP and email delivery, which was a frequent source of subtle edge cases.
+
+Challenges faced:
+The OTP flow was the most delicate part of the backend, because email delivery and confirmation timing can fail in ways that are hard to debug. OAuth also required careful validation around state, redirects, and provider identity matching, since a single mistake can create account takeover or link confusion. On top of that, making the backend production-safe meant balancing HTTPS, secure cookies, and session handling without breaking the local dev workflow.
 
 ##### Benjamin
 - Backend document endpoints (CRUD & sharing)
@@ -299,6 +305,31 @@ The most difficult part was to align data-states across multiple users. The Tran
 - [Sharp High-Performance Node.js Image Processing](https://sharp.pixelplumbing.com/)
 - [Vite PWA Plugin Documentation](https://vite-pwa-org.netlify.app/)
 - [Google SMTP setup](https://dev.to/likhit/i-tried-to-send-emails-using-gmail-smtp-heres-what-actually-worked-2ec1)
+- [Node.js Express.js](https://www.geeksforgeeks.org/node-js/express-js/)
+- [Node.js Express.js Tutorial](https://www.w3schools.com/nodejs/nodejs_express.asp)
+- [Express.js Documentation](https://expressjs.com/)
+- [Sequelize](https://sequelize.org/)
+- [How to Use Sequelize in Node.js](https://www.geeksforgeeks.org/node-js/how-to-use-sequelize-in-node-js/)
+- [Sequelize Tutorial Video](https://www.youtube.com/watch?v=Crk_5Xy8GMA)
+- [Nodemailer](https://nodemailer.com/)
+- [Nodemailer Tutorial Video](https://www.youtube.com/watch?v=fF-07yFTq5o)
+- [CORS in Node.js](https://www.geeksforgeeks.org/node-js/use-of-cors-in-node-js/)
+- [Express CORS Middleware](https://expressjs.com/en/resources/middleware/cors/)
+- [OAuth 2.0 Authentication in Node.js with JWT and Passport.js](https://medium.com/@tuteja_lovish/implementing-oauth-2-0-authentication-in-node-js-with-jwt-and-passport-js-7912bbd1ca3e)
+- [Implementing an OAuth Server with Node.js and Express](https://www.geeksforgeeks.org/node-js/implementing-an-oauth-server-with-nodejs-and-express/)
+- [OAuth 2.0 Video Tutorial](https://www.youtube.com/watch?v=SQ1EvwHJ89I)
+
+### AI usage
+- simplified concepts and explained unfamiliar topics quickly
+- helped with information gathering and project direction
+- helped write documentation and structure technical explanations
+- created code reviews and sanity checks during implementation
+- helped with styling choices and UI consistency
+- created test scripts and filler scripts for validation and debugging
+- helped with the bracket-heavy and confusing parts of Node.js development
+- helped identify logical and security issues that would likely be missed in a first web development project
+- helped organize code by splitting larger files into smaller, clearer modules
+- suggested stack recommendations and architectural improvements
 
 ## Things that could be added
 
