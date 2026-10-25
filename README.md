@@ -10,11 +10,11 @@ Trans Edit is a web application, that **trans**lates and **edit**s. Since multip
 
 ### Quick Start
 you need
-'''
+```
 docker & docker compose (version 20.10 +)
 make
 openssl
-'''
+```
 
 1. clone the project
 2. run 'cp .env.example .env'
