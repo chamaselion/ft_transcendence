@@ -31,11 +31,61 @@ export interface EditorEditEvent {
 
 export type DocumentPermission = 'owner' | 'editor' | 'viewer'
 
+export type ConnectionState = 'connecting' | 'connected' | 'reconnecting' | 'syncing' | 'offline'
+
+export interface EditorLockInfo {
+  blockId: string
+  clientId?: string | null
+  userId?: string | null
+}
+
 export interface EditorInitEvent {
   blocks: Block[]
   documentId?: string
   title?: string
   permission?: DocumentPermission
+  unchanged?: boolean
+  contentHash?: string
+  locks?: EditorLockInfo[]
+}
+
+export type SyncOperation =
+  | {
+      kind: 'set'
+      blockId: string
+      text?: string
+      decorator?: string
+      expected: string
+    }
+  | {
+      kind: 'create'
+      block: Block
+      afterBlockId?: string | null
+      expected: null
+    }
+  | {
+      kind: 'delete'
+      blockId: string
+      expected: string
+    }
+  | {
+      kind: 'title'
+      title: string
+      expectedTitle?: string
+    }
+
+export interface SyncConflict {
+  kind?: 'block' | 'title'
+  blockId?: string
+  reason: string
+  block?: Block | null
+  fingerprint?: string | null
+  remoteTitle?: string
+}
+
+export interface SyncResult {
+  contentHash: string
+  applied?: number
 }
 
 export interface EditorDataProvider {
@@ -45,6 +95,9 @@ export interface EditorDataProvider {
   sendBlockLock?: (blockId: string) => Promise<boolean>
   sendBlockUnlock?: (blockId: string) => Promise<boolean>
   sendTitleUpdate?: (title: string) => Promise<boolean>
+  sendSync?: (ops: SyncOperation[]) => Promise<SyncResult>
+  getConnectionState?: () => ConnectionState
+  onConnectionState?: (state: ConnectionState) => void
   onInit: (e: EditorInitEvent) => void
   onCreated: (e: { block: Block; afterBlockId?: string | null }) => void
   onUpdated: (e: {

@@ -18,6 +18,7 @@ const {
   validateContentLength,
 } = require('../controllers/documents/sanitize');
 const { resolvePermission, atLeast } = require('../controllers/documents/permissions');
+const { hashBlocks, fingerprintBlock, isValidContentHash } = require('./contentHash');
 
 const parseDocBlocks = (content) => {
   if (!content || typeof content !== 'string') {
@@ -49,8 +50,11 @@ const WS_PATH = '/api/ws';
 const HEARTBEAT_INTERVAL_MS = 30_000;
 const SERVER_LOCK_TIMEOUT_MS = 5500;
 const MAX_RAW_MESSAGE_BYTES = 256 * 1024;
+const MAX_SOCKET_MESSAGE_BYTES = 10 * 1024 * 1024;
 const MAX_CLIENT_ID_LENGTH = 128;
 const MAX_PENDING_MESSAGES = 100;
+const MAX_SYNC_OPS = 1200;
+const MAX_SYNC_OP_TEXT_BYTES = 8 * 1024 * 1024;
 
 
 const rooms = new Map();
@@ -144,6 +148,219 @@ const lockHolder = (documentId, blockId, except) =>
     (client) => client !== except && client.lockedBlockId === blockId,
   );
 
+const blockConflict = (blockId, reason, block) => ({
+  blockId,
+  reason,
+  block: block || null,
+  fingerprint: block ? fingerprintBlock(block) : null,
+});
+
+const applySyncOperations = (blocks, title, ops) => {
+  const nextBlocks = blocks.map((block) =>
+    block && typeof block === 'object' ? { ...block } : block,
+  );
+  let nextTitle = title;
+  const applied = [];
+
+  for (const op of ops) {
+    if (!op || typeof op !== 'object' || Array.isArray(op)) {
+      return { ok: false, type: 'invalid', error: 'Invalid sync operation' };
+    }
+
+    if (op.kind === 'title') {
+      if (typeof op.title !== 'string' || !op.title.trim()) {
+        return { ok: false, type: 'invalid', error: 'title must be a non-empty string' };
+      }
+      const nextValue = sanitizeText(op.title.trim());
+      if (!nextValue || !validateTextLength(nextValue, DOCUMENT_TITLE_MAX_LENGTH)) {
+        return {
+          ok: false,
+          type: 'invalid',
+          error: `title must be at most ${DOCUMENT_TITLE_MAX_LENGTH} characters long`,
+        };
+      }
+      if (op.expectedTitle !== undefined && op.expectedTitle !== null) {
+        if (typeof op.expectedTitle !== 'string') {
+          return { ok: false, type: 'invalid', error: 'expectedTitle must be a string' };
+        }
+        const expectedTitle = sanitizeText(op.expectedTitle.trim());
+        if (expectedTitle !== nextTitle) {
+          return {
+            ok: false,
+            type: 'conflict',
+            conflict: { kind: 'title', reason: 'stale', remoteTitle: nextTitle },
+          };
+        }
+      }
+      nextTitle = nextValue;
+      applied.push({ kind: 'title', title: nextTitle });
+      continue;
+    }
+
+    if (op.kind === 'set') {
+      if (typeof op.blockId !== 'string' || !op.blockId || op.blockId.length > MAX_BLOCK_ID_LENGTH) {
+        return { ok: false, type: 'invalid', error: 'Invalid block id' };
+      }
+      if (!isValidContentHash(op.expected)) {
+        return { ok: false, type: 'invalid', error: 'Invalid expected fingerprint' };
+      }
+      const target = nextBlocks.find((block) => block && block.id === op.blockId);
+      if (!target) {
+        return {
+          ok: false,
+          type: 'conflict',
+          conflict: blockConflict(op.blockId, 'deleted-remote', null),
+        };
+      }
+      if (fingerprintBlock(target) !== op.expected.toLowerCase()) {
+        return {
+          ok: false,
+          type: 'conflict',
+          conflict: blockConflict(op.blockId, 'stale', target),
+        };
+      }
+      if (op.text === undefined && op.decorator === undefined) {
+        return { ok: false, type: 'invalid', error: 'Nothing to update in block' };
+      }
+      if (op.text !== undefined && !validateTextLength(String(op.text), EDITOR_BLOCK_MAX_LENGTH)) {
+        return {
+          ok: false,
+          type: 'invalid',
+          error: `block text must be at most ${EDITOR_BLOCK_MAX_LENGTH} characters`,
+        };
+      }
+      if (
+        op.decorator !== undefined &&
+        (typeof op.decorator !== 'string' || op.decorator.length > MAX_DECORATOR_LENGTH)
+      ) {
+        return {
+          ok: false,
+          type: 'invalid',
+          error: `decorator must be a string of at most ${MAX_DECORATOR_LENGTH} characters`,
+        };
+      }
+      if (op.text !== undefined) target.text = sanitizeText(String(op.text));
+      if (op.decorator !== undefined) target.decorator = op.decorator;
+      applied.push({
+        kind: 'set',
+        blockId: target.id,
+        text: target.text,
+        decorator: target.decorator,
+      });
+      continue;
+    }
+
+    if (op.kind === 'create') {
+      const block = op.block;
+      if (!block || typeof block !== 'object' || Array.isArray(block)) {
+        return { ok: false, type: 'invalid', error: 'block must be an object' };
+      }
+      if (typeof block.id !== 'string' || !block.id || block.id.length > MAX_BLOCK_ID_LENGTH) {
+        return { ok: false, type: 'invalid', error: 'Invalid block id' };
+      }
+      if (op.afterBlockId !== undefined && op.afterBlockId !== null) {
+        if (
+          typeof op.afterBlockId !== 'string' ||
+          op.afterBlockId.length > MAX_BLOCK_ID_LENGTH
+        ) {
+          return { ok: false, type: 'invalid', error: 'Invalid afterBlockId' };
+        }
+      }
+      if (
+        block.decorator !== undefined &&
+        block.decorator !== null &&
+        (typeof block.decorator !== 'string' || block.decorator.length > MAX_DECORATOR_LENGTH)
+      ) {
+        return {
+          ok: false,
+          type: 'invalid',
+          error: `decorator must be a string of at most ${MAX_DECORATOR_LENGTH} characters`,
+        };
+      }
+      if (!validateTextLength(String(block.text ?? ''), EDITOR_BLOCK_MAX_LENGTH)) {
+        return {
+          ok: false,
+          type: 'invalid',
+          error: `block text must be at most ${EDITOR_BLOCK_MAX_LENGTH} characters`,
+        };
+      }
+      const newBlock = {
+        id: block.id,
+        text: sanitizeText(String(block.text ?? '')),
+        decorator:
+          typeof block.decorator === 'string'
+            ? block.decorator
+            : JSON.stringify({ type: 'p' }),
+        lockedBy: null,
+      };
+      const existing = nextBlocks.find((item) => item && item.id === newBlock.id);
+      if (existing) {
+        if (fingerprintBlock(existing) === fingerprintBlock(newBlock)) {
+          continue;
+        }
+        return {
+          ok: false,
+          type: 'conflict',
+          conflict: blockConflict(newBlock.id, 'already-exists', existing),
+        };
+      }
+      if (nextBlocks.length >= MAX_BLOCKS) {
+        return {
+          ok: false,
+          type: 'invalid',
+          error: `Document cannot exceed ${MAX_BLOCKS} blocks`,
+        };
+      }
+      const afterBlockId = op.afterBlockId || null;
+      if (afterBlockId) {
+        const index = nextBlocks.findIndex((item) => item && item.id === afterBlockId);
+        if (index !== -1) nextBlocks.splice(index + 1, 0, newBlock);
+        else nextBlocks.push(newBlock);
+      } else {
+        nextBlocks.push(newBlock);
+      }
+      applied.push({ kind: 'create', block: newBlock, afterBlockId });
+      continue;
+    }
+
+    if (op.kind === 'delete') {
+      if (typeof op.blockId !== 'string' || !op.blockId || op.blockId.length > MAX_BLOCK_ID_LENGTH) {
+        return { ok: false, type: 'invalid', error: 'Invalid block id' };
+      }
+      if (!isValidContentHash(op.expected)) {
+        return { ok: false, type: 'invalid', error: 'Invalid expected fingerprint' };
+      }
+      const index = nextBlocks.findIndex((block) => block && block.id === op.blockId);
+      if (index === -1) {
+        continue;
+      }
+      const target = nextBlocks[index];
+      if (fingerprintBlock(target) !== op.expected.toLowerCase()) {
+        return {
+          ok: false,
+          type: 'conflict',
+          conflict: blockConflict(op.blockId, 'stale', target),
+        };
+      }
+      nextBlocks.splice(index, 1);
+      applied.push({ kind: 'delete', blockId: op.blockId });
+      continue;
+    }
+
+    return { ok: false, type: 'invalid', error: 'Unknown sync operation' };
+  }
+
+  return { ok: true, blocks: nextBlocks, title: nextTitle, applied };
+};
+
+const sendSyncConflict = (ws, requestId, conflict) =>
+  send(ws, {
+    type: 'sync_conflict',
+    documentId: ws.documentId,
+    requestId: typeof requestId === 'string' ? requestId : undefined,
+    conflicts: [conflict],
+  });
+
 
 let activeServer = null;
 
@@ -228,7 +445,7 @@ const attachDocumentSocket = (
     return authenticated.id ? authenticated : null;
   };
 
-  const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_RAW_MESSAGE_BYTES });
+  const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_SOCKET_MESSAGE_BYTES });
   activeServer = wss;
 
   const hasLiveSession = async (ws) => {
@@ -347,19 +564,21 @@ const attachDocumentSocket = (
         await doc.save();
       }
 
-      send(ws, {
-        type: 'init',
-        permission,
-        document: { id: doc.id, title: doc.title, content: doc.content },
-      });
+      const contentHash = hashBlocks(blocks);
+      const localHash = isValidContentHash(msg.localHash)
+        ? msg.localHash.toLowerCase()
+        : null;
+      const baseHash = isValidContentHash(msg.baseHash)
+        ? msg.baseHash.toLowerCase()
+        : null;
+      const unchanged = contentHash === localHash || contentHash === baseHash;
 
+      const locks = [];
       const currentRoom = rooms.get(doc.id);
       if (currentRoom) {
         for (const client of currentRoom) {
           if (client !== ws && client.lockedBlockId) {
-            send(ws, {
-              type: 'block_locked',
-              documentId: doc.id,
+            locks.push({
               blockId: client.lockedBlockId,
               clientId: client.clientId,
               userId: client.userId,
@@ -367,7 +586,211 @@ const attachDocumentSocket = (
           }
         }
       }
+
+      send(ws, {
+        type: 'init',
+        permission,
+        unchanged,
+        contentHash,
+        title: doc.title,
+        document: unchanged
+          ? { id: doc.id, title: doc.title }
+          : { id: doc.id, title: doc.title, content: doc.content },
+        locks,
+      });
+      for (const lock of locks) {
+        send(ws, {
+          type: 'block_locked',
+          documentId: doc.id,
+          blockId: lock.blockId,
+          clientId: lock.clientId,
+          userId: lock.userId,
+        });
+      }
       return;
+    }
+
+    if (msg.type === 'sync') {
+      const requestId =
+        typeof msg.requestId === 'string' && msg.requestId.length <= MAX_CLIENT_ID_LENGTH
+          ? msg.requestId
+          : undefined;
+      if (!ws.documentId) {
+        return send(ws, {
+          type: 'sync_error',
+          documentId: ws.documentId,
+          requestId,
+          error: 'Join a document first',
+        });
+      }
+      if (!atLeast(ws.permission, 'editor')) {
+        return send(ws, {
+          type: 'sync_error',
+          documentId: ws.documentId,
+          requestId,
+          error: 'Read-only access',
+        });
+      }
+      if (!Array.isArray(msg.ops) || msg.ops.length === 0) {
+        return send(ws, {
+          type: 'sync_error',
+          documentId: ws.documentId,
+          requestId,
+          error: 'sync requires at least one operation',
+        });
+      }
+      if (msg.ops.length > MAX_SYNC_OPS) {
+        return send(ws, {
+          type: 'sync_error',
+          documentId: ws.documentId,
+          requestId,
+          error: `sync accepts at most ${MAX_SYNC_OPS} operations`,
+        });
+      }
+      if (Buffer.byteLength(JSON.stringify(msg.ops)) > MAX_SYNC_OP_TEXT_BYTES) {
+        return send(ws, {
+          type: 'sync_error',
+          documentId: ws.documentId,
+          requestId,
+          error: 'sync payload is too large',
+        });
+      }
+      const targetIds = new Set();
+      for (const op of msg.ops) {
+        if (!op || typeof op !== 'object') continue;
+        if (op.kind === 'set' || op.kind === 'delete') {
+          if (typeof op.blockId === 'string') targetIds.add(op.blockId);
+        }
+        if (op.kind === 'create' && typeof op.afterBlockId === 'string') {
+          targetIds.add(op.afterBlockId);
+        }
+      }
+      const findLockedTarget = () => {
+        for (const blockId of targetIds) {
+          if (lockHolder(ws.documentId, blockId, ws)) {
+            return { blockId, reason: 'locked' };
+          }
+        }
+        return null;
+      };
+
+      const lockedTarget = findLockedTarget();
+      if (lockedTarget) return sendSyncConflict(ws, requestId, lockedTarget);
+
+      return withDocumentWriteLock(ws.documentId, async () => {
+        if (!atLeast(ws.permission, 'editor')) {
+          return send(ws, {
+            type: 'sync_error',
+            documentId: ws.documentId,
+            requestId,
+            error: 'Read-only access',
+          });
+        }
+        const lockedNow = findLockedTarget();
+        if (lockedNow) return sendSyncConflict(ws, requestId, lockedNow);
+
+        const doc = await resolveModel().findByPk(ws.documentId);
+        if (!doc) {
+          return send(ws, {
+            type: 'sync_error',
+            documentId: ws.documentId,
+            requestId,
+            error: 'Document not found',
+          });
+        }
+
+        const blocks = parseDocBlocks(doc.content);
+        const result = applySyncOperations(blocks, doc.title, msg.ops);
+        if (!result.ok) {
+          if (result.type === 'invalid') {
+            return send(ws, {
+              type: 'sync_error',
+              documentId: ws.documentId,
+              requestId,
+              error: result.error,
+            });
+          }
+          return sendSyncConflict(ws, requestId, result.conflict);
+        }
+
+        if (result.applied.length === 0) {
+          return send(ws, {
+            type: 'sync_ok',
+            documentId: ws.documentId,
+            requestId,
+            contentHash: hashBlocks(blocks),
+            applied: 0,
+          });
+        }
+
+        doc.content = JSON.stringify(result.blocks);
+        doc.title = result.title;
+        await doc.save();
+
+        const contentHash = hashBlocks(result.blocks);
+        for (const item of result.applied) {
+          if (item.kind === 'delete' && ws.lockedBlockId === item.blockId) {
+            clearServerLockTimer(ws);
+            ws.lockedBlockId = null;
+          }
+          if (item.kind === 'set') {
+            broadcast(
+              ws.documentId,
+              {
+                type: 'block_updated',
+                documentId: ws.documentId,
+                blockId: item.blockId,
+                text: item.text,
+                decorator: item.decorator,
+                userId: ws.userId,
+              },
+              ws,
+            );
+          } else if (item.kind === 'create') {
+            broadcast(
+              ws.documentId,
+              {
+                type: 'block_created',
+                documentId: ws.documentId,
+                block: item.block,
+                afterBlockId: item.afterBlockId,
+                userId: ws.userId,
+              },
+              ws,
+            );
+          } else if (item.kind === 'delete') {
+            broadcast(
+              ws.documentId,
+              {
+                type: 'block_deleted',
+                documentId: ws.documentId,
+                blockId: item.blockId,
+                userId: ws.userId,
+              },
+              ws,
+            );
+          } else if (item.kind === 'title') {
+            broadcast(
+              ws.documentId,
+              {
+                type: 'title_updated',
+                documentId: ws.documentId,
+                title: item.title,
+                userId: ws.userId,
+              },
+              ws,
+            );
+          }
+        }
+
+        return send(ws, {
+          type: 'sync_ok',
+          documentId: ws.documentId,
+          requestId,
+          contentHash,
+          applied: result.applied.length,
+        });
+      });
     }
 
     if (msg.type === 'update') {
@@ -419,6 +842,7 @@ const attachDocumentSocket = (
             type: 'update',
             documentId: ws.documentId,
             content: sanitizedContent,
+            contentHash: hashBlocks(parseDocBlocks(sanitizedContent)),
             userId: ws.userId,
           },
           ws,
@@ -736,6 +1160,10 @@ const attachDocumentSocket = (
       });
     }
 
+    if (msg.type === 'ping') {
+      return send(ws, { type: 'pong', timestamp: msg.timestamp });
+    }
+
     return sendError(ws, 'Unknown message type');
   };
 
@@ -748,7 +1176,7 @@ const attachDocumentSocket = (
 
     ws.on('message', (raw) => {
       const byteLength = Buffer.isBuffer(raw) ? raw.length : Buffer.byteLength(raw);
-      if (byteLength > MAX_RAW_MESSAGE_BYTES) {
+      if (byteLength > MAX_SOCKET_MESSAGE_BYTES) {
         return sendError(ws, 'Payload too large');
       }
 

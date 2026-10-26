@@ -5,11 +5,13 @@ import { useI18n } from 'vue-i18n'
 import Editor from '@/app/components/Editor.vue'
 import Button from '@/app/components/Button.vue'
 import Icon from '@/app/components/Icon.vue'
-import { WebSocketEditorDataProvider } from '@/app/editor/dataProvider'
-import { createBlock, type EditorDataProvider } from '@/app/editor/types'
+import { SyncConflictError, WebSocketEditorDataProvider } from '@/app/editor/dataProvider'
+import { createBlock, type EditorDataProvider, type SyncOperation } from '@/app/editor/types'
 import { useAuthStore } from '@/stores/auth'
+import { useEditorStore } from '@/stores/editor'
 import { createDocument, getDocument, updateDocumentTitle } from '@/app/editor/document.api'
 import { insertPlainText } from '@/app/editor/plainTextPaste'
+import { clearDraft, loadDraft, saveDraft } from '@/app/editor/draftStorage'
 import { DOCUMENT_TITLE_MAX_LENGTH } from '@/utils/validation'
 import { truncateTitle } from '@/utils/title'
 import { logger } from '@/utils/logger'
@@ -19,23 +21,27 @@ import Toast from '@/app/components/Toast.vue'
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const store = useEditorStore()
 const { t } = useI18n()
 
 const provider = ref<EditorDataProvider | null>(null)
-const documentTitle = ref<string>('Untitled Document')
+const documentTitle = computed({
+  get: () => store.title || 'Untitled Document',
+  set: (value: string) => store.setTitle(value),
+})
 
 const displayTitle = computed(() => truncateTitle(documentTitle.value))
 const titleEl = ref<HTMLElement | null>(null)
 const documentId = ref<string | null>(null)
 const userPermission = ref<'owner' | 'editor' | 'viewer'>('viewer')
 const isTitleEditable = computed(
-  () => userPermission.value === 'owner' || userPermission.value === 'editor',
+  () => !store.isSyncing && (userPermission.value === 'owner' || userPermission.value === 'editor'),
 )
 const isDocumentEditable = computed(() => userPermission.value !== 'viewer')
 const showShareModal = ref(false)
 const showPermissionToast = ref(false)
 const permissionToastMessage = ref('')
-const connectionStatus = ref<'connecting' | 'connected' | 'disconnected'>('connecting')
+const connectionStatus = computed(() => store.connectionState)
 const errorMessage = ref<string | null>(null)
 const ERROR_BANNER_TIMEOUT_MS = 3000
 let errorBannerTimer: ReturnType<typeof setTimeout> | null = null
@@ -59,6 +65,10 @@ function showErrorBanner(message: string) {
   }, ERROR_BANNER_TIMEOUT_MS)
 }
 
+function onEditorError(message: string) {
+  showErrorBanner(message)
+}
+
 const titleError = ref('')
 const isLoading = ref<boolean>(true)
 const editorElement = ref<typeof Editor | null>(null)
@@ -68,15 +78,74 @@ const statusClass = computed(
     ({
       connected: 'bg-success/15 text-success',
       connecting: 'bg-warning/15 text-warning',
-      disconnected: 'bg-danger/15 text-danger',
+      syncing: 'bg-warning/15 text-warning',
+      reconnecting: 'bg-warning/15 text-warning',
+      offline: 'bg-danger/15 text-danger',
     })[connectionStatus.value],
 )
 
+const connectionLabel = computed(() => {
+  if (store.isSyncing) return t('editor.statusSyncing')
+  return {
+    connected: t('editor.statusConnected'),
+    connecting: t('editor.statusConnecting'),
+    syncing: t('editor.statusSyncing'),
+    reconnecting: t('editor.statusReconnecting'),
+    offline: t('editor.statusDisconnected'),
+  }[connectionStatus.value]
+})
+
+const isOnline = computed(() => store.connectionState === 'connected')
+let draftTimer: ReturnType<typeof setTimeout> | null = null
+
+function persistDraftNow() {
+  const userId = authStore.userId
+  if (!userId || !store.documentId) return
+  const draft = store.createDraft(userId)
+  if (draft) saveDraft(draft)
+}
+
+async function persistDraftSettled() {
+  const userId = authStore.userId
+  if (!userId || !store.documentId) return
+  try {
+    const localHash = await store.computeLocalContentHash()
+    if (store.base && localHash === store.base.contentHash && !store.hasConflicts) {
+      clearDraft(userId, store.documentId)
+      return
+    }
+  } catch {
+    // Fall through and persist the draft without the clean-state check.
+  }
+  persistDraftNow()
+}
+
+function scheduleDraftSave() {
+  if (draftTimer) clearTimeout(draftTimer)
+  draftTimer = setTimeout(() => {
+    draftTimer = null
+    void persistDraftSettled()
+  }, 300)
+}
+
+function updateTitleElement(title: string) {
+  if (titleEl.value && document.activeElement !== titleEl.value) {
+    titleEl.value.innerText = truncateTitle(title)
+  }
+}
+
 function openRoom(docId: string, initialTitle?: string) {
-  if (initialTitle) documentTitle.value = initialTitle
+  persistDraftNow()
+  store.startSession(docId, initialTitle || 'Untitled Document')
   documentId.value = docId
-  connectionStatus.value = 'connecting'
   clearErrorBanner()
+
+  const userId = authStore.userId
+  const draft = userId ? loadDraft(userId, docId) : null
+  if (draft) {
+    store.restoreDraft(draft)
+    updateTitleElement(draft.title)
+  }
 
   if (provider.value) {
     provider.value.destroy?.()
@@ -85,26 +154,21 @@ function openRoom(docId: string, initialTitle?: string) {
 
   const wsProvider = new WebSocketEditorDataProvider({
     documentId: docId,
-    onOpen: () => {
-      connectionStatus.value = 'connected'
-    },
-    onClose: () => {
-      if (connectionStatus.value === 'connected') {
-        connectionStatus.value = 'disconnected'
+    getHashes: async () => ({
+      baseHash: store.base?.contentHash,
+      localHash: await store.computeLocalContentHash(),
+    }),
+    onConnectionState: (state) => store.setConnectionState(state),
+    onFatal: (reason) => {
+      persistDraftNow()
+      if (reason === 'session-expired') {
+        authStore.invalidate()
+        void router.push('/login')
+      } else {
+        void router.push('/')
       }
     },
   })
-
-  wsProvider.onInit = (e) => {
-    if (e.title) {
-      documentTitle.value = e.title
-      if (titleEl.value && document.activeElement !== titleEl.value) {
-        titleEl.value.innerText = truncateTitle(e.title)
-      }
-    }
-    if (e.permission) userPermission.value = e.permission
-    connectionStatus.value = 'connected'
-  }
 
   wsProvider.onPermission = (permission) => {
     userPermission.value = permission
@@ -116,22 +180,75 @@ function openRoom(docId: string, initialTitle?: string) {
   }
 
   wsProvider.onTitleUpdated = (e) => {
-    if (e.title) {
-      documentTitle.value = e.title
-      if (titleEl.value && document.activeElement !== titleEl.value) {
-        titleEl.value.innerText = truncateTitle(e.title)
-      }
-    }
+    if (e.title) store.applyRemoteTitle(e.title)
   }
 
   wsProvider.onError = (e) => {
     showErrorBanner(e.error)
-    if (e.error === 'Document not found' || e.error === 'Access to document was revoked') {
-      router.push('/')
-    }
   }
 
   provider.value = wsProvider
+}
+
+async function resolveTitleConflict(choice: 'local' | 'remote') {
+  const conflict = store.titleConflict
+  if (!conflict) return
+  store.setSyncError(null)
+
+  if (choice === 'remote') {
+    store.setTitle(conflict.remote)
+    store.setTitleConflict(null)
+    if (store.base) store.setBase({ ...store.base, title: conflict.remote })
+    updateTitleElement(conflict.remote)
+    store.requestSync()
+    return
+  }
+
+  if (!isOnline.value) {
+    showErrorBanner(t('editor.conflict.syncUnavailable'))
+    return
+  }
+  const wsProvider = provider.value
+  if (!wsProvider?.sendSync) {
+    showErrorBanner(t('editor.conflict.syncUnavailable'))
+    return
+  }
+  const operation: SyncOperation = {
+    kind: 'title',
+    title: conflict.local,
+    expectedTitle: conflict.remote,
+  }
+  store.setSyncing(true)
+  try {
+    const result = await wsProvider.sendSync([operation])
+    store.setTitle(conflict.local)
+    store.setTitleConflict(null)
+    updateTitleElement(conflict.local)
+    await store.recordBaseOperation(operation, null, result.contentHash, conflict.local)
+    store.requestSync()
+  } catch (err) {
+    if (err instanceof SyncConflictError) {
+      const remote = err.conflicts.find(
+        (item) => item.kind === 'title' || item.remoteTitle !== undefined,
+      )?.remoteTitle
+      if (remote) {
+        store.setTitleConflict({ local: conflict.local, remote })
+      }
+      showErrorBanner(t('editor.conflict.titleConflictChanged'))
+      return
+    }
+    showErrorBanner(t('editor.conflict.syncFailed'))
+  } finally {
+    store.setSyncing(false)
+  }
+}
+
+function onPermissionSnapshot(permission: 'owner' | 'editor' | 'viewer') {
+  userPermission.value = permission
+  if (permission === 'viewer' && titleEl.value) {
+    titleEl.value.blur()
+    titleEl.value.innerText = truncateTitle(documentTitle.value)
+  }
 }
 
 function onReadonlyEnter(hadPendingEdits: boolean) {
@@ -157,10 +274,13 @@ async function onTitleBlur() {
   titleEl.value.innerText = truncateTitle(newTitle)
   if (newTitle !== documentTitle.value) {
     documentTitle.value = newTitle
-    if (provider.value?.sendTitleUpdate) {
+    if (store.titleConflict) {
+      store.setTitleConflict({ ...store.titleConflict, local: newTitle })
+    }
+    if (isOnline.value && !store.titleConflict && provider.value?.sendTitleUpdate) {
       await provider.value.sendTitleUpdate(newTitle)
     }
-    if (documentId.value) {
+    if (isOnline.value && !store.titleConflict && documentId.value) {
       try {
         await updateDocumentTitle(documentId.value, newTitle)
       } catch (err) {
@@ -274,7 +394,8 @@ function handleCreateNew() {
 }
 
 onMounted(() => {
-  loadEditor()
+  window.addEventListener('pagehide', persistDraftNow)
+  void loadEditor()
 })
 
 watch(
@@ -286,11 +407,44 @@ watch(
   },
 )
 
+watch(
+  () => store.title,
+  (nextTitle) => {
+    if (nextTitle) updateTitleElement(nextTitle)
+  },
+)
+
+watch(
+  () => store.connectionState,
+  (state) => {
+    if (state === 'reconnecting' || state === 'offline') store.clearLocks()
+  },
+)
+
+watch(
+  [
+    () => store.blocks,
+    () => store.title,
+    () => store.activeLanguage,
+    () => store.conflicts,
+    () => store.titleConflict,
+    () => store.base,
+  ],
+  scheduleDraftSave,
+  { deep: true },
+)
+
 onBeforeUnmount(() => {
   if (errorBannerTimer !== null) {
     clearTimeout(errorBannerTimer)
     errorBannerTimer = null
   }
+  if (draftTimer) {
+    clearTimeout(draftTimer)
+    draftTimer = null
+  }
+  persistDraftNow()
+  window.removeEventListener('pagehide', persistDraftNow)
   provider.value?.destroy?.()
   provider.value = null
 })
@@ -322,18 +476,51 @@ onBeforeUnmount(() => {
           {{ displayTitle }}
         </h1>
         <span v-if="titleError" class="text-sm text-alert">{{ titleError }}</span>
+        <div
+          v-if="store.titleConflict"
+          class="mt-1 rounded-lg border-2 border-danger bg-danger/[0.12] p-2"
+        >
+          <div class="grid gap-2 md:grid-cols-2">
+            <div class="rounded border border-danger/40 bg-surface/80 p-2">
+              <span class="block text-[0.7rem] font-semibold text-ink-secondary">
+                {{ $t('editor.conflict.localLabel') }}
+              </span>
+              <strong class="text-sm text-ink">{{ store.titleConflict.local }}</strong>
+            </div>
+            <div class="rounded border border-line-subtle bg-subtle/80 p-2">
+              <span class="block text-[0.7rem] font-semibold text-ink-secondary">
+                {{ $t('editor.conflict.remoteLabel') }}
+              </span>
+              <strong class="text-sm text-ink">{{ store.titleConflict.remote }}</strong>
+            </div>
+          </div>
+          <div class="mt-2 flex flex-wrap justify-end gap-2">
+            <Button
+              variant="outlined"
+              size="small"
+              :disabled="!isTitleEditable"
+              @click="resolveTitleConflict('local')"
+            >
+              {{ $t('editor.conflict.keepLocal') }}
+            </Button>
+            <Button
+              variant="flat"
+              size="small"
+              color="danger"
+              :disabled="!isTitleEditable"
+              @click="resolveTitleConflict('remote')"
+            >
+              {{ $t('editor.conflict.useRemote') }}
+            </Button>
+          </div>
+        </div>
         <div class="flex items-center gap-2">
           <span
-            class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold"
+            class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold"
             :class="statusClass"
           >
-            {{
-              connectionStatus === 'connected'
-                ? '🟢'
-                : connectionStatus === 'connecting'
-                  ? '🟡'
-                  : '🔴'
-            }}
+            <span class="h-2 w-2 rounded-full bg-current" />
+            {{ connectionLabel }}
           </span>
           <span
             v-if="userPermission"
@@ -372,6 +559,25 @@ onBeforeUnmount(() => {
     >
       {{ errorMessage }}
     </div>
+    <div
+      v-if="store.hasConflicts"
+      class="shrink-0 rounded-lg border border-danger bg-danger/12 px-3.5 py-2.5 text-sm text-danger"
+    >
+      {{
+        $t('editor.conflict.pending', {
+          count: store.conflictCount + (store.titleConflict ? 1 : 0),
+        })
+      }}
+    </div>
+    <div
+      v-if="store.syncError"
+      class="flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-lg border border-warning bg-warning/12 px-3.5 py-2.5 text-sm text-warning"
+    >
+      <span>{{ store.syncError }}</span>
+      <Button variant="outlined" size="small" :disabled="!isOnline" @click="store.requestSync()">
+        {{ $t('editor.conflict.retrySync') }}
+      </Button>
+    </div>
     <div v-if="isLoading" class="px-4 py-12 text-center text-muted italic">
       {{ $t('editor.initializing') }}
     </div>
@@ -383,8 +589,9 @@ onBeforeUnmount(() => {
       nav-position="top"
       :filename="documentTitle"
       :editable="isDocumentEditable"
-      @error="showErrorBanner"
+      @error="onEditorError"
       @readonly-enter="onReadonlyEnter"
+      @permission-snapshot="onPermissionSnapshot"
       ref="editorElement"
     />
 

@@ -1,5 +1,12 @@
+<!-- eslint-disable vue/multi-word-component-names -->
 <template>
-  <div class="editor w-full [margin:0_auto]" :class="layoutClass">
+  <div
+    class="editor w-full [margin:0_auto]"
+    :class="layoutClass"
+    @keydown.capture="blockInputDuringSync"
+    @beforeinput.capture="blockInputDuringSync"
+    @paste.capture="blockInputDuringSync"
+  >
     <EditorNav
       v-if="props.editable && navPosition !== 'bottom'"
       :active-block-id="store.activeBlockId"
@@ -37,22 +44,25 @@
           <div
             class="pdf-content box-border w-full bg-transparent px-6 py-3.5 [word-spacing:0.4em]"
           >
-            <EditorBlock
+            <EditorBlockEntry
               v-for="block in store.blocks"
               :key="block.id"
-              data-pdf-split="avoid"
               :block="block"
+              :conflict="store.getConflict(block.id)"
+              :editable="props.editable"
               :active="block.id === store.activeBlockId && !store.isLockedByOther(block)"
               :locked="store.isLockedByOther(block)"
               :elaborating="block.id === store.elaboratingBlockId"
               :translating="store.isTranslating"
               :export-mode="isExporting"
-              :editable="props.editable"
               @focus="onFocus(block)"
               @blur="onBlur(block)"
               @update:text="onUpdateText(block, $event)"
               @insert-blocks="onInsertBlocks(block, $event)"
               @update:decorator="onUpdateDecorator(block, parseDecorator($event))"
+              @update-local="onConflictLocalInput(block.id, $event)"
+              @resolve-local="onResolveConflict(block.id, 'local')"
+              @resolve-remote="onResolveConflict(block.id, 'remote')"
             />
           </div>
         </template>
@@ -85,9 +95,12 @@
 import { computed, onBeforeUnmount, ref, onMounted, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { onBeforeRouteLeave } from 'vue-router'
-import EditorBlock from '@/app/components/EditorBlock.vue'
+import EditorBlockEntry from '@/app/components/EditorBlockEntry.vue'
 import EditorNav from '@/app/components/EditorNav.vue'
 import { useEditorStore } from '@/stores/editor'
+import { SyncConflictError } from '@/app/editor/dataProvider'
+import { buildLocalOnlyOps, mergeDocuments } from '@/app/editor/merge'
+import { fingerprintBlock } from '@/app/editor/contentHash'
 import {
   translateBlocks,
   backTranslateBlock,
@@ -108,7 +121,11 @@ import {
   type Block,
   type BlockDecorator,
   type BlockType,
+  type DocumentPermission,
   type EditorDataProvider,
+  type EditorInitEvent,
+  type SyncOperation,
+  type SyncResult,
 } from '@/app/editor/types'
 import { Html2Pdf, type Html2PdfOptions, type PdfStylingOptions } from 'vue-pdf-export'
 import 'vue-pdf-export/style.css'
@@ -385,6 +402,7 @@ const layoutClass = computed(() =>
 const emit = defineEmits<{
   error: [error: string]
   'readonly-enter': [hadPendingEdits: boolean]
+  'permission-snapshot': [permission: DocumentPermission]
 }>()
 
 const store = useEditorStore()
@@ -444,9 +462,7 @@ async function translateBlocksInChunks(
       }
 
       if (!translated) {
-        throw lastError instanceof Error
-          ? lastError
-          : new Error(t('editor.translationFailed'))
+        throw lastError instanceof Error ? lastError : new Error(t('editor.translationFailed'))
       }
       if (signal.aborted || requestId !== translationRequestId) return null
 
@@ -477,6 +493,7 @@ async function translateBlocksInChunks(
 
 async function translateDocumentTo(targetLang: string) {
   if (!isSupportedLanguage(targetLang)) return
+  if (store.isSyncing) return
   if (targetLang === store.activeLanguage) return
 
   const requestId = ++translationRequestId
@@ -535,11 +552,38 @@ async function translateDocumentTo(targetLang: string) {
 
 const isDeleteDisabled = computed(() => {
   if (!props.editable || !store.activeBlock) return true
-  return store.isLockedByOther(store.activeBlock) || store.isElaborating || store.isTranslating
+  return (
+    store.isLockedByOther(store.activeBlock) ||
+    store.isElaborating ||
+    store.isTranslating ||
+    store.isSyncing ||
+    Boolean(store.getConflict(store.activeBlock.id))
+  )
 })
 
 const isElaborating = computed(() => store.isElaborating)
 const filename = computed(() => props.filename)
+const isOnline = computed(() => store.connectionState === 'connected')
+
+function blockInputDuringSync(event: Event) {
+  if (!store.isSyncing) return
+  event.preventDefault()
+  event.stopPropagation()
+}
+
+async function acquireBlockLock(blockId: string): Promise<boolean> {
+  const block = store.blocks.find((item) => item.id === blockId)
+  if (block?.lockedBy === store.clientId) return true
+  if (!isOnline.value) {
+    store.lock(blockId)
+    return true
+  }
+  const success = await props.provider.sendBlockLock?.(blockId)
+  if (success === false) return false
+  if (!props.editable) return false
+  store.lock(blockId)
+  return true
+}
 
 const EDIT_DEBOUNCE_MS = 2000
 const LOCK_TIMEOUT_MS = 5000
@@ -554,10 +598,22 @@ let pendingEditBlockId: string | null = null
 let pendingEditText: string | null = null
 let pendingEditDecorator: string | null = null
 let flushPromise: Promise<boolean> | null = null
+let syncEpoch = 0
+const pendingRemoteEvents: Array<() => void> = []
+
+function flushPendingRemoteEvents() {
+  while (pendingRemoteEvents.length > 0) {
+    const apply = pendingRemoteEvents.shift()
+    apply?.()
+  }
+}
 
 function hasPendingData(): boolean {
   return Boolean(
-    flushPromise || editDebounceTimer || (pendingEditBlockId !== null && pendingEditText !== null),
+    flushPromise ||
+    editDebounceTimer ||
+    (pendingEditBlockId !== null && pendingEditText !== null) ||
+    store.hasConflicts,
   )
 }
 
@@ -571,7 +627,7 @@ function discardPendingEdit() {
 function startFlushLockHeartbeat(blockId: string) {
   stopFlushLockHeartbeat()
   const refreshLock = () => {
-    if (!props.editable) return
+    if (!props.editable || !isOnline.value) return
     void props.provider.sendBlockLock?.(blockId)
   }
   refreshLock()
@@ -611,6 +667,16 @@ async function doFlushPendingEdit(): Promise<boolean> {
       editDebounceTimer = null
     }
     return false
+  }
+  if (!isOnline.value || store.isSyncing) {
+    // The store already holds the latest text; reconnect sync derives the
+    // operations from the local snapshot.
+    if (editDebounceTimer) {
+      clearTimeout(editDebounceTimer)
+      editDebounceTimer = null
+    }
+    discardPendingEdit()
+    return true
   }
 
   while (pendingEditBlockId && pendingEditText !== null) {
@@ -664,10 +730,9 @@ async function doFlushPendingEdit(): Promise<boolean> {
 
       const currentBlock = store.blocks.find((b) => b.id === blockId)
       if (lockMayHaveExpired || (currentBlock && currentBlock.lockedBy !== store.clientId)) {
-        const lockSuccess = await props.provider.sendBlockLock?.(blockId)
-        if (lockSuccess === false) return false
+        const lockSuccess = await acquireBlockLock(blockId)
+        if (!lockSuccess) return false
         if (!props.editable) return false
-        store.lock(blockId)
       }
 
       const sent = await props.provider.sendEdit({
@@ -694,7 +759,7 @@ async function doFlushPendingEdit(): Promise<boolean> {
 }
 
 function handleBeforeUnload(event: BeforeUnloadEvent) {
-  if (hasPendingData()) {
+  if (isOnline.value && hasPendingData()) {
     flushPendingEdit()
     event.preventDefault()
     event.returnValue = ''
@@ -776,18 +841,13 @@ function enterReadOnlyMode() {
   emit('readonly-enter', hadPendingEdits)
 }
 
-function wireProvider(provider: EditorDataProvider) {
-  if ('clientId' in provider && typeof (provider as { clientId?: unknown }).clientId === 'string') {
-    store.setClientId((provider as { clientId: string }).clientId)
-  }
-
-  provider.onInit = (e) => {
+function startDocumentTranslation(blocks: Block[], epoch = syncEpoch) {
+  void nextTick(() => {
+    if (epoch !== syncEpoch) return
     translationAbortController?.abort()
     translationAbortController = null
     const requestId = ++translationRequestId
 
-    store.initCanonicalBlocks(e.blocks)
-    store.setBlocks(e.blocks)
     if (isSupportedLanguage(locale.value)) {
       store.setLanguage(locale.value)
     }
@@ -796,7 +856,7 @@ function wireProvider(provider: EditorDataProvider) {
     const payload =
       requestedLang === 'en'
         ? []
-        : e.blocks
+        : blocks
             .filter((b) => !isCodeOrCitation(b.decorator))
             .map((b) => ({ id: b.id, text: b.text }))
 
@@ -830,67 +890,585 @@ function wireProvider(provider: EditorDataProvider) {
           translationAbortController = null
         }
       })
+  })
+}
+
+async function backTranslateDirtyBlocks(): Promise<void> {
+  if (store.activeLanguage === 'en') return
+  for (const blockId of [...store.dirtyBlockIds]) {
+    const block = store.blocks.find((item) => item.id === blockId)
+    if (!block) {
+      store.clearBlockDirty(blockId)
+      continue
+    }
+    if (isCodeOrCitation(block.decorator)) {
+      store.setCanonicalText(blockId, block.text)
+      store.clearBlockDirty(blockId)
+      continue
+    }
+    const canonical = await backTranslateBlock(
+      block.text,
+      store.activeLanguage,
+      'en',
+      getSurroundingContext(blockId),
+    )
+    store.setCanonicalText(blockId, canonical)
+    store.clearBlockDirty(blockId)
+  }
+}
+
+function mergeTitleSnapshot(remoteTitle: string): Extract<SyncOperation, { kind: 'title' }> | null {
+  const localTitle = store.title
+  const baseTitle = store.base?.title ?? localTitle
+  const localChanged = localTitle !== baseTitle
+  const remoteChanged = remoteTitle !== baseTitle
+
+  if (localChanged && remoteChanged && localTitle !== remoteTitle) {
+    store.setTitleConflict({ local: localTitle, remote: remoteTitle })
+    return null
+  }
+
+  if (localChanged && !remoteChanged) {
+    store.setTitle(localTitle)
+    store.setTitleConflict(null)
+    return { kind: 'title', title: localTitle, expectedTitle: remoteTitle }
+  }
+
+  store.setTitle(remoteTitle)
+  store.setTitleConflict(null)
+  return null
+}
+
+async function applyRemoteSnapshot(
+  e: EditorInitEvent,
+  remoteBlocks: Block[],
+  remoteTitle: string,
+  allowSync = true,
+  epoch = syncEpoch,
+) {
+  if (epoch !== syncEpoch) return
+  clearLockTimers()
+  discardPendingEdit()
+  store.setConflicts({})
+  store.setTitleConflict(null)
+  store.initCanonicalBlocks(remoteBlocks)
+  store.setBlocks(remoteBlocks.map((block) => ({ ...block, lockedBy: null })))
+  const titleOp = allowSync ? mergeTitleSnapshot(remoteTitle) : null
+  const remoteHash = e.contentHash ?? ''
+  if (!allowSync) store.setTitle(remoteTitle)
+
+  if (titleOp) {
+    const result = await sendSyncOperations([titleOp])
+    if (epoch !== syncEpoch) return
+    if (result) {
+      await store.setBaseFromBlocks(remoteBlocks, titleOp.title, result.contentHash)
+    } else {
+      await store.setBaseFromBlocks(remoteBlocks, remoteTitle, remoteHash)
+      store.setTitleConflict({ local: store.title, remote: remoteTitle })
+    }
+  } else {
+    await store.setBaseFromBlocks(remoteBlocks, remoteTitle, remoteHash)
+  }
+
+  startDocumentTranslation(remoteBlocks, epoch)
+}
+
+async function recordBaseOperations(ops: SyncOperation[], contentHash: string, title: string) {
+  if (ops.length === 0) {
+    const current = store.base
+    if (current) store.setBase({ ...current, contentHash, title: current.title })
+    return
+  }
+  for (const op of ops) {
+    const block =
+      op.kind === 'create'
+        ? op.block
+        : op.kind === 'title'
+          ? null
+          : (store.blocks.find((item) => item.id === op.blockId) ?? null)
+    await store.recordBaseOperation(op, block, contentHash, title)
+  }
+}
+
+async function updateConflictsFromSync(
+  conflicts: NonNullable<SyncConflictError['conflicts']>,
+): Promise<void> {
+  for (const conflict of conflicts) {
+    if (conflict.reason === 'locked') {
+      continue
+    }
+    if (conflict.kind === 'title' || conflict.remoteTitle !== undefined) {
+      const remoteTitle = conflict.remoteTitle ?? ''
+      if (remoteTitle === store.title) {
+        store.setTitleConflict(null)
+        if (store.base) store.setBase({ ...store.base, title: remoteTitle })
+      } else {
+        store.setTitleConflict({ local: store.title, remote: remoteTitle })
+      }
+      continue
+    }
+    if (!conflict.blockId) continue
+    const remoteBlock = conflict.block ?? null
+    let remoteFingerprint = conflict.fingerprint ?? null
+    if (remoteBlock && !remoteFingerprint) {
+      remoteFingerprint = await fingerprintBlock(remoteBlock)
+    }
+    const existing = store.getConflict(conflict.blockId)
+    const local = store.blocks.find((block) => block.id === conflict.blockId) ?? null
+
+    if (existing?.kind === 'local-deleted') {
+      if (!remoteBlock) {
+        store.removeBlock(conflict.blockId)
+        store.removeConflict(conflict.blockId)
+        store.removeBaseBlockFingerprint(conflict.blockId)
+      } else {
+        store.updateConflictRemote(conflict.blockId, remoteBlock, remoteFingerprint)
+      }
+      continue
+    }
+
+    if (!remoteBlock && !local) {
+      store.removeConflict(conflict.blockId)
+      store.removeBaseBlockFingerprint(conflict.blockId)
+      continue
+    }
+
+    if (remoteBlock && local) {
+      const comparableLocal =
+        store.activeLanguage === 'en' ? local : { ...local, text: store.getCanonicalText(local.id) }
+      const localFingerprint = await fingerprintBlock(comparableLocal)
+      if (remoteFingerprint && localFingerprint === remoteFingerprint) {
+        store.removeConflict(conflict.blockId)
+        await store.setBaseBlockFingerprint(conflict.blockId, remoteBlock)
+        continue
+      }
+    }
+
+    if (existing) {
+      store.updateConflictRemote(
+        conflict.blockId,
+        remoteBlock ? { text: remoteBlock.text, decorator: remoteBlock.decorator } : null,
+        remoteFingerprint,
+      )
+      continue
+    }
+
+    store.setConflict({
+      blockId: conflict.blockId,
+      kind: !remoteBlock ? 'remote-deleted' : !local ? 'local-deleted' : 'diff',
+      local: local
+        ? {
+            text: store.activeLanguage === 'en' ? local.text : store.getCanonicalText(local.id),
+            decorator: local.decorator,
+          }
+        : null,
+      remote: remoteBlock ? { text: remoteBlock.text, decorator: remoteBlock.decorator } : null,
+      remoteFingerprint,
+    })
+  }
+}
+
+async function sendSyncOperations(ops: SyncOperation[]): Promise<SyncResult | null> {
+  if (ops.length === 0) return null
+  if (!props.provider.sendSync) {
+    store.setSyncError(t('editor.conflict.syncUnavailable'))
+    return null
+  }
+  let attemptOps = ops
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const result = await props.provider.sendSync(attemptOps)
+      store.setSyncError(null)
+      return result
+    } catch (err) {
+      if (err instanceof SyncConflictError) {
+        await updateConflictsFromSync(err.conflicts)
+        const onlyLocked = err.conflicts.every((conflict) => conflict.reason === 'locked')
+        if (onlyLocked && attempt < 2) {
+          await delay(700 * (attempt + 1))
+          continue
+        }
+        const unresolved = err.conflicts.some((conflict) => {
+          if (conflict.kind === 'title' || conflict.remoteTitle !== undefined) {
+            return Boolean(store.titleConflict)
+          }
+          return conflict.blockId ? Boolean(store.getConflict(conflict.blockId)) : false
+        })
+        if (!unresolved && attempt < 2) {
+          attemptOps = attemptOps.map((op) => {
+            if (op.kind === 'set' || op.kind === 'delete') {
+              const current = err.conflicts.find(
+                (conflict) => conflict.blockId === op.blockId && conflict.fingerprint,
+              )
+              if (current?.fingerprint) return { ...op, expected: current.fingerprint }
+            }
+            if (op.kind === 'title') {
+              const current = err.conflicts.find(
+                (conflict) => conflict.kind === 'title' || conflict.remoteTitle !== undefined,
+              )
+              if (current?.remoteTitle !== undefined) {
+                return { ...op, expectedTitle: current.remoteTitle }
+              }
+            }
+            return op
+          })
+          continue
+        }
+        store.setSyncError(t('editor.conflict.syncConflict'))
+        return null
+      }
+      store.setSyncError(t('editor.conflict.syncFailed'))
+      return null
+    }
+  }
+  return null
+}
+
+async function syncPendingLocalChanges(): Promise<void> {
+  if (!store.base || !isOnline.value) return
+  const epoch = syncEpoch
+  try {
+    await backTranslateDirtyBlocks()
+  } catch (err) {
+    logger.error('Back-translation failed before retrying pending changes:', err)
+    return
+  }
+  const { ops } = await buildLocalOnlyOps(store.getCanonicalBlocks(), store.title, store.base, {
+    excludedBlockIds: new Set(Object.keys(store.conflicts)),
+    includeTitle: !store.titleConflict,
+  })
+  if (ops.length === 0) {
+    if (!store.hasConflicts) store.setSyncError(null)
+    return
+  }
+  if (epoch !== syncEpoch) return
+  const result = await sendSyncOperations(ops)
+  if (epoch !== syncEpoch) return
+  if (result) await recordBaseOperations(ops, result.contentHash, store.title)
+}
+
+async function handleUnchangedInit(
+  e: EditorInitEvent,
+  permission?: DocumentPermission,
+  epoch = syncEpoch,
+) {
+  if (epoch !== syncEpoch) return
+  clearLockTimers()
+  discardPendingEdit()
+  store.clearLocks()
+  const remoteTitle = e.title ?? store.title
+  const contentHash = e.contentHash ?? ''
+
+  if (!store.base) {
+    store.setTitle(remoteTitle)
+    await store.setBaseFromBlocks(store.getCanonicalBlocks(), remoteTitle, contentHash)
+    return
+  }
+
+  if (permission === 'viewer') {
+    store.setTitle(remoteTitle)
+    store.setTitleConflict(null)
+    const localHash = await store.computeLocalContentHash()
+    if (epoch !== syncEpoch) return
+    if (localHash && localHash === contentHash) {
+      await store.setBaseFromBlocks(store.getCanonicalBlocks(), remoteTitle, contentHash)
+    } else {
+      const current = store.base
+      if (current) store.setBase({ ...current, contentHash, title: remoteTitle })
+    }
+    return
+  }
+
+  const baseTitle = store.base.title
+  const localTitleBefore = store.title
+  const remoteTitleKnown = e.title !== undefined
+  const titleOp = remoteTitleKnown ? mergeTitleSnapshot(remoteTitle) : null
+  const titleNeedsSync =
+    localTitleBefore !== baseTitle &&
+    (!remoteTitleKnown || remoteTitle === baseTitle) &&
+    !store.titleConflict
+
+  try {
+    await backTranslateDirtyBlocks()
+  } catch (err) {
+    logger.error('Back-translation failed during reconnect:', err)
+    store.setSyncError(t('editor.translationFailed'))
+    return
+  }
+  if (epoch !== syncEpoch) return
+
+  const localBlocks = store.getCanonicalBlocks()
+  const localHash = await store.computeLocalContentHash()
+  if (epoch !== syncEpoch) return
+
+  if (localHash === contentHash) {
+    store.setConflicts({})
+    if (store.titleConflict) {
+      const current = store.base
+      if (current) store.setBase({ ...current, contentHash })
+    } else if (titleOp) {
+      const result = await sendSyncOperations([titleOp])
+      if (epoch !== syncEpoch) return
+      if (result) {
+        await store.setBaseFromBlocks(localBlocks, titleOp.title, result.contentHash)
+      } else {
+        await store.setBaseFromBlocks(localBlocks, remoteTitle, contentHash)
+        store.setTitleConflict({ local: store.title, remote: remoteTitle })
+      }
+    } else {
+      await store.setBaseFromBlocks(localBlocks, store.title, contentHash)
+    }
+    return
+  }
+
+  if (store.conflictCount > 0 || store.titleConflict) {
+    store.setSyncError(t('editor.conflict.unresolved'))
+    return
+  }
+
+  const { ops } = await buildLocalOnlyOps(localBlocks, store.title, store.base, {
+    includeTitle: titleNeedsSync,
+  })
+  if (epoch !== syncEpoch) return
+  const result = await sendSyncOperations(ops)
+  if (epoch !== syncEpoch) return
+  if (ops.length > 0 && !result) {
+    if (store.conflictCount > 0 || store.titleConflict) {
+      await syncPendingLocalChanges()
+    }
+    return
+  }
+  if (result) {
+    await recordBaseOperations(ops, result.contentHash, store.title)
+  } else {
+    const current = store.base
+    if (current) store.setBase({ ...current, contentHash })
+  }
+}
+
+async function handleFullInit(
+  e: EditorInitEvent,
+  remoteBlocks: Block[],
+  permission?: DocumentPermission,
+  epoch = syncEpoch,
+) {
+  if (epoch !== syncEpoch) return
+  const remoteTitle = e.title ?? store.title
+  const remoteHash = e.contentHash ?? ''
+  clearLockTimers()
+  discardPendingEdit()
+  store.clearLocks()
+
+  if (!store.base) {
+    await applyRemoteSnapshot(e, remoteBlocks, remoteTitle, permission !== 'viewer', epoch)
+    return
+  }
+
+  if (permission === 'viewer') {
+    await applyRemoteSnapshot(e, remoteBlocks, remoteTitle, false, epoch)
+    return
+  }
+
+  try {
+    await backTranslateDirtyBlocks()
+  } catch (err) {
+    logger.error('Back-translation failed during reconnect:', err)
+    store.setSyncError(t('editor.translationFailed'))
+    return
+  }
+  if (epoch !== syncEpoch) return
+
+  const localBlocks = store.getCanonicalBlocks()
+  const localHash = await store.computeLocalContentHash()
+  if (epoch !== syncEpoch) return
+
+  if (localHash === remoteHash || localHash === store.base.contentHash) {
+    await applyRemoteSnapshot(e, remoteBlocks, remoteTitle, true, epoch)
+    return
+  }
+
+  const merged = await mergeDocuments({
+    base: store.base,
+    localBlocks,
+    localTitle: store.title,
+    remoteBlocks,
+    remoteTitle,
+  })
+  if (epoch !== syncEpoch) return
+
+  store.initCanonicalBlocks(merged.blocks)
+  store.setBlocks(merged.blocks.map((block) => ({ ...block, lockedBy: null })))
+  store.setConflicts(merged.conflicts)
+  store.setTitleConflict(merged.titleConflict)
+  if (!merged.titleConflict) store.setTitle(merged.title)
+
+  if (merged.ops.length === 0) {
+    await store.setBaseFromBlocks(merged.baseBlocks, merged.baseTitle, remoteHash)
+  } else {
+    const result = await sendSyncOperations(merged.ops)
+    if (epoch !== syncEpoch) return
+    if (result) {
+      await store.setBaseFromBlocks(merged.baseBlocks, merged.baseTitle, result.contentHash)
+    } else {
+      await store.setBaseFromBlocks(remoteBlocks, remoteTitle, remoteHash)
+      if (store.conflictCount > 0 || store.titleConflict) {
+        await syncPendingLocalChanges()
+      }
+    }
+  }
+
+  startDocumentTranslation(merged.blocks, epoch)
+}
+
+function wireProvider(provider: EditorDataProvider) {
+  pendingRemoteEvents.length = 0
+  const providerEpoch = ++syncEpoch
+  store.setSyncing(false)
+  if ('clientId' in provider && typeof (provider as { clientId?: unknown }).clientId === 'string') {
+    store.setClientId((provider as { clientId: string }).clientId)
+  }
+
+  provider.onInit = (e) => {
+    if (e.permission) emit('permission-snapshot', e.permission)
+    store.setSyncing(true)
+    store.setSyncError(null)
+    void (async () => {
+      try {
+        if (e.unchanged) {
+          await handleUnchangedInit(e, e.permission, providerEpoch)
+        } else {
+          await handleFullInit(e, e.blocks, e.permission, providerEpoch)
+        }
+      } catch (err) {
+        if (providerEpoch !== syncEpoch) return
+        logger.error('Failed to reconcile document after reconnect:', err)
+        store.setSyncError(err instanceof Error ? err.message : t('editor.conflict.syncFailed'))
+      } finally {
+        if (providerEpoch !== syncEpoch) return
+        for (const lock of e.locks ?? []) {
+          const holder = lock.clientId || lock.userId
+          if (holder && holder !== store.clientId) {
+            store.lock(lock.blockId, holder)
+          }
+        }
+        store.setSyncing(false)
+        flushPendingRemoteEvents()
+      }
+    })()
   }
 
   provider.onCreated = (e) => {
-    store.insertBlock(e.block, e.afterBlockId)
-    if (store.activeLanguage !== 'en' && !isCodeOrCitation(e.block.decorator)) {
-      const requestedLang = store.activeLanguage
-      const requestId = translationRequestId
-      translateBlocks([{ id: e.block.id, text: e.block.text }], 'en', requestedLang)
-        .then((res) => {
-          if (requestId !== translationRequestId || store.activeLanguage !== requestedLang) return
-          if (res.length > 0) {
-            store.applyTranslations(res)
-          }
+    const applyCreated = () => {
+      const conflict = store.getConflict(e.block.id)
+      if (conflict) {
+        void fingerprintBlock(e.block).then((remoteFingerprint) => {
+          store.updateConflictRemote(
+            e.block.id,
+            { text: e.block.text, decorator: e.block.decorator },
+            remoteFingerprint,
+          )
         })
-        .catch((err) => logger.error('Failed to translate newly created block:', err))
+        return
+      }
+      store.insertBlock(e.block, e.afterBlockId)
+      if (store.activeLanguage !== 'en' && !isCodeOrCitation(e.block.decorator)) {
+        const requestedLang = store.activeLanguage
+        const requestId = translationRequestId
+        translateBlocks([{ id: e.block.id, text: e.block.text }], 'en', requestedLang)
+          .then((res) => {
+            if (requestId !== translationRequestId || store.activeLanguage !== requestedLang) return
+            if (res.length > 0) {
+              store.applyTranslations(res)
+            }
+          })
+          .catch((err) => logger.error('Failed to translate newly created block:', err))
+      }
     }
+    if (store.isSyncing) {
+      pendingRemoteEvents.push(applyCreated)
+      return
+    }
+    applyCreated()
   }
 
   provider.onUpdated = (e) => {
-    if (e.text !== undefined) {
-      store.setCanonicalText(e.blockId, e.text)
-      if (store.activeLanguage === 'en') {
-        store.updateBlockText(e.blockId, e.text)
-      } else {
-        const currentBlock = store.blocks.find((b) => b.id === e.blockId)
-        const decorator = e.decorator ?? currentBlock?.decorator ?? ''
-        if (isCodeOrCitation(decorator)) {
-          // Code and citation blocks are never translated, so show the canonical text directly.
-          store.applyRemoteText(e.blockId, e.text)
-        } else if (store.activeBlockId !== e.blockId) {
-          // If local user is not actively editing this block, translate it to activeLanguage
-          const requestedLang = store.activeLanguage
-          const requestId = translationRequestId
-          translateBlocks([{ id: e.blockId, text: e.text }], 'en', requestedLang)
-            .then((res) => {
-              const first = res[0]
-              if (
-                first &&
-                requestId === translationRequestId &&
-                store.activeLanguage === requestedLang
-              ) {
-                store.applyRemoteText(e.blockId, first.text)
-              }
-            })
-            .catch((err) => logger.error('Failed to translate updated block:', err))
+    const applyUpdated = () => {
+      const conflict = store.getConflict(e.blockId)
+      if (conflict) {
+        const current = store.blocks.find((block) => block.id === e.blockId)
+        const remote = {
+          text: e.text ?? conflict.remote?.text ?? current?.text ?? '',
+          decorator: e.decorator ?? conflict.remote?.decorator ?? current?.decorator ?? '',
+        }
+        void fingerprintBlock({ id: e.blockId, ...remote }).then((remoteFingerprint) => {
+          store.updateConflictRemote(e.blockId, remote, remoteFingerprint)
+        })
+        return
+      }
+      if (e.text !== undefined) {
+        store.setCanonicalText(e.blockId, e.text)
+        if (store.activeLanguage === 'en') {
+          store.updateBlockText(e.blockId, e.text)
+        } else {
+          const currentBlock = store.blocks.find((b) => b.id === e.blockId)
+          const decorator = e.decorator ?? currentBlock?.decorator ?? ''
+          if (isCodeOrCitation(decorator)) {
+            // Code and citation blocks are never translated, so show the canonical text directly.
+            store.applyRemoteText(e.blockId, e.text)
+          } else if (store.activeBlockId !== e.blockId) {
+            // If local user is not actively editing this block, translate it to activeLanguage
+            const requestedLang = store.activeLanguage
+            const requestId = translationRequestId
+            translateBlocks([{ id: e.blockId, text: e.text }], 'en', requestedLang)
+              .then((res) => {
+                const first = res[0]
+                if (
+                  first &&
+                  requestId === translationRequestId &&
+                  store.activeLanguage === requestedLang
+                ) {
+                  store.applyRemoteText(e.blockId, first.text)
+                }
+              })
+              .catch((err) => logger.error('Failed to translate updated block:', err))
+          }
         }
       }
+      if (e.decorator !== undefined) {
+        store.updateBlockDecorator(e.blockId, e.decorator)
+      }
     }
-    if (e.decorator !== undefined) {
-      store.updateBlockDecorator(e.blockId, e.decorator)
+    if (store.isSyncing) {
+      pendingRemoteEvents.push(applyUpdated)
+      return
     }
+    applyUpdated()
   }
 
   provider.onDeleted = (e) => {
-    store.removeBlock(e.blockId)
+    const applyDeleted = () => {
+      const conflict = store.getConflict(e.blockId)
+      if (conflict) {
+        if (conflict.kind === 'local-deleted') {
+          store.removeBlock(e.blockId)
+          store.removeConflict(e.blockId)
+        } else {
+          store.updateConflictRemote(e.blockId, null, null)
+        }
+        return
+      }
+      store.removeBlock(e.blockId)
+    }
+    if (store.isSyncing) {
+      pendingRemoteEvents.push(applyDeleted)
+      return
+    }
+    applyDeleted()
   }
 
   provider.onLocked = (e) => {
     if (e.clientId && e.clientId !== store.clientId) {
-      if (store.activeBlockId === e.blockId) {
-        // Race condition: another client acquired the lock first! Drop uncommitted local edits
+      if (store.activeBlockId === e.blockId && !store.getConflict(e.blockId)) {
         clearLockTimers()
         discardPendingEdit()
       }
@@ -913,13 +1491,19 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  syncEpoch += 1
+  store.setSyncing(false)
   window.removeEventListener('beforeunload', handleBeforeUnload)
   abortElaboration()
   translationAbortController?.abort()
   translationAbortController = null
   flushPendingEdit()
   clearLockTimers()
-  if (store.activeBlockId && !store.isLockedByOther({ id: store.activeBlockId } as Block)) {
+  if (
+    isOnline.value &&
+    store.activeBlockId &&
+    !store.isLockedByOther({ id: store.activeBlockId } as Block)
+  ) {
     props.provider.sendBlockUnlock?.(store.activeBlockId)
   }
 })
@@ -942,7 +1526,7 @@ onBeforeRouteLeave(async () => {
     clearLockTimers()
     store.unlock(activeId)
     store.setActive('')
-    await props.provider.sendBlockUnlock?.(activeId)
+    if (isOnline.value) await props.provider.sendBlockUnlock?.(activeId)
   }
 })
 
@@ -962,6 +1546,17 @@ watch(
 )
 
 watch(
+  () => store.syncRequest,
+  () => {
+    setTimeout(() => {
+      if (isOnline.value && !store.isSyncing) {
+        void syncPendingLocalChanges()
+      }
+    }, 0)
+  },
+)
+
+watch(
   () => locale.value,
   async (nextLocale) => {
     if (store.isElaborating) return
@@ -970,14 +1565,14 @@ watch(
 )
 
 const onAdd = async (type: BlockType) => {
-  if (!props.editable || store.isElaborating || store.isTranslating) return
+  if (!props.editable || store.isElaborating || store.isTranslating || store.isSyncing) return
   const previousId = store.activeBlockId
   if (previousId && !store.isLockedByOther({ id: previousId } as Block)) {
     const saved = await flushPendingEdit()
     if (!saved) return
     clearLockTimers()
     store.unlock(previousId)
-    await props.provider.sendBlockUnlock?.(previousId)
+    if (isOnline.value) await props.provider.sendBlockUnlock?.(previousId)
   }
   if (!props.editable) return
 
@@ -987,14 +1582,16 @@ const onAdd = async (type: BlockType) => {
   store.setActive(block.id)
   store.lock(block.id)
 
-  await props.provider.sendBlockCreate({
-    block,
-    afterBlockId,
-    type,
-    text: block.text,
-    decorator: block.decorator,
-  })
-  await props.provider.sendBlockLock?.(block.id)
+  if (isOnline.value) {
+    await props.provider.sendBlockCreate({
+      block,
+      afterBlockId,
+      type,
+      text: block.text,
+      decorator: block.decorator,
+    })
+    await props.provider.sendBlockLock?.(block.id)
+  }
   resetLockTimeout(block.id)
 }
 
@@ -1019,16 +1616,17 @@ const onInsertBlocks = async (block: Block, event: EditableInsertEvent) => {
     !props.editable ||
     store.isLockedByOther(block) ||
     store.elaboratingBlockId === block.id ||
-    store.isTranslating
+    store.isTranslating ||
+    store.isSyncing ||
+    store.getConflict(block.id)
   ) {
     return
   }
 
   if (block.lockedBy !== store.clientId) {
-    const lockSuccess = await props.provider.sendBlockLock?.(block.id)
-    if (lockSuccess === false) return
+    const lockSuccess = await acquireBlockLock(block.id)
+    if (!lockSuccess) return
     if (!props.editable) return
-    store.lock(block.id)
   }
 
   // The split/paste payload is authoritative; drop any debounced edit.
@@ -1041,16 +1639,18 @@ const onInsertBlocks = async (block: Block, event: EditableInsertEvent) => {
   }
 
   store.updateBlockText(block.id, event.currentText)
-  await props.provider.sendEdit({
-    blockId: block.id,
-    text: event.currentText,
-    decorator: block.decorator,
-  })
+  if (isOnline.value) {
+    await props.provider.sendEdit({
+      blockId: block.id,
+      text: event.currentText,
+      decorator: block.decorator,
+    })
+  }
   if (!props.editable) return
 
   clearLockTimers()
   store.unlock(block.id)
-  await props.provider.sendBlockUnlock?.(block.id)
+  if (isOnline.value) await props.provider.sendBlockUnlock?.(block.id)
 
   let afterBlockId: string = block.id
   let firstCreated: Block | null = null
@@ -1066,13 +1666,15 @@ const onInsertBlocks = async (block: Block, event: EditableInsertEvent) => {
     }
 
     store.insertBlock(newBlock, afterBlockId)
-    await props.provider.sendBlockCreate({
-      block: newBlock,
-      afterBlockId,
-      type: spec.type,
-      text: newBlock.text,
-      decorator: newBlock.decorator,
-    })
+    if (isOnline.value) {
+      await props.provider.sendBlockCreate({
+        block: newBlock,
+        afterBlockId,
+        type: spec.type,
+        text: newBlock.text,
+        decorator: newBlock.decorator,
+      })
+    }
     afterBlockId = newBlock.id
     if (!firstCreated) firstCreated = newBlock
   }
@@ -1081,25 +1683,32 @@ const onInsertBlocks = async (block: Block, event: EditableInsertEvent) => {
 
   store.setActive(firstCreated.id)
   store.lock(firstCreated.id)
-  await props.provider.sendBlockLock?.(firstCreated.id)
+  if (isOnline.value) await props.provider.sendBlockLock?.(firstCreated.id)
   resetLockTimeout(firstCreated.id)
   focusBlock(firstCreated.id, 'start')
 }
 
 const onDelete = async () => {
   const blockId = store.activeBlockId
-  if (!props.editable || !blockId || store.isElaborating || store.isTranslating) return
+  if (
+    !props.editable ||
+    !blockId ||
+    store.isElaborating ||
+    store.isTranslating ||
+    store.isSyncing ||
+    store.getConflict(blockId)
+  ) {
+    return
+  }
   const currentBlock = store.blocks.find((b) => b.id === blockId)
   if (currentBlock && store.isLockedByOther(currentBlock)) {
     return
   }
 
-  // Ensure this client holds the lock before deleting (double to backend to avoid race conditions)
   if (currentBlock && currentBlock.lockedBy !== store.clientId) {
-    const lockSuccess = await props.provider.sendBlockLock?.(blockId)
-    if (lockSuccess === false) return
+    const lockSuccess = await acquireBlockLock(blockId)
+    if (!lockSuccess) return
     if (!props.editable) return
-    store.lock(blockId)
   }
 
   const saved = await flushPendingEdit()
@@ -1109,9 +1718,11 @@ const onDelete = async () => {
   store.unlock(blockId)
   store.removeBlock(blockId)
 
-  await props.provider.sendBlockDelete({
-    blockId,
-  })
+  if (isOnline.value) {
+    await props.provider.sendBlockDelete({
+      blockId,
+    })
+  }
 }
 
 const onUpdateText = async (block: Block, text: string) => {
@@ -1119,17 +1730,18 @@ const onUpdateText = async (block: Block, text: string) => {
     !props.editable ||
     store.isLockedByOther(block) ||
     store.elaboratingBlockId === block.id ||
-    store.isTranslating
+    store.isTranslating ||
+    store.isSyncing
   ) {
     return
   }
 
-  // If the lock timed out while we were still focused, re-acquire it before sending so the server-side lock check accepts the edit.
+  // If the lock timed out while we were still focused, re-acquire it before
+  // sending so the server-side lock check accepts the edit.
   if (block.lockedBy !== store.clientId) {
-    const lockSuccess = await props.provider.sendBlockLock?.(block.id)
-    if (lockSuccess === false) return
+    const lockSuccess = await acquireBlockLock(block.id)
+    if (!lockSuccess) return
     if (!props.editable) return
-    store.lock(block.id)
   }
 
   if (pendingEditBlockId && pendingEditBlockId !== block.id) {
@@ -1165,17 +1777,17 @@ const onUpdateDecorator = async (block: Block | null, newDecorator: BlockDecorat
     !block ||
     store.isLockedByOther(block) ||
     store.elaboratingBlockId === block.id ||
-    store.isTranslating
+    store.isTranslating ||
+    store.isSyncing ||
+    store.getConflict(block.id)
   ) {
     return
   }
 
-  // Re-acquire lock if needed
   if (block.lockedBy !== store.clientId) {
-    const lockSuccess = await props.provider.sendBlockLock?.(block.id)
-    if (lockSuccess === false) return
+    const lockSuccess = await acquireBlockLock(block.id)
+    if (!lockSuccess) return
     if (!props.editable) return
-    store.lock(block.id)
   }
 
   if (pendingEditBlockId && pendingEditBlockId !== block.id) {
@@ -1191,7 +1803,7 @@ const onUpdateDecorator = async (block: Block | null, newDecorator: BlockDecorat
   if (pendingEditBlockId === block.id) {
     pendingEditDecorator = serialized
     await flushPendingEdit()
-  } else {
+  } else if (isOnline.value) {
     const textToSend =
       store.activeLanguage === 'en' ? block.text : store.getCanonicalText(block.id) || block.text
     await props.provider.sendEdit({
@@ -1203,7 +1815,7 @@ const onUpdateDecorator = async (block: Block | null, newDecorator: BlockDecorat
 }
 
 const onFocus = async (block: Block) => {
-  if (!props.editable || store.isLockedByOther(block) || store.isTranslating) {
+  if (!props.editable || store.isLockedByOther(block) || store.isTranslating || store.isSyncing) {
     return
   }
 
@@ -1223,15 +1835,13 @@ const onFocus = async (block: Block) => {
       if (!props.editable) return
       clearLockTimers()
       store.unlock(previousId)
-      await props.provider.sendBlockUnlock?.(previousId)
+      if (isOnline.value) await props.provider.sendBlockUnlock?.(previousId)
     }
   }
 
   store.setActive(block.id)
-  store.lock(block.id)
-
-  const lockSuccess = await props.provider.sendBlockLock?.(block.id)
-  if (lockSuccess === false) {
+  const lockSuccess = await acquireBlockLock(block.id)
+  if (!lockSuccess) {
     // Another client acquired the lock first in a race
     store.unlock(block.id)
     return
@@ -1242,13 +1852,196 @@ const onFocus = async (block: Block) => {
 }
 
 const onBlur = async (block: Block) => {
-  if (!props.editable || store.elaboratingBlockId === block.id || store.isTranslating) return
+  if (
+    !props.editable ||
+    store.elaboratingBlockId === block.id ||
+    store.isTranslating ||
+    store.isSyncing
+  ) {
+    return
+  }
   if (!store.isLockedByOther(block)) {
     const saved = await flushPendingEdit()
     if (!saved) return
     clearLockTimers()
     store.unlock(block.id)
-    await props.provider.sendBlockUnlock?.(block.id)
+    if (isOnline.value) await props.provider.sendBlockUnlock?.(block.id)
+  }
+}
+
+function onConflictLocalInput(blockId: string, patch: { text?: string; decorator?: string }) {
+  const block = store.blocks.find((item) => item.id === blockId)
+  if (!block) return
+  if (patch.text !== undefined) store.updateBlockText(blockId, patch.text)
+  if (patch.decorator !== undefined) store.updateBlockDecorator(blockId, patch.decorator)
+  const conflict = store.getConflict(blockId)
+  if (conflict) {
+    store.updateConflictLocal(blockId, patch.text ?? block.text, patch.decorator ?? block.decorator)
+  }
+}
+
+function findBasePredecessor(blockId: string): string | null {
+  const index = store.blocks.findIndex((block) => block.id === blockId)
+  if (index <= 0) return null
+  const baseIds = new Set(store.base?.blocks.map((block) => block.id) ?? [])
+  for (let previous = index - 1; previous >= 0; previous -= 1) {
+    const candidate = store.blocks[previous]
+    if (candidate && baseIds.has(candidate.id)) return candidate.id
+  }
+  return null
+}
+
+async function canonicalTextForConflict(block: Block): Promise<string> {
+  if (store.activeLanguage === 'en' || !store.isBlockDirty(block.id)) {
+    return store.activeLanguage === 'en' ? block.text : store.getCanonicalText(block.id)
+  }
+  if (isCodeOrCitation(block.decorator)) {
+    store.setCanonicalText(block.id, block.text)
+    store.clearBlockDirty(block.id)
+    return block.text
+  }
+  const canonical = await backTranslateBlock(
+    block.text,
+    store.activeLanguage,
+    'en',
+    getSurroundingContext(block.id),
+  )
+  store.setCanonicalText(block.id, canonical)
+  store.clearBlockDirty(block.id)
+  return canonical
+}
+
+async function onResolveConflict(blockId: string, choice: 'local' | 'remote') {
+  const epoch = syncEpoch
+  const conflict = store.getConflict(blockId)
+  const block = store.blocks.find((item) => item.id === blockId) ?? null
+  if (!conflict) return
+  store.setSyncError(null)
+
+  if (choice === 'remote') {
+    store.setSyncing(true)
+    try {
+      if (conflict.kind === 'remote-deleted') {
+        store.removeBlock(blockId)
+        store.removeBaseBlockFingerprint(blockId)
+      } else if (conflict.remote) {
+        store.initCanonicalBlocks([
+          {
+            id: blockId,
+            text: conflict.remote.text,
+            decorator: conflict.remote.decorator,
+            lockedBy: null,
+          },
+        ])
+        store.clearBlockDirty(blockId)
+        if (store.activeLanguage === 'en') {
+          store.updateBlockText(blockId, conflict.remote.text)
+        }
+        store.updateBlockDecorator(blockId, conflict.remote.decorator)
+        if (store.activeLanguage !== 'en') {
+          if (isCodeOrCitation(conflict.remote.decorator)) {
+            store.applyRemoteText(blockId, conflict.remote.text)
+          } else {
+            void translateBlocks(
+              [{ id: blockId, text: conflict.remote.text }],
+              'en',
+              store.activeLanguage,
+            )
+              .then((translated) => {
+                const first = translated[0]
+                if (first) store.applyRemoteText(blockId, first.text)
+              })
+              .catch((err) => logger.error('Failed to translate resolved remote block:', err))
+          }
+        }
+        await store.setBaseBlockFingerprint(blockId, {
+          id: blockId,
+          text: conflict.remote.text,
+          decorator: conflict.remote.decorator,
+          lockedBy: null,
+        })
+        if (epoch !== syncEpoch) return
+      } else {
+        store.removeBaseBlockFingerprint(blockId)
+      }
+      store.removeConflict(blockId)
+      await syncPendingLocalChanges()
+    } catch (err) {
+      logger.error('Failed to apply remote conflict version:', err)
+      store.setSyncError(t('editor.conflict.syncFailed'))
+    } finally {
+      store.setSyncing(false)
+    }
+    return
+  }
+
+  if (!block) {
+    store.removeConflict(blockId)
+    return
+  }
+
+  if (!isOnline.value) {
+    store.setSyncError(t('editor.conflict.syncUnavailable'))
+    return
+  }
+
+  store.setSyncing(true)
+  try {
+    let operation: SyncOperation | null = null
+    let baseBlock: Block | null = block
+
+    if (conflict.kind === 'local-deleted') {
+      if (!conflict.remoteFingerprint) {
+        store.removeBlock(blockId)
+        store.removeConflict(blockId)
+        return
+      }
+      operation = {
+        kind: 'delete',
+        blockId,
+        expected: conflict.remoteFingerprint,
+      }
+      baseBlock = null
+    } else {
+      const canonical = await canonicalTextForConflict(block)
+      if (conflict.kind === 'remote-deleted') {
+        baseBlock = { ...block, text: canonical }
+        operation = {
+          kind: 'create',
+          block: baseBlock,
+          afterBlockId: findBasePredecessor(blockId),
+          expected: null,
+        }
+      } else {
+        if (!conflict.remoteFingerprint) {
+          store.setSyncError(t('editor.conflict.missingRemoteVersion'))
+          return
+        }
+        baseBlock = { ...block, text: canonical }
+        operation = {
+          kind: 'set',
+          blockId,
+          text: canonical,
+          decorator: block.decorator,
+          expected: conflict.remoteFingerprint,
+        }
+      }
+    }
+
+    if (!operation) return
+    const result = await sendSyncOperations([operation])
+    if (epoch !== syncEpoch) return
+    if (!result) return
+
+    if (conflict.kind === 'local-deleted') store.removeBlock(blockId)
+    store.removeConflict(blockId)
+    await store.recordBaseOperation(operation, baseBlock, result.contentHash, store.title)
+    await syncPendingLocalChanges()
+  } catch (err) {
+    logger.error('Failed to resolve conflict:', err)
+    store.setSyncError(t('editor.conflict.syncFailed'))
+  } finally {
+    store.setSyncing(false)
   }
 }
 
@@ -1259,7 +2052,10 @@ const onElaborate = async (personaKey: PersonaKey) => {
     !block ||
     store.isLockedByOther(block) ||
     store.isElaborating ||
-    store.isTranslating
+    store.isTranslating ||
+    !isOnline.value ||
+    store.isSyncing ||
+    store.getConflict(block.id)
   ) {
     return
   }
@@ -1279,10 +2075,9 @@ const onElaborate = async (personaKey: PersonaKey) => {
 
   try {
     if (block.lockedBy !== store.clientId) {
-      const lockSuccess = await props.provider.sendBlockLock?.(blockId)
-      if (lockSuccess === false) return
+      const lockSuccess = await acquireBlockLock(blockId)
+      if (!lockSuccess) return
       if (!props.editable) return
-      store.lock(blockId)
     }
 
     startElaborationLockHeartbeat(blockId)

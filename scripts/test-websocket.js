@@ -8,12 +8,12 @@
  * WebSocket clients on the same document, edits from one and verifies the
  * other receives the change live and that it was persisted.
  */
-const http = require('http');
+const https = require('https');
 const WebSocket = require('ws');
 
 const BASE_HOST = 'localhost';
 const BASE_PORT = Number(process.env.PORT || 3001);
-const WS_URL = `ws://${BASE_HOST}:${BASE_PORT}/api/ws`;
+const WS_URL = `wss://${BASE_HOST}:${BASE_PORT}/api/ws`;
 
 const stamp = Date.now();
 const USER = { login: `wstester_${stamp}`, email: `wstester_${stamp}@example.com`, password: 'password123' };
@@ -21,8 +21,8 @@ const USER = { login: `wstester_${stamp}`, email: `wstester_${stamp}@example.com
 function request(method, path, { body, cookie } = {}) {
   return new Promise((resolve, reject) => {
     const data = body ? JSON.stringify(body) : null;
-    const req = http.request(
-      { host: BASE_HOST, port: BASE_PORT, path, method,
+    const req = https.request(
+      { host: BASE_HOST, port: BASE_PORT, path, method, rejectUnauthorized: false,
         headers: { 'Content-Type': 'application/json', ...(cookie ? { Cookie: cookie } : {}) } },
       (res) => {
         let raw = '';
@@ -63,8 +63,8 @@ const open = (ws) => new Promise((res, rej) => { ws.once('open', res); ws.once('
   check(created.status === 201 && docId, 'document created');
 
   step = 'connect two clients';
-  const a = new WebSocket(WS_URL, { headers: { Cookie: cookie } });
-  const b = new WebSocket(WS_URL, { headers: { Cookie: cookie } });
+  const a = new WebSocket(WS_URL, { headers: { Cookie: cookie }, rejectUnauthorized: false });
+  const b = new WebSocket(WS_URL, { headers: { Cookie: cookie }, rejectUnauthorized: false });
   await Promise.all([open(a), open(b)]);
   check(true, 'two WebSocket clients connected (wss auth via cookie)');
 

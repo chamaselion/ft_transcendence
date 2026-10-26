@@ -3,6 +3,7 @@ import { defineStore } from 'pinia'
 import { httpClient } from '@/auth/auth.api'
 import type { Root, User } from '@/auth/types/user'
 import { logger } from '@/utils/logger'
+import { clearAllDrafts } from '@/app/editor/draftStorage'
 import router from '@/router'
 
 export const useAuthStore = defineStore('auth', () => {
@@ -53,6 +54,7 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       await httpClient.post('logout', {})
       invalidate()
+      clearAllDrafts()
       router.push('/login')
     } catch (error) {
       if (error instanceof DOMException && error.name === 'TimeoutError') {

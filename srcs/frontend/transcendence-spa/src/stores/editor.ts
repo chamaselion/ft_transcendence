@@ -1,14 +1,36 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
-import { createBlock, type Block, type BlockType } from '@/app/editor/types'
+import {
+  createBlock,
+  type Block,
+  type BlockType,
+  type ConnectionState,
+  type SyncOperation,
+} from '@/app/editor/types'
 import { useAuthStore } from '@/stores/auth'
 import type { SupportedLanguage } from '@/app/editor/translation.api'
+import type { BaseSnapshot, BlockConflict, TitleConflict } from '@/app/editor/merge'
+import { createBaseSnapshot } from '@/app/editor/merge'
+import { fingerprintBlock, hashBlocks } from '@/app/editor/contentHash'
+import type { EditorDraft } from '@/app/editor/draftStorage'
 
 export const useEditorStore = defineStore('editor', () => {
   const blocks = ref<Block[]>([])
   const activeBlockId = ref<string | null>(null)
   const clientId = ref<string>('')
   const authStore = useAuthStore()
+
+  const documentId = ref<string | null>(null)
+  const title = ref<string>('')
+  const base = ref<BaseSnapshot | null>(null)
+  const conflicts = ref<Record<string, BlockConflict>>({})
+  const titleConflict = ref<TitleConflict | null>(null)
+  const connectionState = ref<ConnectionState>('connecting')
+  const isSyncing = ref(false)
+  const syncError = ref<string | null>(null)
+  const syncRequest = ref(0)
+  const conflictCount = computed(() => Object.keys(conflicts.value).length)
+  const hasConflicts = computed(() => conflictCount.value > 0 || titleConflict.value !== null)
 
   // Translation & Canonical Language State
   const activeLanguage = ref<SupportedLanguage>('en')
@@ -47,6 +69,247 @@ export const useEditorStore = defineStore('editor', () => {
 
   function setClientId(id: string) {
     clientId.value = id
+  }
+
+  function setDocumentId(id: string | null) {
+    documentId.value = id
+  }
+
+  function startSession(id: string, nextTitle: string) {
+    documentId.value = id
+    title.value = nextTitle
+    blocks.value = []
+    activeBlockId.value = null
+    base.value = null
+    conflicts.value = {}
+    titleConflict.value = null
+    canonicalEnglishMap.value = new Map()
+    dirtyBlockIds.value = new Set()
+    syncError.value = null
+    isSyncing.value = false
+    connectionState.value = 'connecting'
+    isTranslating.value = false
+    translationError.value = null
+    translationProgress.value = null
+  }
+
+  function setTitle(next: string) {
+    title.value = next
+  }
+
+  function setConnectionState(next: ConnectionState) {
+    connectionState.value = next
+  }
+
+  function setSyncing(next: boolean) {
+    isSyncing.value = next
+  }
+
+  function setSyncError(next: string | null) {
+    syncError.value = next
+  }
+
+  function requestSync() {
+    syncRequest.value += 1
+  }
+
+  function setBase(next: BaseSnapshot | null) {
+    base.value = next
+  }
+
+  async function setBaseFromBlocks(nextBlocks: Block[], nextTitle: string, contentHash: string) {
+    base.value = await createBaseSnapshot(nextBlocks, nextTitle, contentHash)
+  }
+
+  function setConflicts(next: Record<string, BlockConflict>) {
+    conflicts.value = { ...next }
+  }
+
+  function setTitleConflict(next: TitleConflict | null) {
+    titleConflict.value = next
+  }
+
+  function getConflict(blockId: string): BlockConflict | null {
+    return conflicts.value[blockId] ?? null
+  }
+
+  function removeConflict(blockId: string) {
+    const next = { ...conflicts.value }
+    delete next[blockId]
+    conflicts.value = next
+  }
+
+  function setConflict(conflict: BlockConflict) {
+    conflicts.value = { ...conflicts.value, [conflict.blockId]: conflict }
+  }
+
+  function updateConflictLocal(blockId: string, text: string, decorator: string) {
+    const conflict = conflicts.value[blockId]
+    if (!conflict || !conflict.local) return
+    conflicts.value = {
+      ...conflicts.value,
+      [blockId]: { ...conflict, local: { text, decorator } },
+    }
+  }
+
+  function updateConflictRemote(
+    blockId: string,
+    remote: { text: string; decorator: string } | null,
+    remoteFingerprint: string | null,
+  ) {
+    const conflict = conflicts.value[blockId]
+    if (!conflict) return
+    const remoteMissing = remote === null
+    conflicts.value = {
+      ...conflicts.value,
+      [blockId]: {
+        ...conflict,
+        remote,
+        remoteFingerprint,
+        kind:
+          conflict.kind === 'local-deleted' && remoteMissing
+            ? 'local-deleted'
+            : remoteMissing
+              ? 'remote-deleted'
+              : conflict.kind === 'remote-deleted'
+                ? 'diff'
+                : conflict.kind,
+      },
+    }
+  }
+
+  async function recordBaseOperation(
+    op: SyncOperation,
+    localBlock: Block | null,
+    contentHash: string,
+    nextTitle?: string,
+  ) {
+    const current = base.value
+    if (!current) return
+    if (op.kind === 'title') {
+      base.value = {
+        ...current,
+        contentHash,
+        title: nextTitle ?? op.title,
+      }
+      return
+    }
+
+    const nextBlocks = current.blocks.slice()
+    if (op.kind === 'set' && localBlock) {
+      const confirmedBlock = {
+        id: op.blockId,
+        text: op.text ?? localBlock.text,
+        decorator: op.decorator ?? localBlock.decorator,
+        lockedBy: null,
+      }
+      const fingerprint = await fingerprintBlock(confirmedBlock)
+      const index = nextBlocks.findIndex((block) => block.id === op.blockId)
+      if (index !== -1) nextBlocks[index] = { id: op.blockId, fingerprint }
+      else nextBlocks.push({ id: op.blockId, fingerprint })
+    } else if (op.kind === 'create') {
+      const created = op.block
+      const fingerprint = await fingerprintBlock(created)
+      const existingIndex = nextBlocks.findIndex((block) => block.id === created.id)
+      if (existingIndex !== -1) {
+        nextBlocks[existingIndex] = { id: created.id, fingerprint }
+      } else {
+        const afterIndex = op.afterBlockId
+          ? nextBlocks.findIndex((block) => block.id === op.afterBlockId)
+          : -1
+        if (afterIndex !== -1) nextBlocks.splice(afterIndex + 1, 0, { id: created.id, fingerprint })
+        else nextBlocks.push({ id: created.id, fingerprint })
+      }
+    } else if (op.kind === 'delete') {
+      const index = nextBlocks.findIndex((block) => block.id === op.blockId)
+      if (index !== -1) nextBlocks.splice(index, 1)
+    }
+
+    base.value = {
+      contentHash,
+      title: nextTitle ?? current.title,
+      blocks: nextBlocks,
+    }
+  }
+
+  async function setBaseBlockFingerprint(blockId: string, block: Block) {
+    const current = base.value
+    if (!current) return
+    const fingerprint = await fingerprintBlock(block)
+    const nextBlocks = current.blocks.slice()
+    const index = nextBlocks.findIndex((item) => item.id === blockId)
+    if (index !== -1) nextBlocks[index] = { id: blockId, fingerprint }
+    else nextBlocks.push({ id: blockId, fingerprint })
+    base.value = { ...current, blocks: nextBlocks }
+  }
+
+  function removeBaseBlockFingerprint(blockId: string) {
+    const current = base.value
+    if (!current) return
+    const nextBlocks = current.blocks.filter((block) => block.id !== blockId)
+    base.value = { ...current, blocks: nextBlocks }
+  }
+
+  function restoreDraft(draft: EditorDraft) {
+    documentId.value = draft.documentId
+    title.value = draft.title
+    blocks.value = draft.blocks
+    base.value = draft.base
+    activeLanguage.value = draft.activeLanguage
+    canonicalEnglishMap.value = new Map(Object.entries(draft.canonicalEnglish))
+    dirtyBlockIds.value = new Set(draft.dirtyBlockIds)
+    conflicts.value = { ...draft.conflicts }
+    titleConflict.value = draft.titleConflict
+    const firstAvailable = draft.blocks.find((block) => !block.lockedBy) ?? draft.blocks[0] ?? null
+    activeBlockId.value = firstAvailable?.id ?? null
+  }
+
+  function createDraft(userId: string): EditorDraft | null {
+    if (!documentId.value) return null
+    return {
+      version: 1,
+      documentId: documentId.value,
+      userId,
+      savedAt: Date.now(),
+      base: base.value,
+      blocks: blocks.value,
+      title: title.value,
+      activeLanguage: activeLanguage.value,
+      canonicalEnglish: Object.fromEntries(canonicalEnglishMap.value),
+      dirtyBlockIds: [...dirtyBlockIds.value],
+      conflicts: conflicts.value,
+      titleConflict: titleConflict.value,
+    }
+  }
+
+  function getCanonicalBlocks(): Block[] {
+    if (activeLanguage.value === 'en') return blocks.value.map((block) => ({ ...block }))
+    return blocks.value.map((block) => ({
+      ...block,
+      text: canonicalEnglishMap.value.get(block.id) ?? block.text,
+    }))
+  }
+
+  async function computeLocalContentHash(): Promise<string | undefined> {
+    if (activeLanguage.value !== 'en' && dirtyBlockIds.value.size > 0) return undefined
+    return hashBlocks(getCanonicalBlocks())
+  }
+
+  function applyRemoteTitle(remoteTitle: string) {
+    if (titleConflict.value) {
+      titleConflict.value = { ...titleConflict.value, remote: remoteTitle }
+      return
+    }
+    const localTitle = title.value
+    const baseTitle = base.value?.title ?? localTitle
+    if (localTitle !== baseTitle && localTitle !== remoteTitle) {
+      titleConflict.value = { local: localTitle, remote: remoteTitle }
+      return
+    }
+    title.value = remoteTitle
+    if (base.value && (localTitle === baseTitle || localTitle === remoteTitle)) {
+      base.value = { ...base.value, title: remoteTitle }
+    }
   }
 
   function initCanonicalBlocks(next: Block[]) {
@@ -247,6 +510,10 @@ export const useEditorStore = defineStore('editor', () => {
     }
   }
 
+  function clearLocks() {
+    for (const block of blocks.value) block.lockedBy = null
+  }
+
   return {
     blocks,
     activeBlockId,
@@ -261,7 +528,42 @@ export const useEditorStore = defineStore('editor', () => {
     isTranslating,
     translationError,
     translationProgress,
+    documentId,
+    title,
+    base,
+    conflicts,
+    titleConflict,
+    connectionState,
+    isSyncing,
+    syncError,
+    syncRequest,
+    conflictCount,
+    hasConflicts,
     setClientId,
+    setDocumentId,
+    startSession,
+    setTitle,
+    setConnectionState,
+    setSyncing,
+    setSyncError,
+    requestSync,
+    setBase,
+    setBaseFromBlocks,
+    setConflicts,
+    setTitleConflict,
+    getConflict,
+    removeConflict,
+    setConflict,
+    updateConflictLocal,
+    updateConflictRemote,
+    recordBaseOperation,
+    setBaseBlockFingerprint,
+    removeBaseBlockFingerprint,
+    restoreDraft,
+    createDraft,
+    getCanonicalBlocks,
+    computeLocalContentHash,
+    applyRemoteTitle,
     beginElaboration,
     endElaboration,
     previewBlockText,
@@ -278,6 +580,7 @@ export const useEditorStore = defineStore('editor', () => {
     lock,
     unlock,
     unlockBlockById,
+    clearLocks,
     initCanonicalBlocks,
     setLanguage,
     getCanonicalText,

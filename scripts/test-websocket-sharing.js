@@ -17,12 +17,12 @@
  * Needs EMAIL_TRANSPORT=console in .env so the 2FA flow can be scripted.
  * Creates two throwaway users per run; deletes nothing else.
  */
-const http = require('http');
+const https = require('https');
 const WebSocket = require('ws');
 
 const HOST = 'localhost';
 const PORT = Number(process.env.PORT || 3001);
-const WS_URL = `ws://${HOST}:${PORT}/api/ws`;
+const WS_URL = `wss://${HOST}:${PORT}/api/ws`;
 const stamp = Date.now();
 
 // Must match HEARTBEAT_INTERVAL_MS in ws/documentSocket.js. Only case 6 waits
@@ -51,9 +51,9 @@ const safeJson = (s) => { try { return JSON.parse(s); } catch { return null; } }
 const request = (method, path, { body, cookie } = {}) =>
   new Promise((resolve, reject) => {
     const data = body ? JSON.stringify(body) : null;
-    const req = http.request(
+    const req = https.request(
       {
-        host: HOST, port: PORT, path, method,
+        host: HOST, port: PORT, path, method, rejectUnauthorized: false,
         headers: { 'Content-Type': 'application/json', ...(cookie ? { Cookie: cookie } : {}) },
       },
       (res) => {
@@ -97,7 +97,7 @@ const signUp = async (name) => {
 // connections alive past the heartbeat.
 const connect = (cookie) =>
   new Promise((resolve, reject) => {
-    const ws = new WebSocket(WS_URL, { headers: { Cookie: cookie } });
+    const ws = new WebSocket(WS_URL, { headers: { Cookie: cookie }, rejectUnauthorized: false });
     ws.inbox = [];
     ws.closed = false;
     ws.on('message', (raw) => ws.inbox.push(JSON.parse(raw.toString())));
@@ -113,7 +113,7 @@ const last = (ws) => ws.inbox[ws.inbox.length - 1];
 const sawType = (ws, type) => ws.inbox.some((m) => m.type === type);
 
 (async () => {
-  console.log(`== Backend: http://${HOST}:${PORT}`);
+  console.log(`== Backend: https://${HOST}:${PORT}`);
   console.log('Setup: two throwaway users');
   const alice = await signUp('wsshare_a');
   const bob = await signUp('wsshare_b');
@@ -156,7 +156,14 @@ const sawType = (ws, type) => ws.inbox.some((m) => m.type === type);
   check('viewer update is refused', last(bobWs)?.error === 'Read-only access', last(bobWs));
 
   let doc = await request('GET', `/api/documents/${docId}`, { cookie: alice.cookie });
-  check('and nothing was written', doc.json?.document?.content === 'start', doc.json?.document?.content);
+  let storedText = doc.json?.document?.content;
+  try {
+    const blocks = JSON.parse(storedText);
+    if (Array.isArray(blocks)) storedText = blocks.map((block) => block.text).join('\n');
+  } catch {
+    // Legacy plain-text documents are compared as-is.
+  }
+  check('and nothing was written', storedText === 'start', doc.json?.document?.content);
   console.log();
 
   // --- 3) live upgrade -------------------------------------------------------

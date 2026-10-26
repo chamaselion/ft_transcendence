@@ -21,7 +21,8 @@
       @blur="$emit('blur')"
     />
     <FoldableTextPreview
-      v-if="
+      v-show="
+        previewCanonical &&
         isForeignLanguage &&
         canonicalText &&
         !elaborating &&
@@ -68,15 +69,21 @@ import { parseDecorator, serializeDecorator, type Block, type BlockType } from '
 import type { EditableInsertEvent } from '@/app/editor/useEditable'
 import { useEditorStore } from '@/stores/editor'
 
-const props = defineProps<{
-  block: Block
-  active?: boolean
-  locked?: boolean
-  elaborating?: boolean
-  translating?: boolean
-  exportMode?: boolean
-  editable?: boolean
-}>()
+const props = withDefaults(
+  defineProps<{
+    block: Block
+    active?: boolean
+    locked?: boolean
+    elaborating?: boolean
+    translating?: boolean
+    exportMode?: boolean
+    editable?: boolean
+    previewCanonical?: boolean
+  }>(),
+  {
+    previewCanonical: true,
+  },
+)
 
 const { t } = useI18n()
 const store = useEditorStore()
