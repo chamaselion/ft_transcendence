@@ -218,6 +218,13 @@ const purgeExpiredSessions = async () => {
 const purgeSessionsForUser = async (userId) => {
   if (!userId) return;
 
+  if (sequelize.models.apiKey) {
+    await sequelize.models.apiKey.update(
+      { revokedAt: new Date() },
+      { where: { userId, revokedAt: null } },
+    );
+  }
+
   const authSessionModel = getAuthSessionModel();
   if (!authSessionModel) return;
 

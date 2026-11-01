@@ -6,6 +6,7 @@ const {
   getTokenFromCookie,
   isSessionActive,
 } = require('../controllers/auth/helpers');
+const { findUserForApiKey } = require('../controllers/auth/apiKeys');
 
 // Reusable auth guard. Mirrors the token check used in the auth
 // controllers (cookie JWT + active session), but exposes it as an
@@ -13,6 +14,7 @@ const {
 // On success it attaches the authenticated user to `req.user`.
 const createRequireAuth = ({
   userModel,
+  apiKeyModel,
   tokenLib = jwt,
   secret = requireEnv('JWT_SECRET'),
 } = {}) => {
@@ -20,6 +22,25 @@ const createRequireAuth = ({
 
   const requireAuth = async (req, res, next) => {
     try {
+      const authorization = req.get('authorization') || '';
+      const bearer = authorization.toLowerCase().startsWith('bearer ')
+        ? authorization.slice(7).trim()
+        : null;
+      const apiKeyToken =
+        (req.get('x-api-key') || '').trim() ||
+        (bearer && bearer.startsWith('transedit_') ? bearer : null);
+      if (apiKeyToken) {
+        const found = await findUserForApiKey({
+          token: apiKeyToken,
+          apiKeyModel,
+          userModel: resolvedUserModel,
+        });
+        if (!found) return res.status(401).json({ error: 'Not authenticated' });
+        req.user = found.user;
+        req.apiKey = found.key;
+        return next();
+      }
+
       const token = getTokenFromCookie(req);
       if (!token) return res.status(401).json({ error: 'Not authenticated' });
 

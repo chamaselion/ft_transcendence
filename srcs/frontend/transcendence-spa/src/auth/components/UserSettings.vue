@@ -8,15 +8,14 @@ import Button from '@/app/components/Button.vue'
 import Card from '@/app/components/Card.vue'
 import Icon from '@/app/components/Icon.vue'
 import Input from '@/app/components/Input.vue'
-import TermsOfServiceModal, {
-  type LegalDocType,
-} from '@/app/components/TermsOfServiceModal.vue'
+import TermsOfServiceModal, { type LegalDocType } from '@/app/components/TermsOfServiceModal.vue'
 import Toast from '@/app/components/Toast.vue'
 import type { Root, User } from '../types/user'
 import type { OtpConfirmationResponse } from '../types/auth.types'
 import { useAuthStore } from '@/stores/auth'
 import UserIcon from '@/app/components/UserIcon.vue'
 import { validateEmail, validateLogin, validateOtpCode } from '@/utils/validation'
+import { formatFullDate } from '@/app/utils/date'
 import { logger } from '@/utils/logger'
 
 const router = useRouter()
@@ -46,6 +45,21 @@ const passwordResetOpen = ref(false)
 const passwordResetSucceeded = ref(false)
 const termsOpen = ref(false)
 const legalDoc = ref<LegalDocType>('terms')
+
+interface ApiKeySummary {
+  id: string
+  name: string
+  prefix: string
+  lastUsedAt?: string | null
+  createdAt?: string
+}
+
+const apiKeys = ref<ApiKeySummary[]>([])
+const apiKeyName = ref('')
+const apiKeyPending = ref(false)
+const apiKeyError = ref('')
+const newApiKeyToken = ref('')
+const copiedApiKey = ref(false)
 
 function openLegal(doc: LegalDocType) {
   legalDoc.value = doc
@@ -313,7 +327,72 @@ function cancelDeletion() {
   errors.value.deletion = ''
 }
 
-onMounted(loadProfile)
+async function loadApiKeys() {
+  try {
+    const response = await httpClient.get<{ apiKeys: ApiKeySummary[] }>('api-keys')
+    apiKeys.value = response.apiKeys ?? []
+    apiKeyError.value = ''
+  } catch (error) {
+    if (!(error instanceof HttpError) || error.status !== 401) {
+      apiKeyError.value = t('settings.apiKeysLoadFailed')
+    }
+  }
+}
+
+async function createApiKey() {
+  if (apiKeyPending.value) return
+  apiKeyPending.value = true
+  apiKeyError.value = ''
+  copiedApiKey.value = false
+  try {
+    const response = await httpClient.post<{ apiKey: ApiKeySummary; token: string }>('api-keys', {
+      name: apiKeyName.value.trim() || undefined,
+    })
+    newApiKeyToken.value = response.token
+    apiKeyName.value = ''
+    await loadApiKeys()
+  } catch (error) {
+    apiKeyError.value = error instanceof Error ? error.message : t('settings.apiKeysCreateFailed')
+  } finally {
+    apiKeyPending.value = false
+  }
+}
+
+async function revokeApiKey(id: string) {
+  if (!window.confirm(t('settings.apiKeysRevokeConfirm'))) return
+  try {
+    await httpClient.delete(`api-keys/${id}`)
+    if (newApiKeyToken.value) newApiKeyToken.value = ''
+    await loadApiKeys()
+  } catch (error) {
+    apiKeyError.value = error instanceof Error ? error.message : t('settings.apiKeysRevokeFailed')
+  }
+}
+
+async function copyApiKey() {
+  if (!newApiKeyToken.value) return
+  try {
+    await navigator.clipboard.writeText(newApiKeyToken.value)
+    copiedApiKey.value = true
+    window.setTimeout(() => {
+      copiedApiKey.value = false
+    }, 2000)
+  } catch {
+    apiKeyError.value = t('settings.apiKeysCopyFailed')
+  }
+}
+
+function formatApiKeyDate(value?: string | null) {
+  if (!value) return t('settings.apiKeysNever')
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return t('settings.apiKeysNever')
+  return formatFullDate(value)
+}
+
+onMounted(() => {
+  void loadProfile()
+  void loadApiKeys()
+})
 </script>
 
 <template>
@@ -538,6 +617,66 @@ onMounted(loadProfile)
           </template>
           {{ $t('settings.resetPassword') }}
         </Button>
+      </div>
+
+      <div v-if="user" class="mt-6 flex flex-col gap-2.5 border-t border-line-subtle pt-4">
+        <div class="flex flex-col gap-1.5">
+          <span class="font-semibold text-[0.875rem] text-brand">{{
+            $t('settings.apiKeysTitle')
+          }}</span>
+          <p class="m-0 text-[0.875rem] text-ink-secondary">
+            {{ $t('settings.apiKeysDescription') }}
+          </p>
+        </div>
+
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-end">
+          <Input
+            v-model="apiKeyName"
+            class="min-w-0 flex-1"
+            :label="$t('settings.apiKeysNameLabel')"
+            type="text"
+          />
+          <Button variant="outlined" color="primary" :loading="apiKeyPending" @click="createApiKey">
+            {{ $t('settings.apiKeysCreate') }}
+          </Button>
+        </div>
+
+        <div
+          v-if="newApiKeyToken"
+          class="rounded-lg border border-success/40 bg-success/10 p-3 text-sm text-ink"
+        >
+          <p class="m-0 mb-2 font-semibold">{{ $t('settings.apiKeysCreatedNotice') }}</p>
+          <code class="block overflow-x-auto rounded bg-surface p-2 font-mono text-xs">{{
+            newApiKeyToken
+          }}</code>
+          <Button class="mt-2" variant="flat" size="small" @click="copyApiKey">
+            {{ copiedApiKey ? $t('settings.apiKeysCopied') : $t('settings.apiKeysCopy') }}
+          </Button>
+        </div>
+
+        <p v-if="apiKeyError" class="m-0 text-sm text-danger">{{ apiKeyError }}</p>
+
+        <div v-if="apiKeys.length === 0" class="text-sm text-muted italic">
+          {{ $t('settings.apiKeysEmpty') }}
+        </div>
+        <ul v-else class="m-0 flex list-none flex-col gap-2 p-0">
+          <li
+            v-for="key in apiKeys"
+            :key="key.id"
+            class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-line-subtle bg-subtle/40 px-3 py-2"
+          >
+            <div class="flex min-w-0 flex-col">
+              <span class="truncate text-sm font-semibold text-ink">{{ key.name }}</span>
+              <span class="font-mono text-xs text-muted">{{ key.prefix }}…</span>
+              <span class="text-xs text-muted">
+                {{ $t('settings.apiKeysLastUsed') }}: {{ formatApiKeyDate(key.lastUsedAt) }}
+              </span>
+            </div>
+            <Button variant="outlined" color="alert" size="small" @click="revokeApiKey(key.id)">
+              {{ $t('settings.apiKeysRevoke') }}
+            </Button>
+          </li>
+        </ul>
       </div>
 
       <div v-if="user" class="mt-6 flex flex-col gap-2.5 border-t border-line-subtle pt-4">

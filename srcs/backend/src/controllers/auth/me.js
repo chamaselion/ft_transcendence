@@ -7,6 +7,7 @@ const {
   isSessionActive,
 } = require("./helpers");
 const { getUserIconUrl } = require("../../services/userIconService");
+const { findUserForApiKey } = require("./apiKeys");
 
 const createMeHandler = ({
   userModel,
@@ -20,6 +21,28 @@ const createMeHandler = ({
       console.log(`[AUTH] GET /me from ${req.ip}`, {
         token: getTokenFromCookie(req) ? "present" : "missing",
       });
+      const authorization = req.get?.('authorization') || '';
+      const bearer = authorization.toLowerCase().startsWith('bearer ')
+        ? authorization.slice(7).trim()
+        : null;
+      const apiKeyToken =
+        (req.get?.('x-api-key') || '').trim() ||
+        (bearer && bearer.startsWith('transedit_') ? bearer : null);
+      if (apiKeyToken) {
+        const found = await findUserForApiKey({ token: apiKeyToken });
+        if (!found) return res.status(401).json({ loggedIn: false });
+        let avatarUrl = null;
+        try {
+          avatarUrl = await getUserIconUrl(found.user.id);
+        } catch (error) {
+          console.error("[ICON] Could not load avatar metadata:", error.message);
+        }
+        return res.json({
+          loggedIn: true,
+          user: { ...found.user.toJSON(), avatarUrl },
+        });
+      }
+
       const token = getTokenFromCookie(req);
       if (!token) return res.json({ loggedIn: false });
 

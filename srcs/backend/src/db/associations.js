@@ -4,6 +4,7 @@ function applyAssociations(sequelize) {
     userOauthAccount,
     oauthStateIntent,
     authSession,
+    apiKey,
     document,
     documentShare,
   } = sequelize.models;
@@ -27,6 +28,11 @@ function applyAssociations(sequelize) {
       onDelete: "CASCADE",
     });
     oauthStateIntent.belongsTo(user, { foreignKey: "userId" });
+  }
+
+  if (apiKey) {
+    user.hasMany(apiKey, { foreignKey: "userId", onDelete: "CASCADE" });
+    apiKey.belongsTo(user, { foreignKey: "userId" });
   }
 
   if (document) {

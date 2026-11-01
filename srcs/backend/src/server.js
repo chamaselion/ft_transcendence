@@ -7,6 +7,7 @@ const { requireEnv, requireNumberEnv } = require('./config');
 const routes = require('./routes');
 const { flushSessionStateToDb, hydrateSessionCacheFromDb } = require('./controllers/auth/helpers');
 const { attachDocumentSocket } = require('./ws/documentSocket');
+const { flushAllLiveDocuments } = require('./ws/liveDocuments');
 const { ensureAdminRole } = require('./services/adminBootstrap');
 
 const app = createApp({ router: routes });
@@ -22,7 +23,7 @@ const httpsOptions = {
 const httpsServer = https.createServer(httpsOptions, app);
 
 // Real-time collaboration layer (WebSocket on /api/ws).
-attachDocumentSocket(httpsServer);
+const documentSocket = attachDocumentSocket(httpsServer);
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -67,10 +68,21 @@ const shutdown = async (signal) => {
   shuttingDown = true;
 
   try {
-    console.log(`Received ${signal}. Flushing in-memory session state to database...`);
+    console.log(`Received ${signal}. Flushing in-memory state to database...`);
+    if (documentSocket) {
+      for (const client of documentSocket.clients) {
+        try {
+          client.terminate();
+        } catch {
+          // Ignore sockets that are already closing.
+        }
+      }
+      documentSocket.close();
+    }
     await flushSessionStateToDb();
+    await flushAllLiveDocuments();
   } catch (err) {
-    console.error('Failed to flush session state during shutdown:', err);
+    console.error('Failed to flush in-memory state during shutdown:', err);
   }
 
   httpsServer.close(() => {

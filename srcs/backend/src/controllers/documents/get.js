@@ -4,6 +4,7 @@ const {
   resolveModels,
   readId,
   present,
+  withLiveSnapshot,
   permissionFor,
 } = require('./helpers');
 
@@ -25,7 +26,9 @@ const createGetDocumentHandler = ({ documentModel, shareModel, userModel } = {})
         ? null
         : await models.users().findByPk(document.ownerId, { attributes: OWNER_ATTRS });
 
-      return res.json({ document: present(document, req.user, permission, owner) });
+      return res.json({
+        document: present(withLiveSnapshot(document), req.user, permission, owner),
+      });
     } catch (err) {
       console.error('[DOCUMENTS] get failed:', err);
       return res.status(500).json({ error: 'Failed to fetch document' });

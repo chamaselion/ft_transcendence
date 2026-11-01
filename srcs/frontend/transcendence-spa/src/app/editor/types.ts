@@ -69,6 +69,11 @@ export type SyncOperation =
       expected: string
     }
   | {
+      kind: 'move'
+      blockId: string
+      afterBlockId?: string | null
+    }
+  | {
       kind: 'title'
       title: string
       expectedTitle?: string
@@ -107,6 +112,7 @@ export interface EditorDataProvider {
     userId?: string | null
   }) => void
   onDeleted: (e: { blockId: string }) => void
+  onMoved?: (e: { blockId: string; afterBlockId?: string | null }) => void
   onLocked?: (e: { blockId: string; userId?: string | null; clientId?: string }) => void
   onUnlocked: (e: { blockId: string }) => void
   onTitleUpdated?: (e: { title: string; userId?: string | null }) => void

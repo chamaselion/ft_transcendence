@@ -141,22 +141,29 @@ export async function elaborateBlock(
     }
   }
 
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
+  let streamFinished = false
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
 
-    buffer += decoder.decode(value, { stream: true })
+      buffer += decoder.decode(value, { stream: true })
 
-    let separator = buffer.match(/\r?\n\r?\n/)
-    while (separator && separator.index !== undefined) {
-      handleRawEvent(buffer.slice(0, separator.index))
-      buffer = buffer.slice(separator.index + separator[0].length)
-      separator = buffer.match(/\r?\n\r?\n/)
+      let separator = buffer.match(/\r?\n\r?\n/)
+      while (separator && separator.index !== undefined) {
+        handleRawEvent(buffer.slice(0, separator.index))
+        buffer = buffer.slice(separator.index + separator[0].length)
+        separator = buffer.match(/\r?\n\r?\n/)
+      }
     }
-  }
 
-  buffer += decoder.decode()
-  handleRawEvent(buffer)
+    buffer += decoder.decode()
+    handleRawEvent(buffer)
+    streamFinished = true
+  } finally {
+    if (!streamFinished) await reader.cancel().catch(() => {})
+    reader.releaseLock()
+  }
 
   if (streamError) {
     throw new Error(streamError)

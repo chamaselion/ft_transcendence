@@ -134,6 +134,35 @@
         :class="position === 'left' ? '' : 'max-sm:hidden'"
       />
 
+      <div class="editor-nav__group flex flex-wrap items-center gap-1">
+        <Button
+          variant="outlined"
+          size="small"
+          square
+          :title="$t('editor.moveBlockUp')"
+          :aria-label="$t('editor.moveBlockUp')"
+          :disabled="!activeBlockId || deleteDisabled || !canMoveUp"
+          @click="$emit('move-up')"
+        >
+          <template #icon>
+            <Icon name="ArrowUp" :size="18" />
+          </template>
+        </Button>
+        <Button
+          variant="outlined"
+          size="small"
+          square
+          :title="$t('editor.moveBlockDown')"
+          :aria-label="$t('editor.moveBlockDown')"
+          :disabled="!activeBlockId || deleteDisabled || !canMoveDown"
+          @click="$emit('move-down')"
+        >
+          <template #icon>
+            <Icon name="ArrowDown" :size="18" />
+          </template>
+        </Button>
+      </div>
+
       <!-- Delete active block button -->
       <div class="editor-nav__group flex flex-wrap items-center gap-1">
         <Button
@@ -178,6 +207,8 @@ const props = withDefaults(
     deleteDisabled?: boolean
     isElaborating?: boolean
     isTranslating?: boolean
+    canMoveUp?: boolean
+    canMoveDown?: boolean
     position?: 'top' | 'left' | 'bottom'
   }>(),
   {
@@ -186,6 +217,8 @@ const props = withDefaults(
     deleteDisabled: false,
     isElaborating: false,
     isTranslating: false,
+    canMoveUp: false,
+    canMoveDown: false,
     position: 'top',
   },
 )
@@ -194,6 +227,8 @@ const emit = defineEmits<{
   add: [type: BlockType]
   delete: []
   elaborate: [personaKey: PersonaKey]
+  'move-up': []
+  'move-down': []
   'update:decorator': [decorator: BlockDecorator]
 }>()
 

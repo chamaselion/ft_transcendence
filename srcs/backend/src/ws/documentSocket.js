@@ -19,6 +19,17 @@ const {
 } = require('../controllers/documents/sanitize');
 const { resolvePermission, atLeast } = require('../controllers/documents/permissions');
 const { hashBlocks, fingerprintBlock, isValidContentHash } = require('./contentHash');
+const {
+  ensureRoomState,
+  getRoomState,
+  setRoomContent,
+  setRoomTitle,
+  addRoomMember,
+  removeRoomMember,
+  persistRoom,
+  awaitRoomPersistence,
+  registerLiveBroadcast,
+} = require('./liveDocuments');
 
 const parseDocBlocks = (content) => {
   if (!content || typeof content !== 'string') {
@@ -53,11 +64,34 @@ const MAX_RAW_MESSAGE_BYTES = 256 * 1024;
 const MAX_SOCKET_MESSAGE_BYTES = 10 * 1024 * 1024;
 const MAX_CLIENT_ID_LENGTH = 128;
 const MAX_PENDING_MESSAGES = 100;
-const MAX_SYNC_OPS = 1200;
+const MAX_SYNC_OPS = 2000;
 const MAX_SYNC_OP_TEXT_BYTES = 8 * 1024 * 1024;
+const MAX_WS_SESSIONS_PER_USER = Number(process.env.MAX_WS_SESSIONS_PER_USER) || 3;
 
 
 const rooms = new Map();
+const userConnections = new Map();
+
+const trackUserConnection = (ws) => {
+  if (ws.trackedConnection) return;
+  let set = userConnections.get(ws.userId);
+  if (!set) {
+    set = new Set();
+    userConnections.set(ws.userId, set);
+  }
+  set.add(ws);
+  ws.trackedConnection = true;
+};
+
+const untrackUserConnection = (ws) => {
+  if (!ws.trackedConnection) return;
+  ws.trackedConnection = false;
+  const set = userConnections.get(ws.userId);
+  if (!set) return;
+  set.delete(ws);
+  if (set.size === 0) userConnections.delete(ws.userId);
+};
+
 
 // Serializes read-modify-write cycles on a document's content column. The
 // block handlers read the whole JSON blob, mutate one block and write it back;
@@ -114,7 +148,14 @@ const startServerLockTimer = (ws) => {
 const leaveRoom = (ws) => {
   clearServerLockTimer(ws);
   const roomId = ws.documentId;
-  if (!roomId || !rooms.has(roomId)) return;
+  if (!roomId) return;
+  if (!rooms.has(roomId)) {
+    removeRoomMember(roomId);
+    void persistRoom(roomId);
+    ws.documentId = null;
+    ws.permission = null;
+    return;
+  }
   if (ws.lockedBlockId) {
     broadcast(roomId, {
       type: 'block_unlocked',
@@ -127,7 +168,11 @@ const leaveRoom = (ws) => {
   }
   const room = rooms.get(roomId);
   room.delete(ws);
-  if (room.size === 0) rooms.delete(roomId);
+  removeRoomMember(roomId);
+  if (room.size === 0) {
+    rooms.delete(roomId);
+    void persistRoom(roomId);
+  }
   ws.documentId = null;
   ws.permission = null;
 };
@@ -323,6 +368,54 @@ const applySyncOperations = (blocks, title, ops) => {
       continue;
     }
 
+    if (op.kind === 'move') {
+      if (typeof op.blockId !== 'string' || !op.blockId || op.blockId.length > MAX_BLOCK_ID_LENGTH) {
+        return { ok: false, type: 'invalid', error: 'Invalid block id' };
+      }
+      if (op.afterBlockId !== undefined && op.afterBlockId !== null) {
+        if (
+          typeof op.afterBlockId !== 'string' ||
+          op.afterBlockId.length > MAX_BLOCK_ID_LENGTH
+        ) {
+          return { ok: false, type: 'invalid', error: 'Invalid afterBlockId' };
+        }
+      }
+      if (op.afterBlockId === op.blockId) {
+        return { ok: false, type: 'invalid', error: 'A block cannot follow itself' };
+      }
+      const index = nextBlocks.findIndex((block) => block && block.id === op.blockId);
+      if (index === -1) {
+        return {
+          ok: false,
+          type: 'conflict',
+          conflict: blockConflict(op.blockId, 'deleted-remote', null),
+        };
+      }
+      const [moved] = nextBlocks.splice(index, 1);
+      if (op.afterBlockId) {
+        const targetIndex = nextBlocks.findIndex(
+          (block) => block && block.id === op.afterBlockId,
+        );
+        if (targetIndex === -1) {
+          nextBlocks.splice(index, 0, moved);
+          return {
+            ok: false,
+            type: 'conflict',
+            conflict: blockConflict(op.afterBlockId, 'deleted-remote', null),
+          };
+        }
+        nextBlocks.splice(targetIndex + 1, 0, moved);
+      } else {
+        nextBlocks.unshift(moved);
+      }
+      applied.push({
+        kind: 'move',
+        blockId: op.blockId,
+        afterBlockId: op.afterBlockId || null,
+      });
+      continue;
+    }
+
     if (op.kind === 'delete') {
       if (typeof op.blockId !== 'string' || !op.blockId || op.blockId.length > MAX_BLOCK_ID_LENGTH) {
         return { ok: false, type: 'invalid', error: 'Invalid block id' };
@@ -369,6 +462,12 @@ const connectionsForToken = (token) => {
   return [...activeServer.clients].filter((client) => client.token === token);
 };
 
+const hasRoomLocks = (documentId) => {
+  const room = rooms.get(String(documentId));
+  if (!room) return false;
+  return [...room].some((client) => Boolean(client.lockedBlockId));
+};
+
 const roomMembers = (documentId, userId) => {
   const room = rooms.get(String(documentId));
   if (!room) return [];
@@ -380,6 +479,15 @@ const roomMembers = (documentId, userId) => {
 
 const evictFromDocument = (documentId, userId) => {
   for (const client of roomMembers(documentId, userId)) {
+    send(client, { type: 'revoked', documentId: String(documentId) });
+    leaveRoom(client);
+  }
+};
+
+const evictDocumentRoom = (documentId) => {
+  const room = rooms.get(String(documentId));
+  if (!room) return;
+  for (const client of [...room]) {
     send(client, { type: 'revoked', documentId: String(documentId) });
     leaveRoom(client);
   }
@@ -447,6 +555,24 @@ const attachDocumentSocket = (
 
   const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_SOCKET_MESSAGE_BYTES });
   activeServer = wss;
+  registerLiveBroadcast((state, changes = {}) => {
+    if (changes.contentChanged) {
+      const blocks = parseDocBlocks(state.content);
+      broadcast(state.documentId, {
+        type: 'update',
+        documentId: state.documentId,
+        content: state.content,
+        contentHash: hashBlocks(blocks),
+      });
+    }
+    if (changes.titleChanged) {
+      broadcast(state.documentId, {
+        type: 'title_updated',
+        documentId: state.documentId,
+        title: state.title,
+      });
+    }
+  });
 
   const hasLiveSession = async (ws) => {
     if (!ws.token) return true;
@@ -499,7 +625,6 @@ const attachDocumentSocket = (
       socket.destroy();
       return;
     }
-
     wss.handleUpgrade(req, socket, head, (ws) => {
       ws.userId = identity.id;
       ws.token = identity.token || null;
@@ -525,6 +650,7 @@ const attachDocumentSocket = (
 
       if (!user) return sendError(ws, 'Document not found');
 
+      await awaitRoomPersistence(idCheck.value);
       const { document: doc, permission } = await resolvePermission(user, idCheck.value, {
         documentModel: resolveModel(),
         shareModel: resolveShareModel(),
@@ -532,26 +658,26 @@ const attachDocumentSocket = (
       if (!atLeast(permission, 'viewer')) return sendError(ws, 'Document not found');
 
       leaveRoom(ws);
-      ws.documentId = doc.id;
+      const state = ensureRoomState(doc);
+      ws.documentId = state.documentId;
       ws.permission = permission;
-      if (!rooms.has(doc.id)) rooms.set(doc.id, new Set());
-      rooms.get(doc.id).add(ws);
+      if (!rooms.has(state.documentId)) rooms.set(state.documentId, new Set());
+      rooms.get(state.documentId).add(ws);
+      addRoomMember(state.documentId);
 
-      // Normalize legacy/empty content once so the client and server agree on
-      // block ids. Persist the migration so every later message sees the same
-      // JSON shape.
+      // Normalize legacy/empty content in the live room state. It is persisted
+      // only when the last member leaves the room.
       let blocks = null;
       let isArray = false;
       try {
-        const parsed = JSON.parse(doc.content);
+        const parsed = JSON.parse(state.content);
         isArray = Array.isArray(parsed);
         blocks = isArray ? parsed : null;
       } catch {
         isArray = false;
       }
-      // Only migrate legacy non-JSON content to JSON format
       if (!isArray) {
-        const legacyText = typeof doc.content === 'string' ? doc.content.trim() : '';
+        const legacyText = typeof state.content === 'string' ? state.content.trim() : '';
         blocks = [
           {
             id: crypto.randomUUID(),
@@ -560,8 +686,7 @@ const attachDocumentSocket = (
             lockedBy: null,
           },
         ];
-        doc.content = JSON.stringify(blocks);
-        await doc.save();
+        setRoomContent(state, JSON.stringify(blocks));
       }
 
       const contentHash = hashBlocks(blocks);
@@ -592,16 +717,16 @@ const attachDocumentSocket = (
         permission,
         unchanged,
         contentHash,
-        title: doc.title,
+        title: state.title,
         document: unchanged
-          ? { id: doc.id, title: doc.title }
-          : { id: doc.id, title: doc.title, content: doc.content },
+          ? { id: state.documentId, title: state.title }
+          : { id: state.documentId, title: state.title, content: state.content },
         locks,
       });
       for (const lock of locks) {
         send(ws, {
           type: 'block_locked',
-          documentId: doc.id,
+          documentId: state.documentId,
           blockId: lock.blockId,
           clientId: lock.clientId,
           userId: lock.userId,
@@ -658,10 +783,13 @@ const attachDocumentSocket = (
       const targetIds = new Set();
       for (const op of msg.ops) {
         if (!op || typeof op !== 'object') continue;
-        if (op.kind === 'set' || op.kind === 'delete') {
+        if (op.kind === 'set' || op.kind === 'delete' || op.kind === 'move') {
           if (typeof op.blockId === 'string') targetIds.add(op.blockId);
         }
-        if (op.kind === 'create' && typeof op.afterBlockId === 'string') {
+        if (
+          (op.kind === 'create' || op.kind === 'move') &&
+          typeof op.afterBlockId === 'string'
+        ) {
           targetIds.add(op.afterBlockId);
         }
       }
@@ -689,8 +817,8 @@ const attachDocumentSocket = (
         const lockedNow = findLockedTarget();
         if (lockedNow) return sendSyncConflict(ws, requestId, lockedNow);
 
-        const doc = await resolveModel().findByPk(ws.documentId);
-        if (!doc) {
+        const state = getRoomState(ws.documentId);
+        if (!state) {
           return send(ws, {
             type: 'sync_error',
             documentId: ws.documentId,
@@ -699,8 +827,8 @@ const attachDocumentSocket = (
           });
         }
 
-        const blocks = parseDocBlocks(doc.content);
-        const result = applySyncOperations(blocks, doc.title, msg.ops);
+        const blocks = parseDocBlocks(state.content);
+        const result = applySyncOperations(blocks, state.title, msg.ops);
         if (!result.ok) {
           if (result.type === 'invalid') {
             return send(ws, {
@@ -723,9 +851,8 @@ const attachDocumentSocket = (
           });
         }
 
-        doc.content = JSON.stringify(result.blocks);
-        doc.title = result.title;
-        await doc.save();
+        setRoomContent(state, JSON.stringify(result.blocks));
+        setRoomTitle(state, result.title);
 
         const contentHash = hashBlocks(result.blocks);
         for (const item of result.applied) {
@@ -765,6 +892,18 @@ const attachDocumentSocket = (
                 type: 'block_deleted',
                 documentId: ws.documentId,
                 blockId: item.blockId,
+                userId: ws.userId,
+              },
+              ws,
+            );
+          } else if (item.kind === 'move') {
+            broadcast(
+              ws.documentId,
+              {
+                type: 'block_moved',
+                documentId: ws.documentId,
+                blockId: item.blockId,
+                afterBlockId: item.afterBlockId,
                 userId: ws.userId,
               },
               ws,
@@ -828,13 +967,12 @@ const attachDocumentSocket = (
           return sendError(ws, 'Block is locked by another user');
         }
 
-        const doc = await resolveModel().findByPk(ws.documentId);
-        if (!doc) return sendError(ws, 'Document not found');
+        const state = getRoomState(ws.documentId);
+        if (!state) return sendError(ws, 'Document not found');
 
         const sanitizedContent = sanitizeContent(msg.content);
 
-        doc.content = sanitizedContent;
-        await doc.save();
+        setRoomContent(state, sanitizedContent);
 
         return broadcast(
           ws.documentId,
@@ -873,10 +1011,10 @@ const attachDocumentSocket = (
           return sendError(ws, 'Block is no longer locked by you');
         }
 
-        const doc = await resolveModel().findByPk(ws.documentId);
-        if (!doc) return sendError(ws, 'Document not found');
+        const state = getRoomState(ws.documentId);
+        if (!state) return sendError(ws, 'Document not found');
 
-        const blocks = parseDocBlocks(doc.content);
+        const blocks = parseDocBlocks(state.content);
         const target = blocks.find((b) => b && b.id === msg.blockId);
         if (!target) return sendError(ws, 'Block not found');
 
@@ -893,8 +1031,7 @@ const attachDocumentSocket = (
           startServerLockTimer(ws);
         }
 
-        doc.content = JSON.stringify(blocks);
-        await doc.save();
+        setRoomContent(state, JSON.stringify(blocks));
 
         return broadcast(
           ws.documentId,
@@ -955,10 +1092,10 @@ const attachDocumentSocket = (
           return sendError(ws, 'Preceding block is locked by another user');
         }
 
-        const doc = await resolveModel().findByPk(ws.documentId);
-        if (!doc) return sendError(ws, 'Document not found');
+        const state = getRoomState(ws.documentId);
+        if (!state) return sendError(ws, 'Document not found');
 
-        const blocks = parseDocBlocks(doc.content);
+        const blocks = parseDocBlocks(state.content);
         if (blocks.length >= MAX_BLOCKS) {
           return sendError(ws, `Document cannot exceed ${MAX_BLOCKS} blocks`);
         }
@@ -976,8 +1113,7 @@ const attachDocumentSocket = (
           blocks.push(newBlock);
         }
 
-        doc.content = JSON.stringify(blocks);
-        await doc.save();
+        setRoomContent(state, JSON.stringify(blocks));
 
         return broadcast(
           ws.documentId,
@@ -1014,15 +1150,14 @@ const attachDocumentSocket = (
           return sendError(ws, 'Block is no longer locked by you');
         }
 
-        const doc = await resolveModel().findByPk(ws.documentId);
-        if (!doc) return sendError(ws, 'Document not found');
+        const state = getRoomState(ws.documentId);
+        if (!state) return sendError(ws, 'Document not found');
 
-        const blocks = parseDocBlocks(doc.content);
+        const blocks = parseDocBlocks(state.content);
         const index = blocks.findIndex((b) => b && b.id === msg.blockId);
         if (index !== -1) {
           blocks.splice(index, 1);
-          doc.content = JSON.stringify(blocks);
-          await doc.save();
+          setRoomContent(state, JSON.stringify(blocks));
         }
         if (ws.lockedBlockId === msg.blockId) {
           clearServerLockTimer(ws);
@@ -1035,6 +1170,61 @@ const attachDocumentSocket = (
             type: 'block_deleted',
             documentId: ws.documentId,
             blockId: msg.blockId,
+            userId: ws.userId,
+          },
+          ws,
+        );
+      });
+    }
+
+    if (msg.type === 'block_move') {
+      if (!ws.documentId) return sendError(ws, 'Join a document first');
+      if (!atLeast(ws.permission, 'editor')) return sendError(ws, 'Read-only access');
+      if (!msg.blockId || typeof msg.blockId !== 'string' || msg.blockId.length > MAX_BLOCK_ID_LENGTH) {
+        return sendError(ws, 'Invalid block id');
+      }
+      if (msg.afterBlockId !== undefined && msg.afterBlockId !== null) {
+        if (typeof msg.afterBlockId !== 'string' || msg.afterBlockId.length > MAX_BLOCK_ID_LENGTH) {
+          return sendError(ws, 'Invalid afterBlockId');
+        }
+      }
+      if (msg.afterBlockId === msg.blockId) {
+        return sendError(ws, 'A block cannot follow itself');
+      }
+      if (lockHolder(ws.documentId, msg.blockId, ws)) {
+        return sendError(ws, 'Block is locked by another user');
+      }
+      if (msg.afterBlockId && lockHolder(ws.documentId, msg.afterBlockId, ws)) {
+        return sendError(ws, 'Target block is locked by another user');
+      }
+
+      return withDocumentWriteLock(ws.documentId, async () => {
+        const state = getRoomState(ws.documentId);
+        if (!state) return sendError(ws, 'Document not found');
+
+        const blocks = parseDocBlocks(state.content);
+        const index = blocks.findIndex((block) => block && block.id === msg.blockId);
+        if (index === -1) return sendError(ws, 'Block not found');
+        const [moved] = blocks.splice(index, 1);
+        if (msg.afterBlockId) {
+          const targetIndex = blocks.findIndex((block) => block && block.id === msg.afterBlockId);
+          if (targetIndex === -1) {
+            blocks.splice(index, 0, moved);
+            return sendError(ws, 'Target block not found');
+          }
+          blocks.splice(targetIndex + 1, 0, moved);
+        } else {
+          blocks.unshift(moved);
+        }
+        setRoomContent(state, JSON.stringify(blocks));
+
+        return broadcast(
+          ws.documentId,
+          {
+            type: 'block_moved',
+            documentId: ws.documentId,
+            blockId: msg.blockId,
+            afterBlockId: msg.afterBlockId || null,
             userId: ws.userId,
           },
           ws,
@@ -1140,12 +1330,11 @@ const attachDocumentSocket = (
       }
 
       return withDocumentWriteLock(ws.documentId, async () => {
-        const doc = await resolveModel().findByPk(ws.documentId);
-        if (!doc) return sendError(ws, 'Document not found');
+        const state = getRoomState(ws.documentId);
+        if (!state) return sendError(ws, 'Document not found');
 
         const sanitizedTitle = sanitizeText(msg.title.trim());
-        doc.title = sanitizedTitle;
-        await doc.save();
+        setRoomTitle(state, sanitizedTitle);
 
         return broadcast(
           ws.documentId,
@@ -1168,6 +1357,14 @@ const attachDocumentSocket = (
   };
 
   wss.on('connection', (ws) => {
+    trackUserConnection(ws);
+    const userSet = userConnections.get(ws.userId);
+    if (userSet && userSet.size > MAX_WS_SESSIONS_PER_USER) {
+      untrackUserConnection(ws);
+      send(ws, { type: 'error', error: 'Too many concurrent sessions' });
+      ws.close(1013, 'Too many concurrent sessions');
+      return;
+    }
     // Process this socket's messages in order. block_edit queues a DB write and
     // re-checks the lock inside it; a following block_unlock must not overtake
     // that write, otherwise the edit is rejected as "no longer locked by you".
@@ -1212,8 +1409,14 @@ const attachDocumentSocket = (
       ws.isAlive = true;
     });
 
-    ws.on('close', () => leaveRoom(ws));
-    ws.on('error', () => leaveRoom(ws));
+    ws.on('close', () => {
+      leaveRoom(ws);
+      untrackUserConnection(ws);
+    });
+    ws.on('error', () => {
+      leaveRoom(ws);
+      untrackUserConnection(ws);
+    });
   });
 
   const heartbeat = setInterval(() => {
@@ -1254,7 +1457,9 @@ const attachDocumentSocket = (
 module.exports = {
   attachDocumentSocket,
   evictFromDocument,
+  evictDocumentRoom,
   evictSession,
   syncLivePermission,
+  hasRoomLocks,
   WS_PATH,
 };

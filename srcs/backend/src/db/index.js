@@ -30,6 +30,7 @@ const modelDefiners = [
   require("./models/gdpr-export-quota"),
   require("./models/gdpr-audit-event"),
   require("./models/auth-session"),
+  require("./models/api-key"),
   require("./models/one-time-challenge"),
   require("./models/document"),
   require("./models/document-share"),

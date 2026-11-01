@@ -223,6 +223,20 @@ export const useEditorStore = defineStore('editor', () => {
     } else if (op.kind === 'delete') {
       const index = nextBlocks.findIndex((block) => block.id === op.blockId)
       if (index !== -1) nextBlocks.splice(index, 1)
+    } else if (op.kind === 'move') {
+      const index = nextBlocks.findIndex((block) => block.id === op.blockId)
+      if (index !== -1) {
+        const [moved] = nextBlocks.splice(index, 1)
+        if (moved) {
+          if (!op.afterBlockId) {
+            nextBlocks.unshift(moved)
+          } else {
+            const target = nextBlocks.findIndex((block) => block.id === op.afterBlockId)
+            if (target === -1) nextBlocks.splice(index, 0, moved)
+            else nextBlocks.splice(target + 1, 0, moved)
+          }
+        }
+      }
     }
 
     base.value = {
@@ -455,6 +469,35 @@ export const useEditorStore = defineStore('editor', () => {
     return id
   }
 
+  function moveBlock(blockId: string, offset: number): boolean {
+    const index = blocks.value.findIndex((block) => block.id === blockId)
+    if (index === -1) return false
+    const target = index + offset
+    if (target < 0 || target >= blocks.value.length) return false
+    const [block] = blocks.value.splice(index, 1)
+    if (!block) return false
+    blocks.value.splice(target, 0, block)
+    return true
+  }
+
+  function moveBlockAfter(blockId: string, afterBlockId?: string | null): boolean {
+    const index = blocks.value.findIndex((block) => block.id === blockId)
+    if (index === -1) return false
+    const [block] = blocks.value.splice(index, 1)
+    if (!block) return false
+    if (!afterBlockId) {
+      blocks.value.unshift(block)
+      return true
+    }
+    const target = blocks.value.findIndex((item) => item.id === afterBlockId)
+    if (target === -1) {
+      blocks.value.push(block)
+      return true
+    }
+    blocks.value.splice(target + 1, 0, block)
+    return true
+  }
+
   function updateBlockText(id: string, text: string) {
     const index = blocks.value.findIndex((item) => item.id === id)
     const current = blocks.value[index]
@@ -573,6 +616,8 @@ export const useEditorStore = defineStore('editor', () => {
     insertBlock,
     removeBlock,
     deleteActiveBlock,
+    moveBlock,
+    moveBlockAfter,
     updateText: updateBlockText,
     updateBlockText,
     updateBlockDecorator,

@@ -63,7 +63,6 @@ const createOneTimeCodeService = ({
     recipient,
     subject,
     textBuilder,
-    htmlBuilder,
     payload = {},
   }) => {
     const challengeModel = getChallengeModel();
@@ -102,7 +101,6 @@ const createOneTimeCodeService = ({
       to: recipient,
       subject: subject || `Your ${context.purposeLabel} code`,
       text: textBuilder ? textBuilder(context) : defaultTextBuilder(context),
-      html: htmlBuilder ? htmlBuilder(context) : undefined,
     });
 
     return {

@@ -71,15 +71,71 @@ The WebSocket layer (`WS /api/ws`) mirrors the permissions above: `viewer` may
 join a document and watch, `editor` may also push updates, and every saved
 change is broadcast to the others in the same room.
 
-**Known limitation - last write wins.** An `update` carries the whole document
-rather than the edit that produced it, so the server simply overwrites what is
-stored. If two editors type at the same moment, one of the two versions is
-lost, and it is lost *silently*: both messages are accepted, no error is
-returned, and the overwritten text cannot be recovered. Taking turns works as
-expected; genuinely simultaneous editing does not. Closing this gap means
-sending operations instead of full text and merging them (OT, or a CRDT such
-as yjs) - a rewrite of the update path on both ends, not a patch. This is a
-deliberate scope decision, not an oversight.
+**Reconnects and offline edits.** The server computes a sha-256 content hash
+over the canonical block list (`[id, unescaped text, decorator]`, in order).
+A client can send `baseHash` and `localHash` with `join`:
+
+- If either hash matches the current content, the `init` response is marked
+  `unchanged: true` and omits `document.content`. Title, permission, locks and
+  the current `contentHash` are always included.
+- Otherwise `init` contains the full snapshot and its `contentHash`.
+
+After a reconnect, the client merges the server snapshot with its draft and
+sends only the resulting changes through `sync`:
+
+```json
+{
+  "type": "sync",
+  "documentId": "uuid",
+  "requestId": "client-generated-id",
+  "ops": [
+    { "kind": "set", "blockId": "block-id", "text": "text", "decorator": "{}", "expected": "sha256" },
+    { "kind": "create", "block": { "id": "block-id", "text": "", "decorator": "{}" }, "afterBlockId": null, "expected": null },
+    { "kind": "delete", "blockId": "block-id", "expected": "sha256" },
+    { "kind": "move", "blockId": "block-id", "afterBlockId": "previous-block-id" },
+    { "kind": "title", "title": "Title", "expectedTitle": "Previous title" }
+  ]
+}
+```
+
+Each operation carries the fingerprint the client last saw for that block. The
+server applies the batch atomically under the per-document write lock and
+rejects it if a target is locked by another client or its fingerprint changed.
+The reply is either `sync_ok { contentHash }` or `sync_conflict` with the
+current block (or title) so the client can update its conflict view. Saves are
+broadcast as the usual granular `block_*`/`title_updated` events.
+
+**Known limitation - live simultaneous editing is still last write wins.**
+When two clients edit the same block while both are connected, locks normally
+serialize them; if a full `update` is used, the server overwrites the stored
+document. Offline reconnects are protected by the fingerprint checks above,
+but this is not an OT/CRDT implementation.
+
+The browser client keeps unsaved blocks and unresolved conflicts in
+localStorage, restores them after a reload, and displays same-block conflicts
+inline (local and server versions side by side). See
+[`scripts/test-websocket-reconnect.js`](../../../scripts/test-websocket-reconnect.js)
+for the server-side flow.
+
+## Live rooms and persistence
+
+While at least one client is connected to a document room, the title and block
+content are kept in backend memory. WebSocket edits do **not** write to
+PostgreSQL, and neither does `PATCH /api/documents/:id` while the room is live.
+When the last participant leaves, the room is written back to the database in
+one operation. Empty blocks (text is empty or whitespace only) are discarded at
+that point. `GET` and list responses overlay the live snapshot so callers see
+the current title/content even before persistence. While a room is live,
+`PATCH /api/documents/:id` returns `409` if it tries to replace content while
+any block is locked by another client.
+
+Search and default `updatedAt` ordering in `GET /api/documents` still use PostgreSQL
+values, so unsaved live content is not searchable until the room is persisted.
+
+A user may have at most `MAX_WS_SESSIONS_PER_USER` concurrent WebSocket sessions
+(default `3`). Additional connections receive a `Too many concurrent sessions` error and are closed.
+
+API clients can use [API keys](../api-keys.md) instead of a browser session.
 
 ---
 
@@ -94,3 +150,6 @@ already-open socket, a revoke or logout closing one, and a demoted admin losing
 their reach on the next heartbeat tick. That last case waits out a full tick, so
 the live suite takes ~35s rather than a few seconds; it needs an admin account
 (`ADMIN_EMAIL` / `ADMIN_PASS`) and skips itself without one.
+
+Reconnect/sync smoke test: [`scripts/test-websocket-reconnect.sh`](../../../scripts/test-websocket-reconnect.sh)
+(hash fast path, full snapshot, batched sync, stale fingerprint conflict, title-only reconnect).

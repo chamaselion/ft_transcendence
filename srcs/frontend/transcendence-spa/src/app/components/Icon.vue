@@ -1,3 +1,4 @@
+<!-- eslint-disable vue/multi-word-component-names -->
 <script lang="ts">
 export const iconNames = [
   'H1',
@@ -50,6 +51,8 @@ export const iconNames = [
   'ShieldCheck',
   'InfoCircle',
   'Key',
+  'ArrowUp',
+  'ArrowDown',
 ] as const
 
 export type IconName = (typeof iconNames)[number]
@@ -103,6 +106,8 @@ import {
   IconShieldCheck,
   IconInfoCircle,
   IconKey,
+  IconArrowUp,
+  IconArrowDown,
 } from '@tabler/icons-vue'
 
 const iconMap: Record<IconName, Component> = {
@@ -152,6 +157,8 @@ const iconMap: Record<IconName, Component> = {
   Key: IconKey,
   UserPlus: IconUserPlus,
   FilePDF: IconFileTypePdf,
+  ArrowUp: IconArrowUp,
+  ArrowDown: IconArrowDown,
 }
 
 const props = withDefaults(

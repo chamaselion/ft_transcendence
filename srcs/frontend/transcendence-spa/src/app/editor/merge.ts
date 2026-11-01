@@ -73,6 +73,19 @@ export function applyOpsToBlocks(blocks: Block[], ops: SyncOperation[]): Block[]
       if (index !== -1) next.splice(index, 1)
       continue
     }
+    if (op.kind === 'move') {
+      const index = next.findIndex((block) => block.id === op.blockId)
+      if (index === -1) continue
+      const [moved] = next.splice(index, 1)
+      if (!moved) continue
+      if (!op.afterBlockId) {
+        next.unshift(moved)
+      } else {
+        const target = next.findIndex((block) => block.id === op.afterBlockId)
+        if (target === -1) next.splice(index, 0, moved)
+        else next.splice(target + 1, 0, moved)
+      }
+    }
     if (op.kind === 'create') {
       if (next.some((block) => block.id === op.block.id)) continue
       const afterId = op.afterBlockId
@@ -139,6 +152,22 @@ export async function buildLocalOnlyOps(
   for (const baseBlock of base.blocks) {
     if (!localIds.has(baseBlock.id) && !excludedBlockIds.has(baseBlock.id)) {
       ops.push({ kind: 'delete', blockId: baseBlock.id, expected: baseBlock.fingerprint })
+    }
+  }
+
+  const commonBaseOrder = base.blocks
+    .map((block) => block.id)
+    .filter((id) => localIds.has(id) && !excludedBlockIds.has(id))
+  const commonLocalOrder = localBlocks
+    .map((block) => block.id)
+    .filter((id) => baseById.has(id) && !excludedBlockIds.has(id))
+  if (commonBaseOrder.join('\u0000') !== commonLocalOrder.join('\u0000')) {
+    const movableLocal = localBlocks.filter((block) => !excludedBlockIds.has(block.id))
+    for (let index = 0; index < movableLocal.length; index += 1) {
+      const block = movableLocal[index]
+      if (!block) continue
+      const previous = index > 0 ? (movableLocal[index - 1]?.id ?? null) : null
+      ops.push({ kind: 'move', blockId: block.id, afterBlockId: previous })
     }
   }
 
@@ -303,7 +332,7 @@ export async function mergeDocuments({
     if (decision.final) finalById.set(id, decision.final)
   }
 
-  const ordered: Block[] = []
+  let ordered: Block[] = []
   const orderedIds = new Set<string>()
   for (const remote of remoteBlocks) {
     const final = finalById.get(remote.id)
@@ -343,6 +372,46 @@ export async function mergeDocuments({
     }
   }
 
+  const localByIdForOrder = new Map(localBlocks.map((block) => [block.id, block]))
+  const baseByIdForOrder = new Map(base.blocks.map((block) => [block.id, block]))
+  const commonLocalOrder = localBlocks
+    .map((block) => block.id)
+    .filter((id) => baseByIdForOrder.has(id) && finalById.has(id))
+  const commonBaseOrder = base.blocks
+    .map((block) => block.id)
+    .filter((id) => localByIdForOrder.has(id) && finalById.has(id))
+  const orderChanged = commonBaseOrder.join('\u0000') !== commonLocalOrder.join('\u0000')
+  if (orderChanged) {
+    // The local user reordered blocks, so local order wins. New local blocks are
+    // part of that order; blocks that only exist remotely keep their position
+    // relative to their nearest preceding remote block.
+    const localOrderIds = localBlocks.map((block) => block.id).filter((id) => finalById.has(id))
+    const localOrderSet = new Set(localOrderIds)
+    const nextOrder: Block[] = []
+    for (const id of localOrderIds) {
+      const block = finalById.get(id)
+      if (block && !nextOrder.some((item) => item.id === id)) nextOrder.push(block)
+    }
+    for (let index = 0; index < remoteBlocks.length; index += 1) {
+      const remoteBlock = remoteBlocks[index]
+      if (!remoteBlock || localOrderSet.has(remoteBlock.id)) continue
+      const block = finalById.get(remoteBlock.id)
+      if (!block || nextOrder.some((item) => item.id === block.id)) continue
+      let insertAt = 0
+      for (let previous = index - 1; previous >= 0; previous -= 1) {
+        const previousId = remoteBlocks[previous]?.id
+        if (!previousId) continue
+        const position = nextOrder.findIndex((item) => item.id === previousId)
+        if (position !== -1) {
+          insertAt = position + 1
+          break
+        }
+      }
+      nextOrder.splice(insertAt, 0, block)
+    }
+    ordered = nextOrder
+  }
+
   const orderIndex = new Map(ordered.map((block, index) => [block.id, index]))
   const ops: SyncOperation[] = []
   const conflicts: Record<string, BlockConflict> = {}
@@ -372,6 +441,16 @@ export async function mergeDocuments({
   }
   for (const decision of decisions.values()) {
     if (decision.deleteOp) ops.push(decision.deleteOp)
+  }
+
+  if (orderChanged) {
+    const movable = ordered.filter((block) => !decisions.get(block.id)?.conflict)
+    for (let index = 0; index < movable.length; index += 1) {
+      const block = movable[index]
+      if (!block) continue
+      const previous = index > 0 ? (movable[index - 1]?.id ?? null) : null
+      ops.push({ kind: 'move', blockId: block.id, afterBlockId: previous })
+    }
   }
 
   let finalTitle = remoteTitle

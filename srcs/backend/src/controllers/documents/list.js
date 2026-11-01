@@ -6,6 +6,7 @@ const {
   isAdmin,
   resolveModels,
   present,
+  withLiveSnapshot,
 } = require('./helpers');
 
 const SORTABLE = ['updatedAt', 'createdAt', 'title'];
@@ -78,7 +79,7 @@ const createListDocumentsHandler = ({ documentModel, shareModel, userModel } = {
 
       return res.json({
         documents: documents.map((document) =>
-          present(document, req.user, permissionOf(document), document.owner)),
+          present(withLiveSnapshot(document), req.user, permissionOf(document), document.owner)),
         pagination: paginationOf({ total, limit, offset }),
       });
     } catch (err) {

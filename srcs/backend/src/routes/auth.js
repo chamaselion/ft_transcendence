@@ -19,6 +19,9 @@ const { createRateLimiter, getClientIp, normalizeIdentity } = require('../middle
 const { createRequireAuth } = require('../middleware/requireAuth');
 const { iconUpload } = require('../middleware/iconUpload');
 const { createUserIconController } = require('../controllers/auth/userIcon');
+const {
+  createApiKeyController,
+} = require('../controllers/auth/apiKeys');
 
 const { login } = createLoginHandler();
 const { register } = createRegisterHandler();
@@ -39,6 +42,7 @@ const { dataDeletionRequest } = createDataDeletionRequestHandler();
 const { dataDeletionConfirm } = createDataDeletionConfirmHandler();
 const { requireAuth } = createRequireAuth();
 const { replaceIcon, getIcon, deleteIcon } = createUserIconController();
+const { listApiKeys, createApiKey, revokeApiKey } = createApiKeyController();
 
 const router = express.Router();
 const iconUploadLimiter = createRateLimiter({
@@ -53,6 +57,13 @@ const authRequestLimiter = createRateLimiter({
 	windowMs: 60 * 1000,
 	maxRequests: 30,
 	keyGenerator: (req) => getClientIp(req),
+});
+
+const apiKeyLimiter = createRateLimiter({
+  name: 'api-key-management',
+  windowMs: 60 * 1000,
+  maxRequests: 10,
+  keyGenerator: (req) => req.user?.id || getClientIp(req),
 });
 
 const otpIssueLimiter = createRateLimiter({
@@ -84,6 +95,9 @@ router.get('/oauth/:provider/link', authRequestLimiter, requireAuth, startLinkPr
 router.post('/oauth/:provider/password', authRequestLimiter, requireAuth, setPassword);
 router.post('/logout', logout);
 router.get('/me', me);
+router.get('/api-keys', requireAuth, listApiKeys);
+router.post('/api-keys', requireAuth, apiKeyLimiter, createApiKey);
+router.delete('/api-keys/:id', requireAuth, apiKeyLimiter, revokeApiKey);
 router.put('/me/icon', requireAuth, iconUploadLimiter, iconUpload, replaceIcon);
 router.get('/me/icon', requireAuth, getIcon);
 router.delete('/me/icon', requireAuth, iconUploadLimiter, deleteIcon);

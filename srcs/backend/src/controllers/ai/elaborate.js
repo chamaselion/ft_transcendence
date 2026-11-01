@@ -40,7 +40,9 @@ const createElaborateHandler = ({ elaborationService } = {}) => {
     res.status(200);
     res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
     res.setHeader('Cache-Control', 'no-cache, no-transform');
-    res.setHeader('Connection', 'keep-alive');
+    // The browser must not reuse the streaming connection for the follow-up
+    // translation request; some proxy/browser combinations reject that with 400.
+    res.setHeader('Connection', 'close');
     res.setHeader('X-Accel-Buffering', 'no');
     res.flushHeaders?.();
 

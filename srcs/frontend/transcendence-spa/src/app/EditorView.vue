@@ -9,7 +9,7 @@ import { SyncConflictError, WebSocketEditorDataProvider } from '@/app/editor/dat
 import { createBlock, type EditorDataProvider, type SyncOperation } from '@/app/editor/types'
 import { useAuthStore } from '@/stores/auth'
 import { useEditorStore } from '@/stores/editor'
-import { createDocument, getDocument, updateDocumentTitle } from '@/app/editor/document.api'
+import { createDocument, getDocument } from '@/app/editor/document.api'
 import { insertPlainText } from '@/app/editor/plainTextPaste'
 import { clearDraft, loadDraft, saveDraft } from '@/app/editor/draftStorage'
 import { DOCUMENT_TITLE_MAX_LENGTH } from '@/utils/validation'
@@ -164,7 +164,7 @@ function openRoom(docId: string, initialTitle?: string) {
       if (reason === 'session-expired') {
         authStore.invalidate()
         void router.push('/login')
-      } else {
+      } else if (reason !== 'too-many-sessions') {
         void router.push('/')
       }
     },
@@ -279,13 +279,6 @@ async function onTitleBlur() {
     }
     if (isOnline.value && !store.titleConflict && provider.value?.sendTitleUpdate) {
       await provider.value.sendTitleUpdate(newTitle)
-    }
-    if (isOnline.value && !store.titleConflict && documentId.value) {
-      try {
-        await updateDocumentTitle(documentId.value, newTitle)
-      } catch (err) {
-        logger.error('Failed to update title via REST API:', err)
-      }
     }
   }
 }

@@ -1,3 +1,4 @@
+
 const sequelize = require('../../db');
 const { validateUuid } = require('../auth/validation');
 const { pick } = require('../../utils/pick');
@@ -9,6 +10,7 @@ const {
   validateContentLength,
 } = require('./sanitize');
 const { resolvePermission } = require('./permissions');
+const { getLiveSnapshot } = require('../../ws/liveDocuments');
 
 const PUBLIC_ATTRS = ['id', 'title', 'content', 'createdAt', 'updatedAt'];
 const ADMIN_ATTRS = [...PUBLIC_ATTRS, 'ownerId'];
@@ -58,6 +60,13 @@ const readDocumentFields = ({ title, content }) => {
   return { ok: true, value: { title: sanitizedTitle, content: sanitizedContent } };
 };
 
+const withLiveSnapshot = (document) => {
+  const snapshot = getLiveSnapshot(document.id);
+  if (!snapshot) return document;
+  const plain = typeof document.get === 'function' ? document.get({ plain: true }) : document;
+  return { ...plain, title: snapshot.title, content: snapshot.content };
+};
+
 const present = (document, user, permission, owner) => {
   const presented = {
     ...pick(document, attrsFor(user)),
@@ -85,5 +94,6 @@ module.exports = {
   readId,
   readDocumentFields,
   present,
+  withLiveSnapshot,
   permissionFor,
 };

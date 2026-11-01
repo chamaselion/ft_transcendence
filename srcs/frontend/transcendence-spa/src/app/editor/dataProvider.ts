@@ -31,7 +31,8 @@ const decodeConflict = (conflict: SyncConflict): SyncConflict => ({
   block: conflict.block ? decodeBlock(conflict.block) : (conflict.block ?? null),
 })
 
-export type FatalConnectionReason = 'session-expired' | 'revoked' | 'not-found'
+export type FatalConnectionReason =
+  'session-expired' | 'revoked' | 'not-found' | 'too-many-sessions'
 
 export class SyncConflictError extends Error {
   public readonly conflicts: SyncConflict[]
@@ -135,6 +136,7 @@ export class WebSocketEditorDataProvider implements EditorDataProvider {
     userId?: string | null
   }) => void = () => {}
   public onDeleted: (e: { blockId: string }) => void = () => {}
+  public onMoved: (e: { blockId: string; afterBlockId?: string | null }) => void = () => {}
   public onLocked: (e: { blockId: string; userId?: string | null; clientId?: string }) => void =
     () => {}
   public onUnlocked: (e: { blockId: string }) => void = () => {}
@@ -370,6 +372,12 @@ export class WebSocketEditorDataProvider implements EditorDataProvider {
         if (msg.blockId) this.onDeleted({ blockId: msg.blockId })
         break
 
+      case 'block_moved':
+        if (msg.blockId) {
+          this.onMoved({ blockId: msg.blockId, afterBlockId: msg.afterBlockId })
+        }
+        break
+
       case 'block_locked':
         if (msg.blockId) {
           this.onLocked({
@@ -418,6 +426,8 @@ export class WebSocketEditorDataProvider implements EditorDataProvider {
           this.setFatal(msg.error, 'not-found')
         } else if (msg.error === 'Session expired') {
           this.setFatal(i18n.global.t('errors.sessionExpired'), 'session-expired')
+        } else if (msg.error === 'Too many concurrent sessions') {
+          this.setFatal(i18n.global.t('errors.tooManySessions'), 'too-many-sessions')
         } else {
           this.onError({ error: msg.error || 'Server error' })
         }
@@ -707,6 +717,7 @@ export class LocalEditorDataProvider implements EditorDataProvider {
     userId?: string | null
   }) => void = () => {}
   public onDeleted: (e: { blockId: string }) => void = () => {}
+  public onMoved: (e: { blockId: string; afterBlockId?: string | null }) => void = () => {}
   public onLocked: (e: { blockId: string; userId?: string | null; clientId?: string }) => void =
     () => {}
   public onUnlocked: (e: { blockId: string }) => void = () => {}

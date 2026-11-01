@@ -7,6 +7,7 @@
         locked,
       'editor-block--elaborating cursor-progress border-l-warning bg-warning/[0.08] select-none [&_*]:pointer-events-none [&_*]:select-none':
         elaborating,
+      'editor-block--translating cursor-progress opacity-70': translating && !locked,
     }"
     :data-block-id="block.id"
     @click="!readOnly && $emit('focus')"

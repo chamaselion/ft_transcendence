@@ -14,14 +14,20 @@ const createApp = ({ router } = {}) => {
 		next();
 	});
 
+	const configuredOrigins = (process.env.CORS_ORIGINS || '')
+		.split(',')
+		.map((origin) => origin.trim())
+		.filter(Boolean);
+
 	app.use(cors({
 		origin: (origin, callback) => {
-			console.log(`[CORS] origin request from: ${origin}`);
-			// Backend is only reachable through WAF; all requests go through single entry point
-			return callback(null, true);
+			if (!origin || configuredOrigins.includes(origin)) {
+				return callback(null, true);
+			}
+			return callback(null, false);
 		},
 		credentials: true,
-		allowedHeaders: ['Content-Type', 'Authorization'],
+		allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key'],
 		methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
 	}));
 	app.use(express.json());

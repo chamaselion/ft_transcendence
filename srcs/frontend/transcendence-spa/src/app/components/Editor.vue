@@ -14,9 +14,13 @@
       :delete-disabled="isDeleteDisabled"
       :is-elaborating="isElaborating"
       :is-translating="store.isTranslating"
+      :can-move-up="store.activeIndex > 0"
+      :can-move-down="store.activeIndex >= 0 && store.activeIndex < store.blocks.length - 1"
       :position="navPosition"
       @add="onAdd"
       @delete="onDelete"
+      @move-up="onMoveBlock(-1)"
+      @move-down="onMoveBlock(1)"
       @elaborate="onElaborate"
       @update:decorator="onUpdateDecorator(store.activeBlock, $event)"
     />
@@ -82,9 +86,13 @@
       :delete-disabled="isDeleteDisabled"
       :is-elaborating="isElaborating"
       :is-translating="store.isTranslating"
+      :can-move-up="store.activeIndex > 0"
+      :can-move-down="store.activeIndex >= 0 && store.activeIndex < store.blocks.length - 1"
       :position="navPosition"
       @add="onAdd"
       @delete="onDelete"
+      @move-up="onMoveBlock(-1)"
+      @move-down="onMoveBlock(1)"
       @elaborate="onElaborate"
       @update:decorator="onUpdateDecorator(store.activeBlock, $event)"
     />
@@ -112,6 +120,7 @@ import {
 import { elaborateBlock, type PersonaKey } from '@/app/editor/elaboration.api'
 import { isStandardText, type EditableInsertEvent } from '@/app/editor/useEditable'
 import { logger } from '@/utils/logger'
+import { EDITOR_BLOCK_MAX_LENGTH } from '@/utils/validation'
 import {
   createBlock,
   defaultDecorator,
@@ -842,6 +851,9 @@ function enterReadOnlyMode() {
 }
 
 function startDocumentTranslation(blocks: Block[], epoch = syncEpoch) {
+  const willTranslate = isSupportedLanguage(locale.value) && locale.value !== 'en'
+  store.isTranslating = willTranslate
+  if (willTranslate) store.translationError = null
   void nextTick(() => {
     if (epoch !== syncEpoch) return
     translationAbortController?.abort()
@@ -1324,6 +1336,7 @@ function wireProvider(provider: EditorDataProvider) {
   pendingRemoteEvents.length = 0
   const providerEpoch = ++syncEpoch
   store.setSyncing(false)
+  store.isTranslating = false
   if ('clientId' in provider && typeof (provider as { clientId?: unknown }).clientId === 'string') {
     store.setClientId((provider as { clientId: string }).clientId)
   }
@@ -1466,6 +1479,17 @@ function wireProvider(provider: EditorDataProvider) {
     applyDeleted()
   }
 
+  provider.onMoved = (e) => {
+    const applyMoved = () => {
+      store.moveBlockAfter(e.blockId, e.afterBlockId)
+    }
+    if (store.isSyncing) {
+      pendingRemoteEvents.push(applyMoved)
+      return
+    }
+    applyMoved()
+  }
+
   provider.onLocked = (e) => {
     if (e.clientId && e.clientId !== store.clientId) {
       if (store.activeBlockId === e.blockId && !store.getConflict(e.blockId)) {
@@ -1493,6 +1517,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   syncEpoch += 1
   store.setSyncing(false)
+  store.isTranslating = false
   window.removeEventListener('beforeunload', handleBeforeUnload)
   abortElaboration()
   translationAbortController?.abort()
@@ -1686,6 +1711,53 @@ const onInsertBlocks = async (block: Block, event: EditableInsertEvent) => {
   if (isOnline.value) await props.provider.sendBlockLock?.(firstCreated.id)
   resetLockTimeout(firstCreated.id)
   focusBlock(firstCreated.id, 'start')
+}
+
+const onMoveBlock = async (offset: number) => {
+  const blockId = store.activeBlockId
+  if (
+    !props.editable ||
+    !blockId ||
+    store.isElaborating ||
+    store.isTranslating ||
+    store.isSyncing ||
+    store.getConflict(blockId)
+  ) {
+    return
+  }
+  const block = store.blocks.find((item) => item.id === blockId)
+  if (!block || store.isLockedByOther(block)) return
+  const index = store.activeIndex
+  const targetIndex = index + offset
+  if (index < 0 || targetIndex < 0 || targetIndex >= store.blocks.length) return
+
+  const afterBlockId =
+    targetIndex === 0
+      ? null
+      : offset < 0
+        ? (store.blocks[targetIndex - 1]?.id ?? null)
+        : (store.blocks[targetIndex]?.id ?? null)
+  const anchor = afterBlockId
+    ? (store.blocks.find((item) => item.id === afterBlockId) ?? null)
+    : null
+  if (anchor && store.isLockedByOther(anchor)) {
+    emit('error', t('editor.lockedTitle'))
+    return
+  }
+
+  if (!store.moveBlock(blockId, offset)) return
+  const newIndex = store.blocks.findIndex((item) => item.id === blockId)
+  const finalAnchorId = newIndex > 0 ? (store.blocks[newIndex - 1]?.id ?? null) : null
+  const operation: SyncOperation = { kind: 'move', blockId, afterBlockId: finalAnchorId }
+
+  if (isOnline.value) {
+    const result = await sendSyncOperations([operation])
+    if (result) {
+      await store.recordBaseOperation(operation, block, result.contentHash, store.title)
+    } else {
+      store.moveBlock(blockId, -offset)
+    }
+  }
 }
 
 const onDelete = async () => {
@@ -2121,6 +2193,7 @@ const onElaborate = async (personaKey: PersonaKey) => {
     })
 
     if (!elaboratedEnglish) return
+    const finalEnglish = elaboratedEnglish.slice(0, EDITOR_BLOCK_MAX_LENGTH)
 
     const currentBlock = store.blocks.find((item) => item.id === blockId)
     if (
@@ -2131,36 +2204,44 @@ const onElaborate = async (personaKey: PersonaKey) => {
       logger.warn('Discarding stale AI elaboration result')
       return
     }
-    if (!props.editable) return
+    if (abortController.signal.aborted || !props.editable) return
 
-    store.setCanonicalText(blockId, elaboratedEnglish)
-
-    if (store.activeLanguage === 'en') {
-      store.updateBlockText(blockId, elaboratedEnglish)
-      store.clearBlockDirty(blockId)
-      await props.provider.sendEdit({
-        blockId,
-        text: elaboratedEnglish,
-        decorator: currentBlock.decorator,
-      })
-    } else {
-      await props.provider.sendEdit({
-        blockId,
-        text: elaboratedEnglish,
-        decorator: currentBlock.decorator,
-      })
-
-      const translated = await translateBlocks(
-        [{ id: blockId, text: elaboratedEnglish }],
-        'en',
-        store.activeLanguage,
-      )
-      const targetText = translated[0]?.text ?? elaboratedEnglish
-      store.updateBlockText(blockId, targetText)
-      store.clearBlockDirty(blockId)
+    let targetText = finalEnglish
+    if (store.activeLanguage !== 'en') {
+      const requestedLanguage = store.activeLanguage
+      try {
+        const translated = await translateBlocks(
+          [{ id: blockId, text: finalEnglish }],
+          'en',
+          requestedLanguage,
+          {
+            timeoutMs: DEFAULT_TRANSLATE_TIMEOUT_MS,
+            signal: abortController.signal,
+          },
+        )
+        if (abortController.signal.aborted || store.activeLanguage !== requestedLanguage) return
+        targetText = translated[0]?.text ?? finalEnglish
+      } catch (translationError) {
+        if (abortController.signal.aborted) return
+        logger.error('Failed to translate elaborated text:', translationError)
+        emit('error', t('editor.translationFailed'))
+        return
+      }
     }
 
+    store.setCanonicalText(blockId, finalEnglish)
     committed = true
+    if (store.activeLanguage === 'en') {
+      store.updateBlockText(blockId, finalEnglish)
+    } else {
+      store.applyTranslations([{ id: blockId, text: targetText }])
+    }
+    store.clearBlockDirty(blockId)
+    await props.provider.sendEdit({
+      blockId,
+      text: finalEnglish,
+      decorator: currentBlock.decorator,
+    })
   } catch (err) {
     if (!abortController.signal.aborted) {
       logger.error('AI elaboration failed:', err)

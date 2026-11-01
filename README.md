@@ -31,6 +31,7 @@ docker will proceed with the dev build, serving it on the configured HTTPS_HOST_
   - `ADMIN_EMAIL`: Email address automatically granted the `admin` role upon registration.
   - `NODE_ENV`: Runtime mode (`development` or `production`).
 
+  - `CORS_ORIGINS`: Comma-separated extra browser origins allowed to call the API. The SPA is same-origin, so normally empty.
   - `HTTPS_HOST_PORT` / `HTTP_HOST_PORT`: Host ports exposed by Nginx in development mode (defaults `8443` / `8080`).
   - `PROD_HTTPS_HOST_PORT` / `PROD_HTTP_HOST_PORT`: Host ports exposed by Nginx in production mode (defaults `443` / `80`).
   - `PORT` / `BACKEND_HOST_PORT`: Internal and host port for the Express backend (default `3001`).
@@ -39,6 +40,7 @@ docker will proceed with the dev build, serving it on the configured HTTPS_HOST_
   - `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_HOST`, `POSTGRES_PORT`: PostgreSQL container credentials and connection parameters.
   - `DATABASE_URL`: Full PostgreSQL connection string used by Sequelize (`postgres://<user>:<password>@db:5432/<db>`).
   - `DB_RETRY_LIMIT` / `DB_RETRY_DELAY_MS`: Startup connection retry attempts and delay in milliseconds.
+  - `MAX_WS_SESSIONS_PER_USER`: Maximum concurrent WebSocket sessions per user (default `3`). Live document rooms are held in memory until the last participant leaves.
 
   - `EMAIL_TRANSPORT`: Delivery mode for 2FA and GDPR emails (`console` logs OTP codes to backend stdout; `smtp` sends real emails via Nodemailer).
   - `EMAIL_FROM`: Sender address for outgoing emails.

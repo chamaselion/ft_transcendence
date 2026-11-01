@@ -1,5 +1,7 @@
 const { atLeast } = require('./permissions');
 const { resolveModels, readId, permissionFor } = require('./helpers');
+const { evictDocumentRoom } = require('../../ws/documentSocket');
+const { dropRoomState } = require('../../ws/liveDocuments');
 
 // DELETE /api/documents/:id
 const createDeleteDocumentHandler = ({ documentModel, shareModel } = {}) => {
@@ -14,6 +16,8 @@ const createDeleteDocumentHandler = ({ documentModel, shareModel } = {}) => {
       if (!atLeast(permission, 'owner')) {
         return res.status(404).json({ error: 'Document not found' });
       }
+      evictDocumentRoom(id);
+      dropRoomState(id);
       await document.destroy();
       return res.status(204).send();
     } catch (err) {
