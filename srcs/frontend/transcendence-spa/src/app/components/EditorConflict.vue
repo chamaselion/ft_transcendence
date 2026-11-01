@@ -28,6 +28,9 @@
           :editable="editable"
           :preview-canonical="false"
           @update:text="$emit('update-local', { text: $event })"
+          @update:content="
+            $emit('update-local', { text: $event.text, decorator: $event.decorator })
+          "
           @update:decorator="$emit('update-local', { decorator: $event })"
         />
         <p v-else class="m-0 px-2 py-3 text-sm text-muted italic">

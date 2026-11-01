@@ -1,4 +1,6 @@
-export type BlockType = 'p' | 'li' | 'h' | 'cit' | 'c'
+import { getBlockDefinition } from '@/app/blocks'
+
+export type BlockType = string
 
 export interface Block {
   id: string
@@ -9,6 +11,11 @@ export interface Block {
 
 export type ParagraphAlignment = 'left' | 'center' | 'right' | 'justify'
 
+export interface TableData {
+  rows: string[][]
+  headerRow: boolean
+}
+
 export interface BlockDecorator {
   type: BlockType
   level?: 1 | 2 | 3 | 4 | 5 | 6
@@ -17,6 +24,15 @@ export interface BlockDecorator {
   source?: string
   language?: string
   align?: ParagraphAlignment
+  checklist?: boolean
+  checked?: boolean[]
+  rows?: string[][]
+  headerRow?: boolean
+  src?: string
+  imageId?: string
+  alt?: string
+  displayMode?: 'inline' | 'block'
+  [key: string]: unknown
 }
 
 export interface EditorEditEvent {
@@ -121,33 +137,18 @@ export interface EditorDataProvider {
   destroy?: () => void
 }
 
-export const blockTypes: BlockType[] = ['p', 'li', 'h', 'cit', 'c']
-
-export function defaultDecorator(type: BlockType): BlockDecorator {
-  switch (type) {
-    case 'h':
-      return { type, level: 2 }
-    case 'li':
-      return { type, ordered: false }
-    case 'cit':
-      return { type, source: '' }
-    case 'c':
-      return { type, language: 'plaintext' }
-    case 'p':
-    default:
-      return { type, align: 'left' }
-  }
-}
+export const defaultDecoratorForType = (type: BlockType): BlockDecorator =>
+  getBlockDefinition(type)?.createDecorator() ?? { type: 'p', align: 'left' }
 
 export function parseDecorator(decorator: string): BlockDecorator {
   try {
     const parsed = JSON.parse(decorator) as Partial<BlockDecorator>
-    if (!parsed.type || !blockTypes.includes(parsed.type)) {
-      return { type: 'p' }
-    }
-    return { ...defaultDecorator(parsed.type), ...parsed }
+    const definition = parsed.type ? getBlockDefinition(parsed.type) : undefined
+    if (!definition) return defaultDecoratorForType('p')
+    const merged = { ...definition.createDecorator(), ...parsed } as BlockDecorator
+    return definition.normalizeDecorator ? definition.normalizeDecorator(merged) : merged
   } catch {
-    return { type: 'p' }
+    return defaultDecoratorForType('p')
   }
 }
 
@@ -155,21 +156,31 @@ export function serializeDecorator(decorator: BlockDecorator): string {
   return JSON.stringify(decorator)
 }
 
+const isTranslatableType = (type: string): boolean =>
+  getBlockDefinition(type)?.translatable !== false
+
+export function isTranslatableBlock(decorator: string): boolean {
+  return isTranslatableType(parseDecorator(decorator).type)
+}
+
+export function isElaboratableBlock(decorator: string): boolean {
+  return getBlockDefinition(parseDecorator(decorator).type)?.elaboratable === true
+}
+
+export function showsCanonicalPreview(decorator: string): boolean {
+  return getBlockDefinition(parseDecorator(decorator).type)?.showCanonicalPreview !== false
+}
+
+// Kept for older call sites; code and citations are not sent to translation.
 export function isCodeOrCitation(decorator: string): boolean {
-  if (decorator === 'c' || decorator === 'cit') return true
-  try {
-    const parsed = JSON.parse(decorator) as Partial<BlockDecorator>
-    return parsed?.type === 'c' || parsed?.type === 'cit'
-  } catch {
-    return false
-  }
+  return !isTranslatableBlock(decorator)
 }
 
 export function createBlock(type: BlockType, text = ''): Block {
   return {
     id: crypto.randomUUID(),
     text,
-    decorator: serializeDecorator(defaultDecorator(type)),
+    decorator: serializeDecorator(defaultDecoratorForType(type)),
     lockedBy: null,
   }
 }

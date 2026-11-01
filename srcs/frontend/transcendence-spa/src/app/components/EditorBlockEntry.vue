@@ -22,6 +22,7 @@
     @focus="$emit('focus')"
     @blur="$emit('blur')"
     @update:text="$emit('update:text', $event)"
+    @update:content="$emit('update:content', $event)"
     @insert-blocks="$emit('insert-blocks', $event)"
     @update:decorator="$emit('update:decorator', $event)"
   />
@@ -60,6 +61,7 @@ defineEmits<{
   focus: []
   blur: []
   'update:text': [value: string]
+  'update:content': [value: { text: string; decorator: string }]
   'insert-blocks': [event: EditableInsertEvent]
   'update:decorator': [value: string]
   'update-local': [value: { text?: string; decorator?: string }]

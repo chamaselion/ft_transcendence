@@ -62,6 +62,7 @@
               @focus="onFocus(block)"
               @blur="onBlur(block)"
               @update:text="onUpdateText(block, $event)"
+              @update:content="onUpdateContent(block, $event)"
               @insert-blocks="onInsertBlocks(block, $event)"
               @update:decorator="onUpdateDecorator(block, parseDecorator($event))"
               @update-local="onConflictLocalInput(block.id, $event)"
@@ -105,6 +106,7 @@ import { useI18n } from 'vue-i18n'
 import { onBeforeRouteLeave } from 'vue-router'
 import EditorBlockEntry from '@/app/components/EditorBlockEntry.vue'
 import EditorNav from '@/app/components/EditorNav.vue'
+import { blockDefinitions } from '@/app/blocks'
 import { useEditorStore } from '@/stores/editor'
 import { SyncConflictError } from '@/app/editor/dataProvider'
 import { buildLocalOnlyOps, mergeDocuments } from '@/app/editor/merge'
@@ -123,8 +125,8 @@ import { logger } from '@/utils/logger'
 import { EDITOR_BLOCK_MAX_LENGTH } from '@/utils/validation'
 import {
   createBlock,
-  defaultDecorator,
-  isCodeOrCitation,
+  defaultDecoratorForType,
+  isTranslatableBlock,
   parseDecorator,
   serializeDecorator,
   type Block,
@@ -153,6 +155,13 @@ const pdfOptions: Html2PdfOptions = {
   margin: [pdfMarginsMm.top, pdfMarginsMm.left, pdfMarginsMm.bottom, pdfMarginsMm.right],
   jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
 }
+
+// Each block add-in owns its PDF CSS. Collect them so the PDF staging document
+// receives the same representation as the editor.
+const pdfBlockCss = blockDefinitions
+  .map((definition) => definition.pdf?.css ?? '')
+  .filter(Boolean)
+  .join('\n')
 
 // Improved one consistend styling for PDF export, overriding the default styles of the editor and
 // its components.
@@ -373,6 +382,8 @@ const pdfStyling: PdfStylingOptions = {
       overflow: visible !important;
       tab-size: 4;
     }
+
+    ${pdfBlockCss}
   `,
 }
 
@@ -526,7 +537,7 @@ async function translateDocumentTo(targetLang: string) {
     }
 
     const payload = store.blocks
-      .filter((block) => !isCodeOrCitation(block.decorator))
+      .filter((block) => isTranslatableBlock(block.decorator))
       .map((block) => ({
         id: block.id,
         text: store.getCanonicalText(block.id) || block.text,
@@ -706,7 +717,7 @@ async function doFlushPendingEdit(): Promise<boolean> {
       // If edited in non-English mode, back-translate dirty block to English before saving to DB/WS
       if (store.activeLanguage !== 'en' && store.isBlockDirty(blockId)) {
         const currentBlock = store.blocks.find((b) => b.id === blockId)
-        if (currentBlock && isCodeOrCitation(currentBlock.decorator)) {
+        if (currentBlock && !isTranslatableBlock(currentBlock.decorator)) {
           canonical = textToSend
         } else {
           startFlushLockHeartbeat(blockId)
@@ -869,7 +880,7 @@ function startDocumentTranslation(blocks: Block[], epoch = syncEpoch) {
       requestedLang === 'en'
         ? []
         : blocks
-            .filter((b) => !isCodeOrCitation(b.decorator))
+            .filter((b) => isTranslatableBlock(b.decorator))
             .map((b) => ({ id: b.id, text: b.text }))
 
     if (payload.length === 0) {
@@ -913,7 +924,7 @@ async function backTranslateDirtyBlocks(): Promise<void> {
       store.clearBlockDirty(blockId)
       continue
     }
-    if (isCodeOrCitation(block.decorator)) {
+    if (!isTranslatableBlock(block.decorator)) {
       store.setCanonicalText(blockId, block.text)
       store.clearBlockDirty(blockId)
       continue
@@ -1384,7 +1395,7 @@ function wireProvider(provider: EditorDataProvider) {
         return
       }
       store.insertBlock(e.block, e.afterBlockId)
-      if (store.activeLanguage !== 'en' && !isCodeOrCitation(e.block.decorator)) {
+      if (store.activeLanguage !== 'en' && isTranslatableBlock(e.block.decorator)) {
         const requestedLang = store.activeLanguage
         const requestId = translationRequestId
         translateBlocks([{ id: e.block.id, text: e.block.text }], 'en', requestedLang)
@@ -1425,7 +1436,7 @@ function wireProvider(provider: EditorDataProvider) {
         } else {
           const currentBlock = store.blocks.find((b) => b.id === e.blockId)
           const decorator = e.decorator ?? currentBlock?.decorator ?? ''
-          if (isCodeOrCitation(decorator)) {
+          if (!isTranslatableBlock(decorator)) {
             // Code and citation blocks are never translated, so show the canonical text directly.
             store.applyRemoteText(e.blockId, e.text)
           } else if (store.activeBlockId !== e.blockId) {
@@ -1685,7 +1696,7 @@ const onInsertBlocks = async (block: Block, event: EditableInsertEvent) => {
     const newBlock = createBlock(spec.type, spec.text)
     if (spec.type === 'li') {
       newBlock.decorator = serializeDecorator({
-        ...defaultDecorator('li'),
+        ...defaultDecoratorForType('li'),
         ordered: Boolean(spec.ordered),
       })
     }
@@ -1843,6 +1854,53 @@ const onUpdateText = async (block: Block, text: string) => {
   }, EDIT_DEBOUNCE_MS)
 }
 
+const onUpdateContent = async (block: Block, payload: { text: string; decorator: string }) => {
+  if (
+    !props.editable ||
+    store.isLockedByOther(block) ||
+    store.elaboratingBlockId === block.id ||
+    store.isTranslating ||
+    store.isSyncing ||
+    store.getConflict(block.id)
+  ) {
+    return
+  }
+
+  if (block.lockedBy !== store.clientId) {
+    const lockSuccess = await acquireBlockLock(block.id)
+    if (!lockSuccess) return
+    if (!props.editable) return
+  }
+
+  if (pendingEditBlockId && pendingEditBlockId !== block.id) {
+    const saved = await flushPendingEdit()
+    if (!saved) return
+  }
+
+  const oldText = block.text
+  store.updateBlockText(block.id, payload.text)
+  store.updateBlockDecorator(block.id, payload.decorator)
+  resetLockTimeout(block.id)
+
+  const wasStandard = isStandardText(oldText)
+  pendingEditBlockId = block.id
+  pendingEditText = payload.text
+  pendingEditDecorator = payload.decorator
+
+  if (wasStandard && !isStandardText(payload.text)) {
+    await flushPendingEdit()
+    return
+  }
+
+  if (editDebounceTimer) {
+    clearTimeout(editDebounceTimer)
+  }
+
+  editDebounceTimer = setTimeout(() => {
+    flushPendingEdit()
+  }, EDIT_DEBOUNCE_MS)
+}
+
 const onUpdateDecorator = async (block: Block | null, newDecorator: BlockDecorator) => {
   if (
     !props.editable ||
@@ -1967,7 +2025,7 @@ async function canonicalTextForConflict(block: Block): Promise<string> {
   if (store.activeLanguage === 'en' || !store.isBlockDirty(block.id)) {
     return store.activeLanguage === 'en' ? block.text : store.getCanonicalText(block.id)
   }
-  if (isCodeOrCitation(block.decorator)) {
+  if (!isTranslatableBlock(block.decorator)) {
     store.setCanonicalText(block.id, block.text)
     store.clearBlockDirty(block.id)
     return block.text
@@ -2011,7 +2069,7 @@ async function onResolveConflict(blockId: string, choice: 'local' | 'remote') {
         }
         store.updateBlockDecorator(blockId, conflict.remote.decorator)
         if (store.activeLanguage !== 'en') {
-          if (isCodeOrCitation(conflict.remote.decorator)) {
+          if (!isTranslatableBlock(conflict.remote.decorator)) {
             store.applyRemoteText(blockId, conflict.remote.text)
           } else {
             void translateBlocks(

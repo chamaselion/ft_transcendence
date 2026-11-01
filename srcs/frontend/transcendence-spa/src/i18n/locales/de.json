@@ -224,6 +224,38 @@
     "headingLevel": "Überschrift {level}",
     "listUnnumbered": "Unnummerierte Liste (Aufzählungszeichen)",
     "listNumbered": "Nummerierte Liste",
+    "listChecklist": "Checkliste",
+    "checklist": {
+      "toggle": "Eintrag {index} umschalten",
+      "placeholder": "Aufgabe",
+      "add": "Aufgabe hinzufügen",
+      "remove": "Aufgabe entfernen"
+    },
+    "math": {
+      "empty": "Formel",
+      "placeholder": "E = mc^2",
+      "displayBlock": "Formel als Block anzeigen",
+      "displayInline": "Formel im Fließtext"
+    },
+    "table": {
+      "addRow": "Zeile hinzufügen",
+      "addColumn": "Spalte hinzufügen",
+      "removeRow": "Zeile entfernen",
+      "removeColumn": "Spalte entfernen",
+      "headerRow": "Kopfzeile",
+      "cellPlaceholder": "Zelle",
+      "cellLabel": "Zeile {row}, Spalte {column}"
+    },
+    "image": {
+      "empty": "Kein Bild ausgewählt",
+      "upload": "Bild hochladen",
+      "replace": "Bild ersetzen",
+      "remove": "Bild entfernen",
+      "caption": "Bildunterschrift",
+      "captionPlaceholder": "Bildunterschrift hinzufügen",
+      "uploadFailed": "Bild-Upload fehlgeschlagen",
+      "altFallback": "Dokumentbild"
+    },
     "languageLabel": "Sprache:",
     "moveBlockUp": "Block nach oben verschieben",
     "moveBlockDown": "Block nach unten verschieben",
@@ -328,7 +360,18 @@
       "li": "Liste",
       "h": "Überschrift",
       "cit": "Zitat",
-      "c": "Code"
+      "c": "Code",
+      "img": "Bild",
+      "table": "Tabelle",
+      "math": "Formel",
+      "pDescription": "Fließtext mit optionaler Ausrichtung.",
+      "hDescription": "Abschnittsüberschrift mit sechs Ebenen.",
+      "liDescription": "Aufzählungs-, nummerierte oder Checklisten-Liste.",
+      "citDescription": "Zitierter Text mit optionaler Quelle.",
+      "cDescription": "Monospace-Codeblock mit Sprachkennzeichnung.",
+      "imgDescription": "Lade ein Bild von deinem Gerät hoch und platziere es im Dokument.",
+      "tableDescription": "Bearbeitbare Tabelle mit optionaler Kopfzeile und horizontalem Scrollen.",
+      "mathDescription": "Mathematische Formel in LaTeX, dargestellt mit KaTeX."
     },
     "placeholder": {
       "p": "Schreiben Sie etwas…",

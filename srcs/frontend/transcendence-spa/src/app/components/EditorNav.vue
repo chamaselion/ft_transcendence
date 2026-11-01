@@ -8,17 +8,18 @@
       :class="{ 'flex-col': position === 'left' }"
     >
       <Button
-        v-for="type in blockTypes"
-        :key="type"
+        v-for="definition in blockDefinitions"
+        :key="definition.type"
         variant="flat"
         size="small"
         square
         :disabled="isElaborating || isTranslating"
-        :title="$t('editor.addBlock', { type: blockTypeLabel(type) })"
-        @click="$emit('add', type)"
+        :title="`${getBlockLabel(definition, t)} — ${getBlockDescription(definition, t)}`"
+        :aria-label="getBlockLabel(definition, t)"
+        @click="$emit('add', definition.type)"
       >
         <template #icon>
-          <Icon :name="typeIcons[type]" :size="18" />
+          <Icon :name="definition.icon" :size="18" />
         </template>
       </Button>
     </div>
@@ -106,6 +107,50 @@
             <Icon name="ListNumbers" :size="18" />
           </template>
         </Button>
+        <Button
+          :variant="activeDecorator.checklist ? 'elevated' : 'flat'"
+          size="small"
+          square
+          :disabled="deleteDisabled"
+          :title="$t('editor.listChecklist')"
+          @click="
+            $emit('update:decorator', {
+              ...activeDecorator,
+              checklist: !activeDecorator.checklist,
+            })
+          "
+        >
+          <template #icon>
+            <Icon name="ListCheck" :size="18" />
+          </template>
+        </Button>
+      </div>
+
+      <div
+        v-else-if="activeDecorator.type === 'math'"
+        class="editor-nav__group editor-nav__group--formatting flex flex-wrap items-center gap-1"
+        :class="{ 'flex-col': position === 'left' }"
+      >
+        <Button
+          :variant="(activeDecorator.displayMode || 'block') === 'block' ? 'elevated' : 'flat'"
+          size="small"
+          square
+          :disabled="deleteDisabled"
+          :title="$t('editor.math.displayBlock')"
+          @click="$emit('update:decorator', { ...activeDecorator, displayMode: 'block' })"
+        >
+          <span class="px-1 text-[0.7rem] font-semibold">∑</span>
+        </Button>
+        <Button
+          :variant="activeDecorator.displayMode === 'inline' ? 'elevated' : 'flat'"
+          size="small"
+          square
+          :disabled="deleteDisabled"
+          :title="$t('editor.math.displayInline')"
+          @click="$emit('update:decorator', { ...activeDecorator, displayMode: 'inline' })"
+        >
+          <span class="px-1 text-[0.7rem] font-semibold">x²</span>
+        </Button>
       </div>
 
       <div
@@ -188,15 +233,15 @@ import { useI18n } from 'vue-i18n'
 import { computed } from 'vue'
 import Button from '@/app/components/Button.vue'
 import Icon, { type IconName } from '@/app/components/Icon.vue'
+import { blockDefinitions, getBlockDescription, getBlockLabel } from '@/app/blocks'
 import {
-  blockTypes,
   parseDecorator,
   type Block,
   type BlockDecorator,
   type BlockType,
   type ParagraphAlignment,
 } from '@/app/editor/types'
-import { supportedLanguages } from '@/app/components/EditorCode.vue'
+import { supportedLanguages } from '@/app/blocks/code/Block.vue'
 import EditorElaborateDropdown from '@/app/components/EditorElaborateDropdown.vue'
 import type { PersonaKey } from '@/app/editor/elaboration.api'
 
@@ -234,16 +279,6 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 
-const blockTypeKeys = {
-  p: 'editor.blockType.p',
-  li: 'editor.blockType.li',
-  h: 'editor.blockType.h',
-  cit: 'editor.blockType.cit',
-  c: 'editor.blockType.c',
-} as const
-
-const blockTypeLabel = (type: BlockType) => t(blockTypeKeys[type])
-
 const alignTitleKeys = {
   left: 'editor.alignLeft',
   center: 'editor.alignCenter',
@@ -269,14 +304,6 @@ const dividerClass = computed(() =>
     ? 'my-1.5 h-px w-full bg-line-subtle'
     : 'mx-2 h-[22px] w-px bg-line-subtle',
 )
-
-const typeIcons: Record<BlockType, IconName> = {
-  p: 'Paragraph',
-  li: 'List',
-  h: 'H1',
-  cit: 'Quote',
-  c: 'Code',
-}
 
 const alignIcons: Record<ParagraphAlignment, IconName> = {
   left: 'AlignLeft',

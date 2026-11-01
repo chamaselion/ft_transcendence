@@ -1,3 +1,4 @@
+<!-- eslint-disable vue/multi-word-component-names -->
 <template>
   <figure class="code m-0 overflow-hidden rounded-lg" :style="style">
     <figcaption

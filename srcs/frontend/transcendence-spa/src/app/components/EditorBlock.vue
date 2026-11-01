@@ -18,17 +18,14 @@
       @update:text="!readOnly && $emit('update:text', $event)"
       @insert-blocks="!readOnly && $emit('insert-blocks', $event)"
       @update:language="!readOnly && onUpdateLanguage($event)"
+      @update:content="!readOnly && onUpdateContent($event)"
+      @update:data="!readOnly && onUpdateData($event)"
       @focus="!readOnly && $emit('focus')"
       @blur="$emit('blur')"
     />
     <FoldableTextPreview
       v-show="
-        previewCanonical &&
-        isForeignLanguage &&
-        canonicalText &&
-        !elaborating &&
-        decorator.type !== 'c' &&
-        decorator.type !== 'cit'
+        previewCanonical && isForeignLanguage && canonicalText && !elaborating && showsPreview
       "
       :text="canonicalText"
       :is-dirty="isDirty"
@@ -58,15 +55,17 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, type Component } from 'vue'
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import EditorParagraph from '@/app/components/EditorParagraph.vue'
-import EditorHeading from '@/app/components/EditorHeading.vue'
-import EditorList from '@/app/components/EditorList.vue'
-import EditorCitation from '@/app/components/EditorCitation.vue'
-import EditorCode from '@/app/components/EditorCode.vue'
 import FoldableTextPreview from '@/app/components/FoldableTextPreview.vue'
-import { parseDecorator, serializeDecorator, type Block, type BlockType } from '@/app/editor/types'
+import { getBlockDefinition, type BlockDefinition } from '@/app/blocks'
+import {
+  parseDecorator,
+  serializeDecorator,
+  showsCanonicalPreview,
+  type Block,
+  type BlockDecorator,
+} from '@/app/editor/types'
 import type { EditableInsertEvent } from '@/app/editor/useEditable'
 import { useEditorStore } from '@/stores/editor'
 
@@ -101,22 +100,38 @@ const isDirty = computed(() => store.isBlockDirty(props.block.id))
 
 const emit = defineEmits<{
   'update:text': [value: string]
+  'update:content': [value: { text: string; decorator: string }]
   'insert-blocks': [event: EditableInsertEvent]
   'update:decorator': [value: string]
   focus: []
   blur: []
 }>()
 
-const componentMap: Record<BlockType, Component> = {
-  p: EditorParagraph,
-  h: EditorHeading,
-  li: EditorList,
-  cit: EditorCitation,
-  c: EditorCode,
-}
-
 const decorator = computed(() => parseDecorator(props.block.decorator))
-const component = computed(() => componentMap[decorator.value.type])
+const definition = computed<BlockDefinition>(
+  () => getBlockDefinition(decorator.value.type) ?? getBlockDefinition('p')!,
+)
+const component = computed(() =>
+  props.exportMode && definition.value.pdf?.component
+    ? definition.value.pdf.component
+    : definition.value.component,
+)
+const showsPreview = computed(() => showsCanonicalPreview(props.block.decorator))
+
+const componentProps = computed(() => {
+  const context = {
+    block: props.block,
+    decorator: decorator.value,
+    editable: props.editable !== false,
+    locked: readOnly.value,
+    exportMode: Boolean(props.exportMode),
+    t,
+  }
+  if (props.exportMode && definition.value.pdf?.props) {
+    return definition.value.pdf.props(context)
+  }
+  return definition.value.props(context)
+})
 
 function onUpdateLanguage(language: string) {
   if (readOnly.value) return
@@ -124,48 +139,19 @@ function onUpdateLanguage(language: string) {
   emit('update:decorator', serializeDecorator(updated))
 }
 
-const componentProps = computed(() => {
-  const decoratorValue = decorator.value
-  const base = { editable: props.editable !== false, locked: readOnly.value }
+function onUpdateContent(payload: { text: string; checked?: boolean[] }) {
+  if (readOnly.value) return
+  emit('update:content', {
+    text: payload.text,
+    decorator: serializeDecorator({
+      ...decorator.value,
+      checked: Array.isArray(payload.checked) ? payload.checked : decorator.value.checked,
+    } as BlockDecorator),
+  })
+}
 
-  switch (decoratorValue.type) {
-    case 'h':
-      return {
-        ...base,
-        text: props.block.text,
-        level: decoratorValue.level ?? 2,
-        placeholder: t('editor.placeholder.h'),
-      }
-    case 'li':
-      return {
-        ...base,
-        text: props.block.text,
-        ordered: decoratorValue.ordered,
-        marker: decoratorValue.marker,
-        exportMode: props.exportMode,
-      }
-    case 'cit':
-      return {
-        ...base,
-        text: props.block.text,
-        source: decoratorValue.source,
-        placeholder: t('editor.placeholder.cit'),
-      }
-    case 'c':
-      return {
-        ...base,
-        code: props.block.text,
-        language: decoratorValue.language,
-        placeholder: t('editor.placeholder.c'),
-      }
-    case 'p':
-    default:
-      return {
-        ...base,
-        text: props.block.text,
-        align: decoratorValue.align || 'left',
-        placeholder: t('editor.placeholder.p'),
-      }
-  }
-})
+function onUpdateData(payload: Record<string, unknown>) {
+  if (readOnly.value) return
+  emit('update:decorator', serializeDecorator({ ...decorator.value, ...payload }))
+}
 </script>

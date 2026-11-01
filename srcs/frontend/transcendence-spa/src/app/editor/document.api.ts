@@ -58,6 +58,11 @@ export interface ShareResponse {
   share: ShareData
 }
 
+export interface UploadedImage {
+  id: string
+  url: string
+}
+
 const decodeDocument = (document: DocumentData): DocumentData => ({
   ...document,
   title: unescapeHtml(document.title),
@@ -93,6 +98,17 @@ export async function updateDocumentTitle(
     title: escapeHtml(title),
   })
   return decodeDocument(res.document)
+}
+
+export async function uploadDocumentImage(documentId: string, file: File): Promise<UploadedImage> {
+  const form = new FormData()
+  form.append('image', file)
+  const res = await httpClient.post<{ image: UploadedImage }>(
+    `/api/documents/${documentId}/images`,
+    form,
+    { timeoutMs: 60_000 },
+  )
+  return res.image
 }
 
 export async function listShares(documentId: string): Promise<ShareData[]> {

@@ -37,7 +37,7 @@ const unescapeHtml = (value) => {
 const DOCUMENT_TITLE_MAX_LENGTH = 255;
 const EDITOR_BLOCK_MAX_LENGTH = 5000;
 const MAX_BLOCKS = 500;
-const MAX_DECORATOR_LENGTH = 2048;
+const MAX_DECORATOR_LENGTH = 65536;
 const MAX_BLOCK_ID_LENGTH = 128;
 
 const textLength = (value) => unescapeHtml(value).length;

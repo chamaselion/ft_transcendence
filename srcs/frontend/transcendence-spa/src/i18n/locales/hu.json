@@ -224,6 +224,38 @@
     "headingLevel": "{level}. szintű címsor",
     "listUnnumbered": "Jelöletlen lista (pontok)",
     "listNumbered": "Számozott lista",
+    "listChecklist": "Ellenőrzőlista",
+    "checklist": {
+      "toggle": "Elem {index} bejelölésének váltása",
+      "placeholder": "Feladat",
+      "add": "Feladat hozzáadása",
+      "remove": "Feladat eltávolítása"
+    },
+    "math": {
+      "empty": "Képlet",
+      "placeholder": "E = mc^2",
+      "displayBlock": "Képlet megjelenítése blokként",
+      "displayInline": "Képlet soron belül"
+    },
+    "table": {
+      "addRow": "Sor hozzáadása",
+      "addColumn": "Oszlop hozzáadása",
+      "removeRow": "Sor eltávolítása",
+      "removeColumn": "Oszlop eltávolítása",
+      "headerRow": "Fejlécsor",
+      "cellPlaceholder": "Cella",
+      "cellLabel": "{row}. sor, {column}. oszlop"
+    },
+    "image": {
+      "empty": "Nincs kiválasztott kép",
+      "upload": "Kép feltöltése",
+      "replace": "Kép cseréje",
+      "remove": "Kép eltávolítása",
+      "caption": "Képaláírás",
+      "captionPlaceholder": "Képaláírás hozzáadása",
+      "uploadFailed": "A kép feltöltése nem sikerült",
+      "altFallback": "Dokumentumkép"
+    },
     "languageLabel": "Nyelv:",
     "moveBlockUp": "Blokk mozgatása felfelé",
     "moveBlockDown": "Blokk mozgatása lefelé",
@@ -328,7 +360,18 @@
       "li": "Lista",
       "h": "Címsor",
       "cit": "Idézet",
-      "c": "Kód"
+      "c": "Kód",
+      "img": "Kép",
+      "table": "Táblázat",
+      "math": "Képlet",
+      "pDescription": "Sima szöveg opcionális igazítással.",
+      "hDescription": "Szakaszcím hat szinttel.",
+      "liDescription": "Pontozott, számozott vagy ellenőrzőlistás lista.",
+      "citDescription": "Idézett szöveg opcionális forrással.",
+      "cDescription": "Monospace kódblokk nyelvi címkével.",
+      "imgDescription": "Tölts fel képet az eszközödről, és helyezd el a dokumentumban.",
+      "tableDescription": "Szerkeszthető táblázat opcionális fejléccel és vízszintes görgetéssel.",
+      "mathDescription": "LaTeX jelöléssel írt matematikai képlet, KaTeX megjelenítéssel."
     },
     "placeholder": {
       "p": "Írjon valamit…",

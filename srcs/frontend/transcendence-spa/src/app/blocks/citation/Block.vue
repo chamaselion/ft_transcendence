@@ -1,3 +1,4 @@
+<!-- eslint-disable vue/multi-word-component-names -->
 <template>
   <blockquote class="citation flex gap-3.5 rounded-lg px-4 py-3.5 italic [margin:0]" :style="style">
     <span class="citation__stripe w-1 shrink-0 rounded-full" :style="{ backgroundColor: accent }" />

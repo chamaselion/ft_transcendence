@@ -224,6 +224,38 @@
     "headingLevel": "Heading {level}",
     "listUnnumbered": "Unnumbered list (bullets)",
     "listNumbered": "Numbered list",
+    "listChecklist": "Checklist",
+    "checklist": {
+      "toggle": "Toggle item {index}",
+      "placeholder": "Task",
+      "add": "Add task",
+      "remove": "Remove task"
+    },
+    "math": {
+      "empty": "Formula",
+      "placeholder": "E = mc^2",
+      "displayBlock": "Display formula as a block",
+      "displayInline": "Inline formula"
+    },
+    "table": {
+      "addRow": "Add row",
+      "addColumn": "Add column",
+      "removeRow": "Remove row",
+      "removeColumn": "Remove column",
+      "headerRow": "Header row",
+      "cellPlaceholder": "Cell",
+      "cellLabel": "Row {row}, column {column}"
+    },
+    "image": {
+      "empty": "No image selected",
+      "upload": "Upload image",
+      "replace": "Replace image",
+      "remove": "Remove image",
+      "caption": "Image caption",
+      "captionPlaceholder": "Add a caption",
+      "uploadFailed": "Image upload failed",
+      "altFallback": "Document image"
+    },
     "languageLabel": "Lang:",
     "moveBlockUp": "Move block up",
     "moveBlockDown": "Move block down",
@@ -328,7 +360,18 @@
       "li": "List",
       "h": "Heading",
       "cit": "Citation",
-      "c": "Code"
+      "c": "Code",
+      "img": "Image",
+      "table": "Table",
+      "math": "Formula",
+      "pDescription": "Plain text with optional alignment.",
+      "hDescription": "Section heading with six levels.",
+      "liDescription": "Bulleted, numbered or checklist list.",
+      "citDescription": "Quoted text with an optional source.",
+      "cDescription": "Monospace code block with syntax language label.",
+      "imgDescription": "Upload an image from your device and place it in the document.",
+      "tableDescription": "Editable table with an optional header row and horizontal scrolling.",
+      "mathDescription": "Mathematical formula written in LaTeX and rendered with KaTeX."
     },
     "placeholder": {
       "p": "Write something…",

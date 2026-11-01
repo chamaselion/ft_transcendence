@@ -4,6 +4,8 @@ const { createListDocumentsHandler } = require('../controllers/documents/list');
 const { createGetDocumentHandler } = require('../controllers/documents/get');
 const { createUpdateDocumentHandler } = require('../controllers/documents/update');
 const { createDeleteDocumentHandler } = require('../controllers/documents/remove');
+const { createDocumentImageController } = require('../controllers/documents/images');
+const { documentImageUpload } = require('../middleware/documentImageUpload');
 const { createListSharesHandler } = require('../controllers/shares/list');
 const { createCreateShareHandler } = require('../controllers/shares/create');
 const { createUpdateShareHandler } = require('../controllers/shares/update');
@@ -17,6 +19,7 @@ const { listDocuments } = createListDocumentsHandler();
 const { getDocument } = createGetDocumentHandler();
 const { updateDocument } = createUpdateDocumentHandler();
 const { deleteDocument } = createDeleteDocumentHandler();
+const { uploadImage, getImage } = createDocumentImageController();
 const { listShares } = createListSharesHandler();
 const { createShare } = createCreateShareHandler();
 const { updateShare } = createUpdateShareHandler();
@@ -24,11 +27,20 @@ const { deleteShare } = createDeleteShareHandler();
 
 const router = express.Router();
 
+const imageLimiter = createRateLimiter({
+  name: 'document-images',
+  windowMs: 60 * 1000,
+  maxRequests: 30,
+  keyGenerator: (req) => req.user?.id || getClientIp(req),
+});
+
 // Every document route requires an authenticated user.
 router.use(requireAuth);
 
 router.post('/', createDocument);
 router.get('/', listDocuments);
+router.post('/:id/images', imageLimiter, documentImageUpload, uploadImage);
+router.get('/:id/images/:imageId', getImage);
 router.get('/:id', getDocument);
 router.patch('/:id', updateDocument);
 router.delete('/:id', deleteDocument);

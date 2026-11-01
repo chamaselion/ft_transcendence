@@ -8,7 +8,6 @@ const routeTitles = {
   register: 'routes.register',
   editor: 'routes.editor',
   settings: 'routes.settings',
-  componentTest: 'routes.componentCatalogue',
   oauthCallback: 'routes.oauthCallback',
   notFound: 'routes.notFound',
 } as const
@@ -39,12 +38,6 @@ const router = createRouter({
       name: 'editor',
       component: () => import('@/app/EditorView.vue'),
       meta: { titleKey: routeTitles.editor },
-    },
-    {
-      path: '/test',
-      name: 'Componenttest',
-      component: () => import('@/app/components/ComponentCatalouge.vue'),
-      meta: { titleKey: routeTitles.componentTest },
     },
     {
       path: '/register',
